@@ -8,9 +8,9 @@ if [ "$is_root" ]; then
 	exit 1
 fi
 
-if [ $0 == "./setup.sh" ]; then
+if [ $0 = "./setup.sh" ]; then
 	echo
-	echo "* ERROR * You must run via '. setup.sh'"
+	echo "* ERROR * You must run via '. setup.sh [-cl] [-f]'"
 	echo
 	exit 1
 fi
@@ -18,11 +18,12 @@ fi
 OE_BASE=`pwd`
 export OE_BASE=`readlink -f $OE_BASE`
 
-DISTRO=${DISTRO:=samygo}
+MACHINE=ssdtv
+DISTRO=samygo
+if [ $1 = "-cl" ] || [ $2 = "-cl"]; then
+	DISTRO=samygo-cl
+fi
 DL_DIR=${DL_DIR:="$HOME/sources"}
-
-# target platform: ssdtv
-MACHINE=${MACHINE:=ssdtv}
 
 mkdir -p  ${OE_BASE}/build-${DISTRO}/conf
 
@@ -31,7 +32,7 @@ if [ "${DISTRO}" = "samygo-cl" ]; then
 	BBF="${BBF} \${OE_BASE}/oe/recipes/apps-cl/*/*.bb"
 fi
 
-if [ ! -f ${OE_BASE}/build-${DISTRO}/conf/local.conf ] || [ ! -f ${OE_BASE}/build-${DISTRO}/env.source ] || [ "$1" = "--force" ]; then
+if [ ! -f ${OE_BASE}/build-${DISTRO}/conf/local.conf ] || [ ! -f ${OE_BASE}/build-${DISTRO}/env.source ] || [ "$1" = "-f" ] || [ "$2" = "-f" ]; then
 	PATH_TO_TOOLS="build-${DISTRO}/tmp/sysroots/`uname -m`-`uname -s | awk '{print tolower($0)}'`/usr"
 	echo "DL_DIR = \"${DL_DIR}\"
 OE_BASE = \"${OE_BASE}\"
