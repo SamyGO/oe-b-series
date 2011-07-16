@@ -1,0 +1,58 @@
+--- org/Makefile	2006-11-02 15:15:01.000000000 +0100
++++ new/Makefile	2010-06-04 17:45:22.000000000 +0200
+@@ -281,11 +281,10 @@
+ 		cat $(obj)nand_spl/u-boot-spl-16k.bin $(obj)u-boot.bin > $(obj)u-boot-nand.bin
+ 
+ version:
+-		@echo -n "#define U_BOOT_VERSION \"U-Boot " > $(VERSION_FILE); \
+-		echo -n "$(U_BOOT_VERSION)" >> $(VERSION_FILE); \
+-		echo -n $(shell $(CONFIG_SHELL) $(TOPDIR)/tools/setlocalversion \
+-			 $(TOPDIR)) >> $(VERSION_FILE); \
+-		echo "\"" >> $(VERSION_FILE)
++		@printf "#define U_BOOT_VERSION \"U-Boot " > $(VERSION_FILE); \
++		printf "$(U_BOOT_VERSION)" >> $(VERSION_FILE); \
++		echo $(shell $(CONFIG_SHELL) $(TOPDIR)/tools/setlocalversion \
++					 $(TOPDIR)) \" >> $(VERSION_FILE);
+ 
+ gdbtools:
+ 		$(MAKE) -C tools/gdb all || exit 1
+--- org/include/usb.h	2006-11-02 15:15:01.000000000 +0100
++++ new/include/usb.h	2010-04-28 19:10:34.000000000 +0200
+@@ -93,7 +93,7 @@
+ 	unsigned char  bInterval;
+ 	unsigned char  bRefresh;
+ 	unsigned char  bSynchAddress;
+-
++	unsigned char  dummy;
+ } __attribute__ ((packed));
+ /* Interface descriptor */
+ struct usb_interface_descriptor {
+--- org/common/cmd_nvedit.c	2006-11-02 15:15:01.000000000 +0100
++++ new/common/cmd_nvedit.c	2010-04-28 19:37:27.000000000 +0200
+@@ -593,6 +593,7 @@
+ 	"    - delete environment variable 'name'\n"
+ );
+ 
++#ifndef CFG_NO_FLASH
+ #if defined(CFG_ENV_IS_IN_NVRAM) || defined(CFG_ENV_IS_IN_EEPROM) || \
+     ((CONFIG_COMMANDS & (CFG_CMD_ENV|CFG_CMD_FLASH)) == \
+       (CFG_CMD_ENV|CFG_CMD_FLASH)) || \
+@@ -603,7 +604,7 @@
+ 	"saveenv - save environment variables to persistent storage\n",
+ 	NULL
+ );
+-
++#endif
+ #endif	/* CFG_CMD_ENV */
+ 
+ #if (CONFIG_COMMANDS & CFG_CMD_ASKENV)
+--- org/common/cmd_reiser.c	2006-11-02 15:15:01.000000000 +0100
++++ new/common/cmd_reiser.c	2010-06-01 11:12:55.000000000 +0200
+@@ -34,6 +34,7 @@
+ #include <image.h>
+ #include <linux/ctype.h>
+ #include <asm/byteorder.h>
++#include <usb.h>
+ #include <reiserfs.h>
+ 
+ #ifndef CONFIG_DOS_PARTITION

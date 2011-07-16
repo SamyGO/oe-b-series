@@ -1,0 +1,460 @@
+# This patch content was copied from Samsung kernel sources SELP.3.2.x-Chelsea.src.tgz,
+# from package released as GPL v2 http://www.samsung.com/global/opensource/files/32B650.zip
+--- org/include/asm-arm/futex.h	2007-02-24 00:52:30.000000000 +0100
++++ samsung/include/asm-arm/futex.h	2008-07-24 02:41:37.000000000 +0200
+@@ -1,6 +1,125 @@
+-#ifndef _ASM_FUTEX_H
+-#define _ASM_FUTEX_H
++#ifndef _ASM_ARM_FUTEX_H
++#define _ASM_ARM_FUTEX_H
+ 
+-#include <asm-generic/futex.h>
++#ifdef __KERNEL__
+ 
++#include <linux/futex.h>
++#include <linux/errno.h>
++#include <linux/uaccess.h>
++
++extern spinlock_t  futex_atomic_lock;
++
++#define __futex_atomic_op(insn, ret, oldval, uaddr, oparg) \
++	__asm__ __volatile__ (						\
++	"1:	ldrt	%1, [%2]				\n"	\
++		insn							\
++	"2:	strt	%0, [%2]				\n"	\
++	"	mov	%0, #0					\n"	\
++	"3:							\n"	\
++	"	.section __ex_table, \"a\"			\n"	\
++	"	.align	3					\n"	\
++	"	.long	1b, 4f, 2b, 4f				\n"	\
++	"	.previous					\n"	\
++	"	.section .fixup,\"ax\"				\n"	\
++	"4:	mov	%0, %4					\n"	\
++	"	b	3b					\n"	\
++	"	.previous"						\
++	: "=&r" (ret), "=&r" (oldval)					\
++	: "r" (uaddr), "r" (oparg), "Ir" (-EFAULT)			\
++	: "cc", "memory")
++
++static inline int
++futex_atomic_op_inuser (int encoded_op, int __user *uaddr)
++{
++	int op = (encoded_op >> 28) & 7;
++	int cmp = (encoded_op >> 24) & 15;
++	int oparg = (encoded_op << 8) >> 20;
++	int cmparg = (encoded_op << 20) >> 20;
++	int oldval = 0, ret;
++	if (encoded_op & (FUTEX_OP_OPARG_SHIFT << 28))
++		oparg = 1 << oparg;
++
++	if (!access_ok (VERIFY_WRITE, uaddr, sizeof(int)))
++		return -EFAULT;
++
++	pagefault_disable();
++
++	spin_lock(&futex_atomic_lock);
++
++	switch (op) {
++	case FUTEX_OP_SET:
++		__futex_atomic_op("	mov	%0, %3\n",
++				  ret, oldval, uaddr, oparg);
++		break;
++	case FUTEX_OP_ADD:
++		__futex_atomic_op("	add	%0, %1, %3\n",
++				  ret, oldval, uaddr, oparg);
++		break;
++	case FUTEX_OP_OR:
++		__futex_atomic_op("	orr	%0, %1, %3\n",
++				  ret, oldval, uaddr, oparg);
++		break;
++	case FUTEX_OP_ANDN:
++		__futex_atomic_op("	and	%0, %1, %3\n",
++				  ret, oldval, uaddr, oparg);
++		break;
++	case FUTEX_OP_XOR:
++		__futex_atomic_op("	eor	%0, %1, %3\n",
++				  ret, oldval, uaddr, oparg);
++		break;
++	default:
++		ret = -ENOSYS;
++	}
++
++	spin_unlock(&futex_atomic_lock);
++
++	pagefault_enable();
++
++	if (!ret) {
++		switch (cmp) {
++		case FUTEX_OP_CMP_EQ: ret = (oldval == cmparg); break;
++		case FUTEX_OP_CMP_NE: ret = (oldval != cmparg); break;
++		case FUTEX_OP_CMP_LT: ret = (oldval < cmparg); break;
++		case FUTEX_OP_CMP_GE: ret = (oldval >= cmparg); break;
++		case FUTEX_OP_CMP_LE: ret = (oldval <= cmparg); break;
++		case FUTEX_OP_CMP_GT: ret = (oldval > cmparg); break;
++		default: ret = -ENOSYS;
++		}
++	}
++	return ret;
++}
++
++static inline int
++futex_atomic_cmpxchg_inatomic(int __user *uaddr, int oldval, int newval)
++{
++	int val;
++
++	if (!access_ok(VERIFY_WRITE, uaddr, sizeof(int)))
++		return -EFAULT;
++
++	spin_lock(&futex_atomic_lock);
++
++	__asm__ __volatile__( "@futex_atomic_cmpxchg_inatomic	\n"
++	"1:     ldrt    %0, [%3]				\n"
++	"       teq     %0, %1					\n"
++	"2:     streqt  %2, [%3]				\n"
++	"3:							\n"
++	"       .section __ex_table, \"a\"			\n"
++	"       .align 3					\n"
++	"       .long   1b, 4f, 2b, 4f				\n"
++	"       .previous					\n"
++	"       .section .fixup,\"ax\"				\n"
++	"4:     mov     %0, %4					\n"
++	"       b       3b					\n"
++	"       .previous"
++	: "=&r" (val)
++	: "r" (oldval), "r" (newval), "r" (uaddr), "Ir" (-EFAULT)
++	: "cc");
++
++	spin_unlock(&futex_atomic_lock);
++
++	return val;
++}
++
++#endif
+ #endif
+--- org/include/asm-arm/processor.h	2007-02-24 00:52:30.000000000 +0100
++++ samsung/include/asm-arm/processor.h	2008-07-24 02:41:39.000000000 +0200
+@@ -104,14 +104,14 @@
+ #if __LINUX_ARM_ARCH__ >= 5
+ 
+ #define ARCH_HAS_PREFETCH
+-#define prefetch(ptr)				\
+-	({					\
+-		__asm__ __volatile__(		\
+-		"pld\t%0"			\
+-		:				\
+-		: "o" (*(char *)(ptr))		\
+-		: "cc");			\
+-	})
++static inline void prefetch(const void *ptr)
++{
++	__asm__ __volatile__(
++		"pld\t%0"
++		:
++		: "o" (*(char *)ptr)
++		: "cc");
++}
+ 
+ #define ARCH_HAS_PREFETCHW
+ #define prefetchw(ptr)	prefetch(ptr)
+--- org/include/asm-arm/tlbflush.h	2010-07-07 05:20:28.000000000 +0200
++++ samsung/include/asm-arm/tlbflush.h	2008-07-24 02:41:39.000000000 +0200
+@@ -248,16 +248,16 @@
+ 
+ 	preempt_disable();
+ 	if (tlb_flag(TLB_WB))
+-		asm("mcr%? p15, 0, %0, c7, c10, 4" : : "r" (zero));
++ 		asm("mcr p15, 0, %0, c7, c10, 4" : : "r" (zero) : "cc");
+ 
+ 	if (tlb_flag(TLB_V3_FULL))
+-		asm("mcr%? p15, 0, %0, c6, c0, 0" : : "r" (zero));
++ 		asm("mcr p15, 0, %0, c6, c0, 0" : : "r" (zero) : "cc");
+ 	if (tlb_flag(TLB_V4_U_FULL | TLB_V6_U_FULL))
+-		asm("mcr%? p15, 0, %0, c8, c7, 0" : : "r" (zero));
++ 		asm("mcr p15, 0, %0, c8, c7, 0" : : "r" (zero) : "cc");
+ 	if (tlb_flag(TLB_V4_D_FULL | TLB_V6_D_FULL))
+-		asm("mcr%? p15, 0, %0, c8, c6, 0" : : "r" (zero));
++ 		asm("mcr p15, 0, %0, c8, c6, 0" : : "r" (zero) : "cc");
+ 	if (tlb_flag(TLB_V4_I_FULL | TLB_V6_I_FULL))
+-		asm("mcr%? p15, 0, %0, c8, c5, 0" : : "r" (zero));
++ 		asm("mcr p15, 0, %0, c8, c5, 0" : : "r" (zero) : "cc");
+ 	preempt_enable();
+ }
+ 
+@@ -269,25 +269,25 @@
+ 
+ 	preempt_disable();
+ 	if (tlb_flag(TLB_WB))
+-		asm("mcr%? p15, 0, %0, c7, c10, 4" : : "r" (zero));
++ 		asm("mcr p15, 0, %0, c7, c10, 4" : : "r" (zero) : "cc");
+ 
+ 	if (cpu_isset(smp_processor_id(), mm->cpu_vm_mask)) {
+ 		if (tlb_flag(TLB_V3_FULL))
+-			asm("mcr%? p15, 0, %0, c6, c0, 0" : : "r" (zero));
++ 			asm("mcr p15, 0, %0, c6, c0, 0" : : "r" (zero) : "cc");
+ 		if (tlb_flag(TLB_V4_U_FULL))
+-			asm("mcr%? p15, 0, %0, c8, c7, 0" : : "r" (zero));
++ 			asm("mcr p15, 0, %0, c8, c7, 0" : : "r" (zero) : "cc");
+ 		if (tlb_flag(TLB_V4_D_FULL))
+-			asm("mcr%? p15, 0, %0, c8, c6, 0" : : "r" (zero));
++ 			asm("mcr p15, 0, %0, c8, c6, 0" : : "r" (zero) : "cc");
+ 		if (tlb_flag(TLB_V4_I_FULL))
+-			asm("mcr%? p15, 0, %0, c8, c5, 0" : : "r" (zero));
++ 			asm("mcr p15, 0, %0, c8, c5, 0" : : "r" (zero) : "cc");
+ 	}
+ 
+ 	if (tlb_flag(TLB_V6_U_ASID))
+-		asm("mcr%? p15, 0, %0, c8, c7, 2" : : "r" (asid));
++ 		asm("mcr p15, 0, %0, c8, c7, 2" : : "r" (asid) : "cc");
+ 	if (tlb_flag(TLB_V6_D_ASID))
+-		asm("mcr%? p15, 0, %0, c8, c6, 2" : : "r" (asid));
++ 		asm("mcr p15, 0, %0, c8, c6, 2" : : "r" (asid) : "cc");
+ 	if (tlb_flag(TLB_V6_I_ASID))
+-		asm("mcr%? p15, 0, %0, c8, c5, 2" : : "r" (asid));
++ 		asm("mcr p15, 0, %0, c8, c5, 2" : : "r" (asid) : "cc");
+ 	preempt_enable();
+ }
+ 
+@@ -301,27 +301,27 @@
+ 	uaddr = (uaddr & PAGE_MASK) | ASID(vma->vm_mm);
+ 
+ 	if (tlb_flag(TLB_WB))
+-		asm("mcr%? p15, 0, %0, c7, c10, 4" : : "r" (zero));
++ 		asm("mcr p15, 0, %0, c7, c10, 4" : : "r" (zero));
+ 
+ 	if (cpu_isset(smp_processor_id(), vma->vm_mm->cpu_vm_mask)) {
+ 		if (tlb_flag(TLB_V3_PAGE))
+-			asm("mcr%? p15, 0, %0, c6, c0, 0" : : "r" (uaddr));
++ 			asm("mcr p15, 0, %0, c6, c0, 0" : : "r" (uaddr) : "cc");
+ 		if (tlb_flag(TLB_V4_U_PAGE))
+-			asm("mcr%? p15, 0, %0, c8, c7, 1" : : "r" (uaddr));
++ 			asm("mcr p15, 0, %0, c8, c7, 1" : : "r" (uaddr) : "cc");
+ 		if (tlb_flag(TLB_V4_D_PAGE))
+-			asm("mcr%? p15, 0, %0, c8, c6, 1" : : "r" (uaddr));
++ 			asm("mcr p15, 0, %0, c8, c6, 1" : : "r" (uaddr) : "cc");
+ 		if (tlb_flag(TLB_V4_I_PAGE))
+-			asm("mcr%? p15, 0, %0, c8, c5, 1" : : "r" (uaddr));
++ 			asm("mcr p15, 0, %0, c8, c5, 1" : : "r" (uaddr) : "cc");
+ 		if (!tlb_flag(TLB_V4_I_PAGE) && tlb_flag(TLB_V4_I_FULL))
+-			asm("mcr%? p15, 0, %0, c8, c5, 0" : : "r" (zero));
++ 			asm("mcr p15, 0, %0, c8, c5, 0" : : "r" (zero) : "cc");
+ 	}
+ 
+ 	if (tlb_flag(TLB_V6_U_PAGE))
+-		asm("mcr%? p15, 0, %0, c8, c7, 1" : : "r" (uaddr));
++ 		asm("mcr p15, 0, %0, c8, c7, 1" : : "r" (uaddr) : "cc");
+ 	if (tlb_flag(TLB_V6_D_PAGE))
+-		asm("mcr%? p15, 0, %0, c8, c6, 1" : : "r" (uaddr));
++ 		asm("mcr p15, 0, %0, c8, c6, 1" : : "r" (uaddr) : "cc");
+ 	if (tlb_flag(TLB_V6_I_PAGE))
+-		asm("mcr%? p15, 0, %0, c8, c5, 1" : : "r" (uaddr));
++ 		asm("mcr p15, 0, %0, c8, c5, 1" : : "r" (uaddr) : "cc");
+ 	preempt_enable();
+ }
+ 
+@@ -334,31 +334,31 @@
+ 	kaddr &= PAGE_MASK;
+ 
+ 	if (tlb_flag(TLB_WB))
+-		asm("mcr%? p15, 0, %0, c7, c10, 4" : : "r" (zero));
++ 		asm("mcr p15, 0, %0, c7, c10, 4" : : "r" (zero) : "cc");
+ 
+ 	if (tlb_flag(TLB_V3_PAGE))
+-		asm("mcr%? p15, 0, %0, c6, c0, 0" : : "r" (kaddr));
++ 		asm("mcr p15, 0, %0, c6, c0, 0" : : "r" (kaddr) : "cc");
+ 	if (tlb_flag(TLB_V4_U_PAGE))
+-		asm("mcr%? p15, 0, %0, c8, c7, 1" : : "r" (kaddr));
++ 		asm("mcr p15, 0, %0, c8, c7, 1" : : "r" (kaddr) : "cc");
+ 	if (tlb_flag(TLB_V4_D_PAGE))
+-		asm("mcr%? p15, 0, %0, c8, c6, 1" : : "r" (kaddr));
++ 		asm("mcr p15, 0, %0, c8, c6, 1" : : "r" (kaddr) : "cc");
+ 	if (tlb_flag(TLB_V4_I_PAGE))
+-		asm("mcr%? p15, 0, %0, c8, c5, 1" : : "r" (kaddr));
++ 		asm("mcr p15, 0, %0, c8, c5, 1" : : "r" (kaddr) : "cc");
+ 	if (!tlb_flag(TLB_V4_I_PAGE) && tlb_flag(TLB_V4_I_FULL))
+-		asm("mcr%? p15, 0, %0, c8, c5, 0" : : "r" (zero));
++ 		asm("mcr p15, 0, %0, c8, c5, 0" : : "r" (zero) : "cc");
+ 
+ 	if (tlb_flag(TLB_V6_U_PAGE))
+-		asm("mcr%? p15, 0, %0, c8, c7, 1" : : "r" (kaddr));
++ 		asm("mcr p15, 0, %0, c8, c7, 1" : : "r" (kaddr) : "cc");
+ 	if (tlb_flag(TLB_V6_D_PAGE))
+-		asm("mcr%? p15, 0, %0, c8, c6, 1" : : "r" (kaddr));
++ 		asm("mcr p15, 0, %0, c8, c6, 1" : : "r" (kaddr) : "cc");
+ 	if (tlb_flag(TLB_V6_I_PAGE))
+-		asm("mcr%? p15, 0, %0, c8, c5, 1" : : "r" (kaddr));
++ 		asm("mcr p15, 0, %0, c8, c5, 1" : : "r" (kaddr) : "cc");
+ 
+ 	/* The ARM ARM states that the completion of a TLB maintenance
+ 	 * operation is only guaranteed by a DSB instruction
+ 	 */
+ 	if (tlb_flag(TLB_V6_U_PAGE | TLB_V6_D_PAGE | TLB_V6_I_PAGE))
+-		asm("mcr%? p15, 0, %0, c7, c10, 4" : : "r" (zero));
++ 		asm("mcr p15, 0, %0, c7, c10, 4" : : "r" (zero) : "cc");
+ 	preempt_enable();
+ }
+ 
+@@ -382,11 +382,11 @@
+ 
+ 	preempt_disable();
+ 	if (tlb_flag(TLB_DCLEAN))
+-		asm("mcr%?	p15, 0, %0, c7, c10, 1	@ flush_pmd"
+-			: : "r" (pmd));
++ 		asm("mcr	p15, 0, %0, c7, c10, 1	@ flush_pmd"
++ 			: : "r" (pmd) : "cc");
+ 	if (tlb_flag(TLB_WB))
+-		asm("mcr%?	p15, 0, %0, c7, c10, 4	@ flush_pmd"
+-			: : "r" (zero));
++ 		asm("mcr	p15, 0, %0, c7, c10, 4	@ flush_pmd"
++ 			: : "r" (zero) : "cc");
+ 	preempt_enable();
+ }
+ 
+@@ -396,8 +396,8 @@
+ 
+ 	preempt_disable();
+ 	if (tlb_flag(TLB_DCLEAN))
+-		asm("mcr%?	p15, 0, %0, c7, c10, 1	@ flush_pmd"
+-			: : "r" (pmd));
++ 		asm("mcr	p15, 0, %0, c7, c10, 1	@ flush_pmd"
++ 			: : "r" (pmd) : "cc");
+ 	preempt_enable();
+ }
+ 
+--- org/include/asm-arm/unaligned.h	2007-02-24 00:52:30.000000000 +0100
++++ samsung/include/asm-arm/unaligned.h	2008-07-24 02:41:39.000000000 +0200
+@@ -3,7 +3,7 @@
+ 
+ #include <asm/types.h>
+ 
+-extern int __bug_unaligned_x(void *ptr);
++extern int __bug_unaligned_x(const void *ptr);
+ 
+ /*
+  * What is the most efficient way of loading/storing an unaligned value?
+@@ -51,44 +51,32 @@
+ #define __get_unaligned_4_be(__p)					\
+ 	(__p[0] << 24 | __p[1] << 16 | __p[2] << 8 | __p[3])
+ 
+-#define __get_unaligned_le(ptr)					\
+-	({							\
+-		__typeof__(*(ptr)) __v;				\
+-		__u8 *__p = (__u8 *)(ptr);			\
+-		switch (sizeof(*(ptr))) {			\
+-		case 1:	__v = *(ptr);			break;	\
+-		case 2: __v = __get_unaligned_2_le(__p);	break;	\
+-		case 4: __v = __get_unaligned_4_le(__p);	break;	\
+-		case 8: {					\
+-				unsigned int __v1, __v2;	\
+-				__v2 = __get_unaligned_4_le((__p+4)); \
+-				__v1 = __get_unaligned_4_le(__p);	\
+-				__v = ((unsigned long long)__v2 << 32 | __v1);	\
+-			}					\
+-			break;					\
+-		default: __v = __bug_unaligned_x(__p);	break;	\
+-		}						\
+-		__v;						\
++#define __get_unaligned_8_le(__p)					\
++	((unsigned long long)__get_unaligned_4_le((__p+4)) << 32 |	\
++		__get_unaligned_4_le(__p))
++
++#define __get_unaligned_8_be(__p)					\
++	((unsigned long long)__get_unaligned_4_be(__p) << 32 |		\
++		__get_unaligned_4_be((__p+4)))
++
++#define __get_unaligned_le(ptr)						\
++	({								\
++		const __u8 *__p = (const __u8 *)(ptr);			\
++		__builtin_choose_expr(sizeof(*(ptr)) == 1, *__p,	\
++		  __builtin_choose_expr(sizeof(*(ptr)) == 2, __get_unaligned_2_le(__p),	\
++		  __builtin_choose_expr(sizeof(*(ptr)) == 4, __get_unaligned_4_le(__p),	\
++		  __builtin_choose_expr(sizeof(*(ptr)) == 8, __get_unaligned_8_le(__p),	\
++		    (void)__bug_unaligned_x(__p)))));			\
+ 	})
+ 
+-#define __get_unaligned_be(ptr)					\
+-	({							\
+-		__typeof__(*(ptr)) __v;				\
+-		__u8 *__p = (__u8 *)(ptr);			\
+-		switch (sizeof(*(ptr))) {			\
+-		case 1:	__v = *(ptr);			break;	\
+-		case 2: __v = __get_unaligned_2_be(__p);	break;	\
+-		case 4: __v = __get_unaligned_4_be(__p);	break;	\
+-		case 8: {					\
+-				unsigned int __v1, __v2;	\
+-				__v2 = __get_unaligned_4_be(__p); \
+-				__v1 = __get_unaligned_4_be((__p+4));	\
+-				__v = ((unsigned long long)__v2 << 32 | __v1);	\
+-			}					\
+-			break;					\
+-		default: __v = __bug_unaligned_x(__p);	break;	\
+-		}						\
+-		__v;						\
++#define __get_unaligned_be(ptr)						\
++	({								\
++		const __u8 *__p = (const __u8 *)(ptr);			\
++		__builtin_choose_expr(sizeof(*(ptr)) == 1, *__p,	\
++		  __builtin_choose_expr(sizeof(*(ptr)) == 2, __get_unaligned_2_be(__p),	\
++		  __builtin_choose_expr(sizeof(*(ptr)) == 4, __get_unaligned_4_be(__p),	\
++		  __builtin_choose_expr(sizeof(*(ptr)) == 8, __get_unaligned_8_be(__p),	\
++		    (void)__bug_unaligned_x(__p)))));			\
+ 	})
+ 
+ 
+--- org/include/asm-arm/atomic.h	2010-07-16 05:10:22.000000000 +0200
++++ samsung/include/asm-arm/atomic.h	2008-07-24 02:41:38.000000000 +0200
+@@ -113,6 +113,47 @@
+ 	: "cc");
+ }
+ 
++/*KGDB patch by Montavista*/
++/*
++ * Atomic compare and exchange.
++ */
++#define __HAVE_ARCH_CMPXCHG     1
++
++extern unsigned long wrong_size_cmpxchg(volatile void *ptr);
++
++static inline unsigned long __cmpxchg(volatile void *ptr,
++                               unsigned long old,
++                               unsigned long new, int size)
++{
++       volatile unsigned long *p = ptr;
++
++       if (size == 4) {
++               unsigned long oldval, res;
++
++               do {
++                       __asm__ __volatile__("@ atomic_cmpxchg\n"
++                       "ldrex  %1, [%2]\n"
++                       "mov    %0, #0\n"
++                       "teq    %1, %3\n"
++                       "strexeq %0, %4, [%2]\n"
++                       : "=&r" (res), "=&r" (oldval)
++                       : "r" (p), "Ir" (old), "r" (new)
++                       : "cc");
++               } while (res);
++
++               return oldval;
++       } else
++               return wrong_size_cmpxchg(ptr);
++}
++
++#define cmpxchg(ptr,o,n)                                               \
++({                                                                     \
++       __typeof__(*(ptr)) _o_ = (o);                                   \
++       __typeof__(*(ptr)) _n_ = (n);                                   \
++       (__typeof__(*(ptr))) __cmpxchg((ptr), (unsigned long)_o_,       \
++                (unsigned long)_n_, sizeof(*(ptr)));                   \
++})
++
+ #else /* ARM_ARCH_6 */
+ 
+ #include <asm/system.h>
+@@ -220,6 +261,7 @@
+ 		c = old;
+ 	return c != u;
+ }
++
+ #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)
+ 
+ #define atomic_add(i, v)	(void) atomic_add_return(i, v)

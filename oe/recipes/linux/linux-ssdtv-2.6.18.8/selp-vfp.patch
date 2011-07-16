@@ -1,0 +1,432 @@
+# This patch content was copied from Samsung kernel sources SELP.3.2.x-Chelsea.src.tgz,
+# from package released as GPL v2 http://www.samsung.com/global/opensource/files/32B650.zip
+--- old/arch/arm/vfp/vfp.h	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/vfp/vfp.h	2008-07-24 02:41:32.000000000 +0200
+@@ -355,3 +355,18 @@
+  * we check for an error.
+  */
+ #define VFP_EXCEPTION_ERROR	((u32)-1 & ~VFP_NAN_FLAG)
++
++/*
++ * A flag to tell vfp instruction type.
++ *  OP_SCALAR - this operation always operates in scalar mode
++ *  OP_SD - the instruction exceptionally writes to a single precision result.
++ *  OP_DD - the instruction exceptionally writes to a double precision result.
++ */
++#define OP_SCALAR	(1 << 0)
++#define OP_SD		(1 << 1)
++#define OP_DD		(1 << 1)
++
++struct op {
++	u32 (* const fn)(int dd, int dn, int dm, u32 fpscr);
++	u32 flags;
++};
+--- old/arch/arm/vfp/vfpdouble.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/vfp/vfpdouble.c	2008-07-24 02:41:32.000000000 +0200
+@@ -56,7 +56,7 @@
+ {
+ 	int bits = 31 - fls(vd->significand >> 32);
+ 	if (bits == 31)
+-		bits = 62 - fls(vd->significand);
++		bits = 63 - fls(vd->significand);
+ 
+ 	vfp_double_dump("normalise_denormal: in", vd);
+ 
+@@ -659,22 +659,22 @@
+ }
+ 
+ 
+-static u32 (* const fop_extfns[32])(int dd, int unused, int dm, u32 fpscr) = {
+-	[FEXT_TO_IDX(FEXT_FCPY)]	= vfp_double_fcpy,
+-	[FEXT_TO_IDX(FEXT_FABS)]	= vfp_double_fabs,
+-	[FEXT_TO_IDX(FEXT_FNEG)]	= vfp_double_fneg,
+-	[FEXT_TO_IDX(FEXT_FSQRT)]	= vfp_double_fsqrt,
+-	[FEXT_TO_IDX(FEXT_FCMP)]	= vfp_double_fcmp,
+-	[FEXT_TO_IDX(FEXT_FCMPE)]	= vfp_double_fcmpe,
+-	[FEXT_TO_IDX(FEXT_FCMPZ)]	= vfp_double_fcmpz,
+-	[FEXT_TO_IDX(FEXT_FCMPEZ)]	= vfp_double_fcmpez,
+-	[FEXT_TO_IDX(FEXT_FCVT)]	= vfp_double_fcvts,
+-	[FEXT_TO_IDX(FEXT_FUITO)]	= vfp_double_fuito,
+-	[FEXT_TO_IDX(FEXT_FSITO)]	= vfp_double_fsito,
+-	[FEXT_TO_IDX(FEXT_FTOUI)]	= vfp_double_ftoui,
+-	[FEXT_TO_IDX(FEXT_FTOUIZ)]	= vfp_double_ftouiz,
+-	[FEXT_TO_IDX(FEXT_FTOSI)]	= vfp_double_ftosi,
+-	[FEXT_TO_IDX(FEXT_FTOSIZ)]	= vfp_double_ftosiz,
++static struct op fops_ext[32] = {
++	[FEXT_TO_IDX(FEXT_FCPY)]	= { vfp_double_fcpy,   0 },
++	[FEXT_TO_IDX(FEXT_FABS)]	= { vfp_double_fabs,   0 },
++	[FEXT_TO_IDX(FEXT_FNEG)]	= { vfp_double_fneg,   0 },
++	[FEXT_TO_IDX(FEXT_FSQRT)]	= { vfp_double_fsqrt,  0 },
++	[FEXT_TO_IDX(FEXT_FCMP)]	= { vfp_double_fcmp,   OP_SCALAR },
++	[FEXT_TO_IDX(FEXT_FCMPE)]	= { vfp_double_fcmpe,  OP_SCALAR },
++	[FEXT_TO_IDX(FEXT_FCMPZ)]	= { vfp_double_fcmpz,  OP_SCALAR },
++	[FEXT_TO_IDX(FEXT_FCMPEZ)]	= { vfp_double_fcmpez, OP_SCALAR },
++	[FEXT_TO_IDX(FEXT_FCVT)]	= { vfp_double_fcvts,  OP_SCALAR|OP_SD },
++	[FEXT_TO_IDX(FEXT_FUITO)]	= { vfp_double_fuito,  OP_SCALAR },
++	[FEXT_TO_IDX(FEXT_FSITO)]	= { vfp_double_fsito,  OP_SCALAR },
++	[FEXT_TO_IDX(FEXT_FTOUI)]	= { vfp_double_ftoui,  OP_SCALAR|OP_SD },
++	[FEXT_TO_IDX(FEXT_FTOUIZ)]	= { vfp_double_ftouiz, OP_SCALAR|OP_SD },
++	[FEXT_TO_IDX(FEXT_FTOSI)]	= { vfp_double_ftosi,  OP_SCALAR|OP_SD },
++	[FEXT_TO_IDX(FEXT_FTOSIZ)]	= { vfp_double_ftosiz, OP_SCALAR|OP_SD },
+ };
+ 
+ 
+@@ -1108,16 +1108,16 @@
+ 	return FPSCR_IOC;
+ }
+ 
+-static u32 (* const fop_fns[16])(int dd, int dn, int dm, u32 fpscr) = {
+-	[FOP_TO_IDX(FOP_FMAC)]	= vfp_double_fmac,
+-	[FOP_TO_IDX(FOP_FNMAC)]	= vfp_double_fnmac,
+-	[FOP_TO_IDX(FOP_FMSC)]	= vfp_double_fmsc,
+-	[FOP_TO_IDX(FOP_FNMSC)]	= vfp_double_fnmsc,
+-	[FOP_TO_IDX(FOP_FMUL)]	= vfp_double_fmul,
+-	[FOP_TO_IDX(FOP_FNMUL)]	= vfp_double_fnmul,
+-	[FOP_TO_IDX(FOP_FADD)]	= vfp_double_fadd,
+-	[FOP_TO_IDX(FOP_FSUB)]	= vfp_double_fsub,
+-	[FOP_TO_IDX(FOP_FDIV)]	= vfp_double_fdiv,
++static struct op fops[16] = {
++	[FOP_TO_IDX(FOP_FMAC)]	= { vfp_double_fmac,  0 },
++	[FOP_TO_IDX(FOP_FNMAC)]	= { vfp_double_fnmac, 0 },
++	[FOP_TO_IDX(FOP_FMSC)]	= { vfp_double_fmsc,  0 },
++	[FOP_TO_IDX(FOP_FNMSC)]	= { vfp_double_fnmsc, 0 },
++	[FOP_TO_IDX(FOP_FMUL)]	= { vfp_double_fmul,  0 },
++	[FOP_TO_IDX(FOP_FNMUL)]	= { vfp_double_fnmul, 0 },
++	[FOP_TO_IDX(FOP_FADD)]	= { vfp_double_fadd,  0 },
++	[FOP_TO_IDX(FOP_FSUB)]	= { vfp_double_fsub,  0 },
++	[FOP_TO_IDX(FOP_FDIV)]	= { vfp_double_fdiv,  0 },
+ };
+ 
+ #define FREG_BANK(x)	((x) & 0x0c)
+@@ -1131,69 +1131,60 @@
+ 	unsigned int dn = vfp_get_dn(inst);
+ 	unsigned int dm = vfp_get_dm(inst);
+ 	unsigned int vecitr, veclen, vecstride;
+-	u32 (*fop)(int, int, s32, u32);
++	struct op *fop;
+ 
+-	veclen = fpscr & FPSCR_LENGTH_MASK;
+ 	vecstride = (1 + ((fpscr & FPSCR_STRIDE_MASK) == FPSCR_STRIDE_MASK)) * 2;
+ 
++	fop = (op == FOP_EXT) ? &fops_ext[FEXT_TO_IDX(inst)] : &fops[FOP_TO_IDX(op)];
++
+ 	/*
+ 	 * fcvtds takes an sN register number as destination, not dN.
+ 	 * It also always operates on scalars.
+ 	 */
+-	if ((inst & FEXT_MASK) == FEXT_FCVT) {
+-		veclen = 0;
++	if (fop->flags & OP_SD)
+ 		dest = vfp_get_sd(inst);
+-	} else
++	else
+ 		dest = vfp_get_dd(inst);
+ 
+ 	/*
+ 	 * If destination bank is zero, vector length is always '1'.
+ 	 * ARM DDI0100F C5.1.3, C5.3.2.
+ 	 */
+-	if (FREG_BANK(dest) == 0)
++	if ((fop->flags & OP_SCALAR) || (FREG_BANK(dest) == 0))
+ 		veclen = 0;
++	else
++		veclen = fpscr & FPSCR_LENGTH_MASK;
+ 
+ 	pr_debug("VFP: vecstride=%u veclen=%u\n", vecstride,
+ 		 (veclen >> FPSCR_LENGTH_BIT) + 1);
+ 
+-	fop = (op == FOP_EXT) ? fop_extfns[FEXT_TO_IDX(inst)] : fop_fns[FOP_TO_IDX(op)];
+-	if (!fop)
++	if (!fop->fn)
+ 		goto invalid;
+ 
+ 	for (vecitr = 0; vecitr <= veclen; vecitr += 1 << FPSCR_LENGTH_BIT) {
+ 		u32 except;
++		char type;
+ 
+-		if (op == FOP_EXT && (inst & FEXT_MASK) == FEXT_FCVT)
+-			pr_debug("VFP: itr%d (s%u) = op[%u] (d%u)\n",
+-				 vecitr >> FPSCR_LENGTH_BIT,
+-				 dest, dn, dm);
+-		else if (op == FOP_EXT)
+-			pr_debug("VFP: itr%d (d%u) = op[%u] (d%u)\n",
++		type = fop->flags & OP_SD ? 's' : 'd';
++		if (op == FOP_EXT)
++			pr_debug("VFP: itr%d (%c%u) = op[%u] (d%u)\n",
+ 				 vecitr >> FPSCR_LENGTH_BIT,
+-				 dest, dn, dm);
++				 type, dest, dn, dm);
+ 		else
+-			pr_debug("VFP: itr%d (d%u) = (d%u) op[%u] (d%u)\n",
++			pr_debug("VFP: itr%d (%c%u) = (d%u) op[%u] (d%u)\n",
+ 				 vecitr >> FPSCR_LENGTH_BIT,
+-				 dest, dn, FOP_TO_IDX(op), dm);
++				 type, dest, dn, FOP_TO_IDX(op), dm);
+ 
+-		except = fop(dest, dn, dm, fpscr);
++		except = fop->fn(dest, dn, dm, fpscr);
+ 		pr_debug("VFP: itr%d: exceptions=%08x\n",
+ 			 vecitr >> FPSCR_LENGTH_BIT, except);
+ 
+ 		exceptions |= except;
+ 
+ 		/*
+-		 * This ensures that comparisons only operate on scalars;
+-		 * comparisons always return with one FPSCR status bit set.
+-		 */
+-		if (except & (FPSCR_N|FPSCR_Z|FPSCR_C|FPSCR_V))
+-			break;
+-
+-		/*
+ 		 * CHECK: It appears to be undefined whether we stop when
+ 		 * we encounter an exception.  We continue.
+ 		 */
+-
+ 		dest = FREG_BANK(dest) + ((FREG_IDX(dest) + vecstride) & 6);
+ 		dn = FREG_BANK(dn) + ((FREG_IDX(dn) + vecstride) & 6);
+ 		if (FREG_BANK(dm) != 0)
+--- old/arch/arm/vfp/vfpinstr.h	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/vfp/vfpinstr.h	2008-07-24 02:41:32.000000000 +0200
+@@ -73,14 +73,14 @@
+ 
+ #define fmrx(_vfp_) ({			\
+ 	u32 __v;			\
+-	asm("mrc%? p10, 7, %0, " vfpreg(_vfp_) ", cr0, 0 @ fmrx	%0, " #_vfp_	\
+-	    : "=r" (__v));		\
++	asm("mrc p10, 7, %0, " vfpreg(_vfp_) ", cr0, 0 @ fmrx	%0, " #_vfp_	\
++	    : "=r" (__v) : : "cc");	\
+ 	__v;				\
+  })
+ 
+ #define fmxr(_vfp_,_var_)		\
+-	asm("mcr%? p10, 7, %0, " vfpreg(_vfp_) ", cr0, 0 @ fmxr	" #_vfp_ ", %0"	\
+-	   : : "r" (_var_))
++	asm("mcr p10, 7, %0, " vfpreg(_vfp_) ", cr0, 0 @ fmxr	" #_vfp_ ", %0"	\
++	   : : "r" (_var_) : "cc")
+ 
+ u32 vfp_single_cpdo(u32 inst, u32 fpscr);
+ u32 vfp_single_cprt(u32 inst, u32 fpscr, struct pt_regs *regs);
+--- old/arch/arm/vfp/vfpmodule.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/vfp/vfpmodule.c	2008-07-24 02:41:32.000000000 +0200
+@@ -40,10 +40,19 @@
+ static int vfp_notifier(struct notifier_block *self, unsigned long cmd, void *v)
+ {
+ 	struct thread_info *thread = v;
+-	union vfp_state *vfp = &thread->vfpstate;
++	union vfp_state *vfp;
+ 
+-	switch (cmd) {
+-	case THREAD_NOTIFY_FLUSH:
++	if (likely(cmd == THREAD_NOTIFY_SWITCH)) {
++		/*
++		 * Always disable VFP so we can lazily save/restore the
++		 * old state.
++		 */
++		fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_ENABLE);
++		return NOTIFY_DONE;
++	}
++
++	vfp = &thread->vfpstate;
++	if (cmd == THREAD_NOTIFY_FLUSH) {
+ 		/*
+ 		 * Per-thread VFP initialisation.
+ 		 */
+@@ -56,29 +65,12 @@
+ 		 * Disable VFP to ensure we initialise it first.
+ 		 */
+ 		fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_ENABLE);
+-
+-		/*
+-		 * FALLTHROUGH: Ensure we don't try to overwrite our newly
+-		 * initialised state information on the first fault.
+-		 */
+-
+-	case THREAD_NOTIFY_RELEASE:
+-		/*
+-		 * Per-thread VFP cleanup.
+-		 */
+-		if (last_VFP_context == vfp)
+-			last_VFP_context = NULL;
+-		break;
+-
+-	case THREAD_NOTIFY_SWITCH:
+-		/*
+-		 * Always disable VFP so we can lazily save/restore the
+-		 * old state.
+-		 */
+-		fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_ENABLE);
+-		break;
+ 	}
+ 
++	/* flush and release case: Per-thread VFP cleanup. */
++	if (last_VFP_context == vfp)
++		last_VFP_context = NULL;
++
+ 	return NOTIFY_DONE;
+ }
+ 
+@@ -156,6 +148,7 @@
+ 	/*
+ 	 * These are arranged in priority order, least to highest.
+ 	 */
++	RAISE(FPSCR_DZC, FPSCR_DZE, FPE_FLTDIV);
+ 	RAISE(FPSCR_IXC, FPSCR_IXE, FPE_FLTRES);
+ 	RAISE(FPSCR_UFC, FPSCR_UFE, FPE_FLTUND);
+ 	RAISE(FPSCR_OFC, FPSCR_OFE, FPE_FLTOVF);
+--- old/arch/arm/vfp/vfpsingle.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/vfp/vfpsingle.c	2008-07-24 02:41:32.000000000 +0200
+@@ -702,22 +702,22 @@
+ 	return vfp_single_ftosi(sd, unused, m, FPSCR_ROUND_TOZERO);
+ }
+ 
+-static u32 (* const fop_extfns[32])(int sd, int unused, s32 m, u32 fpscr) = {
+-	[FEXT_TO_IDX(FEXT_FCPY)]	= vfp_single_fcpy,
+-	[FEXT_TO_IDX(FEXT_FABS)]	= vfp_single_fabs,
+-	[FEXT_TO_IDX(FEXT_FNEG)]	= vfp_single_fneg,
+-	[FEXT_TO_IDX(FEXT_FSQRT)]	= vfp_single_fsqrt,
+-	[FEXT_TO_IDX(FEXT_FCMP)]	= vfp_single_fcmp,
+-	[FEXT_TO_IDX(FEXT_FCMPE)]	= vfp_single_fcmpe,
+-	[FEXT_TO_IDX(FEXT_FCMPZ)]	= vfp_single_fcmpz,
+-	[FEXT_TO_IDX(FEXT_FCMPEZ)]	= vfp_single_fcmpez,
+-	[FEXT_TO_IDX(FEXT_FCVT)]	= vfp_single_fcvtd,
+-	[FEXT_TO_IDX(FEXT_FUITO)]	= vfp_single_fuito,
+-	[FEXT_TO_IDX(FEXT_FSITO)]	= vfp_single_fsito,
+-	[FEXT_TO_IDX(FEXT_FTOUI)]	= vfp_single_ftoui,
+-	[FEXT_TO_IDX(FEXT_FTOUIZ)]	= vfp_single_ftouiz,
+-	[FEXT_TO_IDX(FEXT_FTOSI)]	= vfp_single_ftosi,
+-	[FEXT_TO_IDX(FEXT_FTOSIZ)]	= vfp_single_ftosiz,
++static struct op fops_ext[32] = {
++	[FEXT_TO_IDX(FEXT_FCPY)]	= { vfp_single_fcpy,   0 },
++	[FEXT_TO_IDX(FEXT_FABS)]	= { vfp_single_fabs,   0 },
++	[FEXT_TO_IDX(FEXT_FNEG)]	= { vfp_single_fneg,   0 },
++	[FEXT_TO_IDX(FEXT_FSQRT)]	= { vfp_single_fsqrt,  0 },
++	[FEXT_TO_IDX(FEXT_FCMP)]	= { vfp_single_fcmp,   OP_SCALAR },
++	[FEXT_TO_IDX(FEXT_FCMPE)]	= { vfp_single_fcmpe,  OP_SCALAR },
++	[FEXT_TO_IDX(FEXT_FCMPZ)]	= { vfp_single_fcmpz,  OP_SCALAR },
++	[FEXT_TO_IDX(FEXT_FCMPEZ)]	= { vfp_single_fcmpez, OP_SCALAR },
++	[FEXT_TO_IDX(FEXT_FCVT)]	= { vfp_single_fcvtd,  OP_SCALAR|OP_DD },
++	[FEXT_TO_IDX(FEXT_FUITO)]	= { vfp_single_fuito,  OP_SCALAR },
++	[FEXT_TO_IDX(FEXT_FSITO)]	= { vfp_single_fsito,  OP_SCALAR },
++	[FEXT_TO_IDX(FEXT_FTOUI)]	= { vfp_single_ftoui,  OP_SCALAR },
++	[FEXT_TO_IDX(FEXT_FTOUIZ)]	= { vfp_single_ftouiz, OP_SCALAR },
++	[FEXT_TO_IDX(FEXT_FTOSI)]	= { vfp_single_ftosi,  OP_SCALAR },
++	[FEXT_TO_IDX(FEXT_FTOSIZ)]	= { vfp_single_ftosiz, OP_SCALAR },
+ };
+ 
+ 
+@@ -1151,16 +1151,16 @@
+ 	return FPSCR_IOC;
+ }
+ 
+-static u32 (* const fop_fns[16])(int sd, int sn, s32 m, u32 fpscr) = {
+-	[FOP_TO_IDX(FOP_FMAC)]	= vfp_single_fmac,
+-	[FOP_TO_IDX(FOP_FNMAC)]	= vfp_single_fnmac,
+-	[FOP_TO_IDX(FOP_FMSC)]	= vfp_single_fmsc,
+-	[FOP_TO_IDX(FOP_FNMSC)]	= vfp_single_fnmsc,
+-	[FOP_TO_IDX(FOP_FMUL)]	= vfp_single_fmul,
+-	[FOP_TO_IDX(FOP_FNMUL)]	= vfp_single_fnmul,
+-	[FOP_TO_IDX(FOP_FADD)]	= vfp_single_fadd,
+-	[FOP_TO_IDX(FOP_FSUB)]	= vfp_single_fsub,
+-	[FOP_TO_IDX(FOP_FDIV)]	= vfp_single_fdiv,
++static struct op fops[16] = {
++	[FOP_TO_IDX(FOP_FMAC)]	= { vfp_single_fmac,  0 },
++	[FOP_TO_IDX(FOP_FNMAC)]	= { vfp_single_fnmac, 0 },
++	[FOP_TO_IDX(FOP_FMSC)]	= { vfp_single_fmsc,  0 },
++	[FOP_TO_IDX(FOP_FNMSC)]	= { vfp_single_fnmsc, 0 },
++	[FOP_TO_IDX(FOP_FMUL)]	= { vfp_single_fmul,  0 },
++	[FOP_TO_IDX(FOP_FNMUL)]	= { vfp_single_fnmul, 0 },
++	[FOP_TO_IDX(FOP_FADD)]	= { vfp_single_fadd,  0 },
++	[FOP_TO_IDX(FOP_FSUB)]	= { vfp_single_fsub,  0 },
++	[FOP_TO_IDX(FOP_FDIV)]	= { vfp_single_fdiv,  0 },
+ };
+ 
+ #define FREG_BANK(x)	((x) & 0x18)
+@@ -1174,70 +1174,63 @@
+ 	unsigned int sn = vfp_get_sn(inst);
+ 	unsigned int sm = vfp_get_sm(inst);
+ 	unsigned int vecitr, veclen, vecstride;
+-	u32 (*fop)(int, int, s32, u32);
++	struct op *fop;
+ 
+-	veclen = fpscr & FPSCR_LENGTH_MASK;
+ 	vecstride = 1 + ((fpscr & FPSCR_STRIDE_MASK) == FPSCR_STRIDE_MASK);
+ 
++	fop = (op == FOP_EXT) ? &fops_ext[FEXT_TO_IDX(inst)] : &fops[FOP_TO_IDX(op)];
++
+ 	/*
+ 	 * fcvtsd takes a dN register number as destination, not sN.
+ 	 * Technically, if bit 0 of dd is set, this is an invalid
+ 	 * instruction.  However, we ignore this for efficiency.
+ 	 * It also only operates on scalars.
+ 	 */
+-	if ((inst & FEXT_MASK) == FEXT_FCVT) {
+-		veclen = 0;
++	if (fop->flags & OP_DD)
+ 		dest = vfp_get_dd(inst);
+-	} else
++	else
+ 		dest = vfp_get_sd(inst);
+ 
+ 	/*
+ 	 * If destination bank is zero, vector length is always '1'.
+ 	 * ARM DDI0100F C5.1.3, C5.3.2.
+ 	 */
+-	if (FREG_BANK(dest) == 0)
++	if ((fop->flags & OP_SCALAR) || FREG_BANK(dest) == 0)
+ 		veclen = 0;
++	else
++		veclen = fpscr & FPSCR_LENGTH_MASK;
+ 
+ 	pr_debug("VFP: vecstride=%u veclen=%u\n", vecstride,
+ 		 (veclen >> FPSCR_LENGTH_BIT) + 1);
+ 
+-	fop = (op == FOP_EXT) ? fop_extfns[FEXT_TO_IDX(inst)] : fop_fns[FOP_TO_IDX(op)];
+-	if (!fop)
++	if (!fop->fn)
+ 		goto invalid;
+ 
+ 	for (vecitr = 0; vecitr <= veclen; vecitr += 1 << FPSCR_LENGTH_BIT) {
+ 		s32 m = vfp_get_float(sm);
+ 		u32 except;
++		char type;
+ 
+-		if (op == FOP_EXT && (inst & FEXT_MASK) == FEXT_FCVT)
+-			pr_debug("VFP: itr%d (d%u) = op[%u] (s%u=%08x)\n",
+-				 vecitr >> FPSCR_LENGTH_BIT, dest, sn, sm, m);
+-		else if (op == FOP_EXT)
+-			pr_debug("VFP: itr%d (s%u) = op[%u] (s%u=%08x)\n",
+-				 vecitr >> FPSCR_LENGTH_BIT, dest, sn, sm, m);
++		type = fop->flags & OP_DD ? 'd' : 's';
++		if (op == FOP_EXT)
++			pr_debug("VFP: itr%d (%c%u) = op[%u] (s%u=%08x)\n",
++				 vecitr >> FPSCR_LENGTH_BIT, type, dest, sn,
++				 sm, m);
+ 		else
+-			pr_debug("VFP: itr%d (s%u) = (s%u) op[%u] (s%u=%08x)\n",
+-				 vecitr >> FPSCR_LENGTH_BIT, dest, sn,
++			pr_debug("VFP: itr%d (%c%u) = (s%u) op[%u] (s%u=%08x)\n",
++				 vecitr >> FPSCR_LENGTH_BIT, type, dest, sn,
+ 				 FOP_TO_IDX(op), sm, m);
+ 
+-		except = fop(dest, sn, m, fpscr);
++		except = fop->fn(dest, sn, m, fpscr);
+ 		pr_debug("VFP: itr%d: exceptions=%08x\n",
+ 			 vecitr >> FPSCR_LENGTH_BIT, except);
+ 
+ 		exceptions |= except;
+ 
+ 		/*
+-		 * This ensures that comparisons only operate on scalars;
+-		 * comparisons always return with one FPSCR status bit set.
+-		 */
+-		if (except & (FPSCR_N|FPSCR_Z|FPSCR_C|FPSCR_V))
+-			break;
+-
+-		/*
+ 		 * CHECK: It appears to be undefined whether we stop when
+ 		 * we encounter an exception.  We continue.
+ 		 */
+-
+ 		dest = FREG_BANK(dest) + ((FREG_IDX(dest) + vecstride) & 7);
+ 		sn = FREG_BANK(sn) + ((FREG_IDX(sn) + vecstride) & 7);
+ 		if (FREG_BANK(sm) != 0)

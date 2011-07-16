@@ -1,0 +1,11 @@
+diff -ur old/srclib/xreadlink.c new/srclib/xreadlink.c
+--- old/srclib/xreadlink.c	2007-10-24 01:31:24.000000000 +0200
++++ new/srclib/xreadlink.c	2010-08-17 06:37:31.000000000 +0200
+@@ -39,6 +39,6 @@
+ {
+   char *result = areadlink (filename);
+   if (result == NULL && errno == ENOMEM)
+-    xalloc_die ();
++    exit(1);
+   return result;
+ }

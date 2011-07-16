@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<contentlibrary>
+  <contentpack id="telnet">
+    <category>Game</category>
+    <title language_id="English">Run this Telnet Enabler</title>
+    <startpoint language_id="English">./telnet.so</startpoint>
+    <thumbnailpath>telnet.png</thumbnailpath>
+    <totalsize>1</totalsize>
+  </contentpack>
+</contentlibrary>

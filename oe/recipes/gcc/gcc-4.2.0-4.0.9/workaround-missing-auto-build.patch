@@ -1,0 +1,14 @@
+diff -ur old/gcc/configure new/gcc/configure
+--- old/gcc/configure	2010-08-08 10:01:26.000000000 +0200
++++ new/gcc/configure	2010-08-08 14:09:22.000000000 +0200
+@@ -12723,9 +12723,9 @@
+ 
+ 	# We just finished tests for the build machine, so rename
+ 	# the file auto-build.h in the gcc directory.
+-	mv auto-host.h ../auto-build.h
+ 	cd ..
+ 	rm -rf $tempdir
++	echo "#include \"../../../auto-build.h\"" > auto-build.h
+ 	build_auto=auto-build.h
+ fi
+ 

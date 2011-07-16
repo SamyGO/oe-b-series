@@ -1,0 +1,51 @@
+--- org/common/main.c	2006-11-02 15:15:01.000000000 +0100
++++ new/common/main.c	2010-06-10 11:50:30.000000000 +0200
+@@ -9,6 +9,13 @@
+  * See file CREDITS for list of people who contributed to this
+  * project.
+  *
++ ********
++ * SamyGO, http://samygo.sourceforge.net
++ * modification to keypress wait code copied from Samsung u-boot
++ * sources released in 2009 with GPL v2 license.
++ * Copyright (C) 2003-2009 Samsung Electronics
++ * http://www.samsung.com/global/opensource/files/uboot_b650.tgz
++ ********
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License as
+  * published by the Free Software Foundation; either version 2 of
+@@ -233,7 +240,7 @@
+ #ifdef CONFIG_MENUPROMPT
+ 	printf(CONFIG_MENUPROMPT, bootdelay);
+ #else
+-	printf("Hit any key to stop autoboot: %2d ", bootdelay);
++	printf("Hit Enter key to stop autoboot: %2d ", bootdelay);
+ #endif
+ 
+ #if defined CONFIG_ZERO_BOOTDELAY_CHECK
+@@ -242,8 +249,7 @@
+ 	 * Don't check if bootdelay < 0
+ 	 */
+ 	if (bootdelay >= 0) {
+-		if (tstc()) {	/* we got a key press	*/
+-			(void) getc();  /* consume input	*/
++		if (tstc() && (getc() == '\r')) {	/* we got a key press	*/
+ 			puts ("\b\b\b 0");
+ 			abort = 1; 	/* don't auto boot	*/
+ 		}
+@@ -256,14 +262,9 @@
+ 		--bootdelay;
+ 		/* delay 100 * 10ms */
+ 		for (i=0; !abort && i<100; ++i) {
+-			if (tstc()) {	/* we got a key press	*/
++			if (tstc() && (getc() == '\r')) {	/* we got a key press	*/
+ 				abort  = 1;	/* don't auto boot	*/
+ 				bootdelay = 0;	/* no more delay	*/
+-# ifdef CONFIG_MENUKEY
+-				menukey = getc();
+-# else
+-				(void) getc();  /* consume input	*/
+-# endif
+ 				break;
+ 			}
+ 			udelay (10000);

@@ -1,0 +1,85 @@
+--- org/common/cmd_usb.c	2006-11-02 15:15:01.000000000 +0100
++++ new/common/cmd_usb.c	2010-06-10 21:46:58.000000000 +0200
+@@ -8,6 +8,13 @@
+  * See file CREDITS for list of people who contributed to this
+  * project.
+  *
++ ********
++ * SamyGO, http://samygo.sourceforge.net
++ * modification to usb_init code copied from Samsung u-boot sources
++ * released in 2009 with GPL v2 license.
++ * Copyright (C) 2003-2009 Samsung Electronics
++ * http://www.samsung.com/global/opensource/files/uboot_b650.tgz
++ ********
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License as
+  * published by the Free Software Foundation; either version 2 of
+@@ -453,7 +460,12 @@
+ 		 (strncmp(argv[1], "start", 5) == 0)){
+ 		usb_stop();
+ 		printf("(Re)start USB...\n");
+-		i = usb_init();
++		if (strcmp(argv[2][0],'1')==0){
++			i = usb_init(1);
++		} else {
++			i = usb_init(0);
++		}
++
+ #ifdef CONFIG_USB_STORAGE
+ 		/* try to recognize storage devices immediately */
+ 		if (i >= 0)
+--- org/common/usb.c	2006-11-02 15:15:01.000000000 +0100
++++ new/common/usb.c	2010-06-10 11:40:59.000000000 +0200
+@@ -18,6 +18,13 @@
+  * See file CREDITS for list of people who contributed to this
+  * project.
+  *
++ ********
++ * SamyGO, http://samygo.sourceforge.net
++ * modification to usb_init and usb_lowlevel_init ode copied from
++ * Samsung u-boot sources released in 2009 with GPL v2 license.
++ * Copyright (C) 2003-2009 Samsung Electronics
++ * http://www.samsung.com/global/opensource/files/uboot_b650.tgz
++ ********
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License as
+  * published by the Free Software Foundation; either version 2 of
+@@ -96,7 +103,7 @@
+  * Init USB Device
+  */
+ 
+-int usb_init(void)
++int usb_init(int usb_drv)
+ {
+ 	int result;
+ 
+@@ -106,7 +113,11 @@
+ 	usb_hub_reset();
+ 	/* init low_level USB */
+ 	printf("USB:   ");
++#ifdef CONFIG_USB_STORAGE_ALL
++	result = usb_lowlevel_init(usb_drv);
++#else
+ 	result = usb_lowlevel_init();
++#endif
+ 	/* if lowlevel init is OK, scan the bus for devices i.e. search HUBs and configure them */
+ 	if(result==0) {
+ 		printf("scanning bus for devices... ");
+--- org/include/usb.h	2006-11-02 15:15:01.000000000 +0100
++++ new/include/usb.h	2010-04-28 19:10:34.000000000 +0200
+@@ -170,7 +170,7 @@
+  */
+ 
+ #if defined(CONFIG_USB_UHCI) || defined(CONFIG_USB_OHCI) || defined (CONFIG_USB_SL811HS)
+-int usb_lowlevel_init(void);
++int usb_lowlevel_init(unsigned int usb_div);
+ int usb_lowlevel_stop(void);
+ int submit_bulk_msg(struct usb_device *dev, unsigned long pipe, void *buffer,int transfer_len);
+ int submit_control_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
+@@ -202,7 +202,7 @@
+ 
+ #endif
+ /* routines */
+-int usb_init(void); /* initialize the USB Controller */
++int usb_init(int usb_drv); /* initialize the USB Controller */
+ int usb_stop(void); /* stop the USB Controller */

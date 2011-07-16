@@ -1,0 +1,53 @@
+# This patch content was copied from Samsung kernel sources SELP.3.2.x-Chelsea.src.tgz,
+# from package released as GPL v2 http://www.samsung.com/global/opensource/files/32B650.zip
+--- old/fs/buffer.c	2010-07-04 08:00:05.000000000 +0200
++++ new/fs/buffer.c	2008-07-24 02:42:15.000000000 +0200
+@@ -2991,7 +2993,7 @@
+ 	int ret = 0;
+ 
+ 	BUG_ON(!PageLocked(page));
+-	if (PageWriteback(page))
++	if (PageDirty(page) || PageWriteback(page))
+ 		return 0;
+ 
+ 	if (mapping == NULL) {		/* can this still happen? */
+@@ -3001,17 +3003,6 @@
+ 
+ 	spin_lock(&mapping->private_lock);
+ 	ret = drop_buffers(page, &buffers_to_free);
+-	if (ret) {
+-		/*
+-		 * If the filesystem writes its buffers by hand (eg ext3)
+-		 * then we can have clean buffers against a dirty page.  We
+-		 * clean the page here; otherwise later reattachment of buffers
+-		 * could encounter a non-uptodate page, which is unresolvable.
+-		 * This only applies in the rare case where try_to_free_buffers
+-		 * succeeds but the page is not freed.
+-		 */
+-		clear_page_dirty(page);
+-	}
+ 	spin_unlock(&mapping->private_lock);
+ out:
+ 	if (buffers_to_free) {
+--- old/fs/fat/dir.c	2007-02-24 00:52:30.000000000 +0100
++++ new/fs/fat/dir.c	2009-03-09 09:19:26.000000000 +0100
+@@ -71,7 +71,6 @@
+ 	unsigned long mapped_blocks;
+ 	int err, offset;
+ 
+-next:
+ 	if (*bh)
+ 		brelse(*bh);
+ 
+@@ -87,9 +86,8 @@
+ 	if (*bh == NULL) {
+ 		printk(KERN_ERR "FAT: Directory bread(block %llu) failed\n",
+ 		       (unsigned long long)phys);
+-		/* skip this block */
+-		*pos = (iblock + 1) << sb->s_blocksize_bits;
+-		goto next;
++		/* Block read error */
++		return -1; 
+ 	}
+ 
+ 	offset = *pos & (sb->s_blocksize - 1);

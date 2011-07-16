@@ -1,0 +1,12 @@
+diff -ur old/configure.in new/configure.in
+--- old/configure.in	2010-07-25 10:35:21.000000000 +0200
++++ new/configure.in	2010-07-25 10:44:49.000000000 +0200
+@@ -222,6 +222,8 @@
+ 	else
+ 		ac_sys_release=`uname -r`
+ 	fi
++	ac_sys_system="Linux"
++	ac_sys_release="2.6.18.8"
+ 	ac_md_system=`echo $ac_sys_system |
+ 			   tr -d '[/ ]' | tr '[[A-Z]]' '[[a-z]]'`
+ 	ac_md_release=`echo $ac_sys_release |

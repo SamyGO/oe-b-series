@@ -1,0 +1,508 @@
+# This patch content was copied from Samsung kernel sources SELP.3.2.x-Chelsea.src.tgz,
+# from package released as GPL v2 http://www.samsung.com/global/opensource/files/32B650.zip
+--- old/drivers/scsi/scsi_error.c	2007-02-24 00:52:30.000000000 +0100
++++ new/drivers/scsi/scsi_error.c	2008-08-12 09:28:43.000000000 +0200
+@@ -37,7 +37,10 @@
+ #include "scsi_priv.h"
+ #include "scsi_logging.h"
+ 
+-#define SENSE_TIMEOUT		(10*HZ)
++/* SELP.arm.3.x support A1 2007-12-14 */
++//hongyabi 20070919 for checking Test Unit Ready command inhancement speed of momory card remove from card-reader
++#define SENSE_TIMEOUT           (5*HZ)
++//#define SENSE_TIMEOUT         (10*HZ)
+ #define START_UNIT_TIMEOUT	(30*HZ)
+ 
+ /*
+@@ -752,7 +755,13 @@
+ 	case SUCCESS:
+ 		return 0;
+ 	default:
+-		return 1;
++/* SELP.arm.3.x support A1 2007-12-14 */
++//hongyabi 20070919 for checking Test Unit Ready command inhancement speed of momory card remove from card-reader
++#if 0
++                return 1;
++#else
++		return rtn;
++#endif
+ 	}
+ }
+ 
+@@ -773,6 +782,10 @@
+ {
+ 	struct scsi_cmnd *scmd, *next;
+ 	int rtn;
++	/* SELP.arm.3.x support A1 2007-10-22 */
++        //hongyabi 20070919 for checking Test Unit Ready command inhancement speed of momory card remove from card-reader
++        int ret1= 0;
++        int ret2= 0;
+ 
+ 	list_for_each_entry_safe(scmd, next, work_q, eh_entry) {
+ 		if (!(scmd->eh_eflags & SCSI_EH_CANCEL_CMD))
+@@ -783,11 +796,21 @@
+ 		rtn = scsi_try_to_abort_cmd(scmd);
+ 		if (rtn == SUCCESS) {
+ 			scmd->eh_eflags &= ~SCSI_EH_CANCEL_CMD;
+-			if (!scsi_device_online(scmd->device) ||
+-			    !scsi_eh_tur(scmd)) {
+-				scsi_eh_finish_cmd(scmd, done_q);
+-			}
+-				
++/* SELP.arm.3.x support A1 2007-12-14 */
++//hongyabi 20070919 for checking Test Unit Ready command inhancement speed of momory card remove from card-reader
++#if 0
++			if (!scsi_device_online(scmd->device) || !scsi_eh_tur(scmd)) 
++                        {
++                                scsi_eh_finish_cmd(scmd, done_q);
++                        }
++#else
++                        ret1 = scsi_device_online(scmd->device);
++                        ret2 = scsi_eh_tur(scmd);
++                        if (!ret1 || !ret2)
++                                scsi_eh_finish_cmd(scmd, done_q);
++                        else if(ret2 == FAILED)
++                                scsi_eh_finish_cmd(scmd, done_q);
++#endif				
+ 		} else
+ 			SCSI_LOG_ERROR_RECOVERY(3, printk("%s: aborting"
+ 							  " cmd failed:"
+--- old/drivers/scsi/scsi_lib.c	2007-02-24 00:52:30.000000000 +0100
++++ new/drivers/scsi/scsi_lib.c	2008-08-12 09:28:52.000000000 +0200
+@@ -33,6 +33,11 @@
+ #define SG_MEMPOOL_NR		ARRAY_SIZE(scsi_sg_pools)
+ #define SG_MEMPOOL_SIZE		32
+ 
++/* SELP.arm.3.x support A1 2007-10-22 */
++//hongyabi patch for US_FLIDX_SCSI_MAX_32_BLOCK device
++//20070716
++#define US_FLIDX_SCSI_MAX_32_BLOCK      26
++
+ struct scsi_host_sg_pool {
+ 	size_t		size;
+ 	char		*name; 
+@@ -1552,7 +1557,15 @@
+ 	blk_queue_prep_rq(q, scsi_prep_fn);
+ 
+ 	blk_queue_max_hw_segments(q, shost->sg_tablesize);
++	
++	/* SELP.arm.3.x support A1 2007-10-22 */	
++        //hongyabi patch for US_FLIDX_SCSI_MAX_32_BLOCK device
++        //20070716
++        if (test_bit(US_FLIDX_SCSI_MAX_32_BLOCK, &shost->flags))
++                blk_queue_max_phys_segments(q, SCSI_MAX_PHYS_SEGMENTS_32);
++        else
+ 	blk_queue_max_phys_segments(q, SCSI_MAX_PHYS_SEGMENTS);
++
+ 	blk_queue_max_sectors(q, shost->max_sectors);
+ 	blk_queue_bounce_limit(q, scsi_calculate_bounce_limit(shost));
+ 	blk_queue_segment_boundary(q, shost->dma_boundary);
+--- old/drivers/scsi/scsi_scan.c	2007-02-24 00:52:30.000000000 +0100
++++ new/drivers/scsi/scsi_scan.c	2008-08-12 09:28:57.000000000 +0200
+@@ -46,6 +46,10 @@
+ #define ALLOC_FAILURE_MSG	KERN_ERR "%s: Allocation failure during" \
+ 	" SCSI scanning, some SCSI devices might not be configured\n"
+ 
++/* SELP.arm.3.x support A1 2007-10-22 */
++//hongyabi patch JUN-18-2007
++#define US_FLIDX_IGNORE_RESPONSE_LENGTH 25
++
+ /*
+  * Default timeout
+  */
+@@ -75,6 +79,19 @@
+ 
+ static const char *scsi_null_device_strs = "nullnullnullnull";
+ 
++//hongyabi add for usb serial number
++static const char *scsi_default_serial_strs = "FFFFFFFFFFFF";
++
++//hongyabi add for usb logical number
++static const char *scsi_0_logical_strs = "0";
++static const char *scsi_1_logical_strs = "1";
++static const char *scsi_2_logical_strs = "2";
++static const char *scsi_3_logical_strs = "3";
++static const char *scsi_4_logical_strs = "4";
++
++//hongyabi add for usb device path
++static const char *scsi_usb_devpath_strs = "0.0.0.0";
++
+ #define MAX_SCSI_LUNS	512
+ 
+ #ifdef CONFIG_SCSI_MULTI_LUN
+@@ -212,6 +229,12 @@
+ 	sdev->vendor = scsi_null_device_strs;
+ 	sdev->model = scsi_null_device_strs;
+ 	sdev->rev = scsi_null_device_strs;
++	//hongyabi add for usb serial number
++	sdev->serial = scsi_default_serial_strs;
++	//hongyabi add for usb logical number
++	sdev->logicalnumber = scsi_0_logical_strs;
++	//hongyabi add for usb device path
++	sdev->usbdevpath = scsi_usb_devpath_strs;
+ 	sdev->host = shost;
+ 	sdev->id = starget->id;
+ 	sdev->lun = lun;
+@@ -573,8 +596,20 @@
+ 	if (result)
+ 		return -EIO;
+ 
++	/* SELP.arm.3.x support A1 2007-10-22 */
++        //hongyabi patch JUN-18-2007
++        //for wrong response length SUNSTAR memory stick case
++        if (!test_bit(US_FLIDX_IGNORE_RESPONSE_LENGTH, &sdev->host->flags))
++        {
++        sdev->inquiry_len = min(try_inquiry_len, response_len);
++        }
++        else
++        {
++                sdev->inquiry_len = try_inquiry_len;
++        }
++
+ 	/* Don't report any more data than the device says is valid */
+-	sdev->inquiry_len = min(try_inquiry_len, response_len);
++	//sdev->inquiry_len = min(try_inquiry_len, response_len); // ksfree.kim@samsung.com
+ 
+ 	/*
+ 	 * XXX Abort if the response length is less than 36? If less than
+@@ -781,6 +816,29 @@
+ 
+ 	transport_configure_device(&sdev->sdev_gendev);
+ 
++	//hongyabi add for usb logical number
++	switch(sdev->lun)
++	{
++		case 0:
++			sdev->logicalnumber = (char *)scsi_0_logical_strs;
++			break;
++		case 1:
++			sdev->logicalnumber = (char *)scsi_1_logical_strs;
++			break;
++		case 2:
++			sdev->logicalnumber = (char *)scsi_2_logical_strs;
++			break;
++		case 3:
++			sdev->logicalnumber = (char *)scsi_3_logical_strs;
++			break;
++		case 4:
++			sdev->logicalnumber = (char *)scsi_4_logical_strs;
++			break;
++		default:
++			sdev->logicalnumber = (char *)scsi_0_logical_strs;
++			break;
++	}
++
+ 	if (sdev->host->hostt->slave_configure) {
+ 		int ret = sdev->host->hostt->slave_configure(sdev);
+ 		if (ret) {
+--- old/drivers/scsi/scsi_sysfs.c	2007-02-24 00:52:30.000000000 +0100
++++ new/drivers/scsi/scsi_sysfs.c	2008-08-12 09:29:01.000000000 +0200
+@@ -421,6 +421,13 @@
+ sdev_rd_attr (vendor, "%.8s\n");
+ sdev_rd_attr (model, "%.16s\n");
+ sdev_rd_attr (rev, "%.4s\n");
++//hongyabi add for usb serial number
++sdev_rd_attr (serial, "%.32s\n");
++//hongyabi add for usb logical number
++sdev_rd_attr (logicalnumber, "%.16s\n");
++//hongyabi add for usb device path
++sdev_rd_attr (usbdevpath, "%.16s\n");
++
+ 
+ static ssize_t
+ sdev_show_timeout (struct device *dev, struct device_attribute *attr, char *buf)
+@@ -535,6 +542,9 @@
+ 
+ 
+ /* Default template for device attributes.  May NOT be modified */
++//hongyabi add for usb serial number
++//hongyabi add for usb logical number
++//hongyabi add for usb device path
+ static struct device_attribute *scsi_sysfs_sdev_attrs[] = {
+ 	&dev_attr_device_blocked,
+ 	&dev_attr_queue_depth,
+@@ -544,6 +554,9 @@
+ 	&dev_attr_vendor,
+ 	&dev_attr_model,
+ 	&dev_attr_rev,
++	&dev_attr_serial,	
++	&dev_attr_logicalnumber,	
++	&dev_attr_usbdevpath,		
+ 	&dev_attr_rescan,
+ 	&dev_attr_delete,
+ 	&dev_attr_state,
+--- old/drivers/usb/storage/scsiglue.c	2007-02-24 00:52:30.000000000 +0100
++++ new/drivers/usb/storage/scsiglue.c	2008-08-08 08:51:39.000000000 +0200
+@@ -184,6 +184,15 @@
+ 	if (us->flags & US_FL_NOT_LOCKABLE)
+ 		sdev->lockable = 0;
+ 
++	//hongyabi add for usb serial number
++	if(us->serial)
++		sdev->serial = (char *)(us->serial);
++
++	//hongyabi add for usb device path
++	if(us->pusb_dev)
++		//hongyabi 080507
++		sdev->usbdevpath = (char *)(us->pusb_dev->devbusportpath);
++
+ 	/* this is to satisfy the compiler, tho I don't think the 
+ 	 * return code is ever checked anywhere. */
+ 	return 0;
+--- old/drivers/scsi/sd.c	2007-02-24 00:52:30.000000000 +0100
++++ new/drivers/scsi/sd.c	2008-08-12 09:29:45.000000000 +0200
+@@ -31,6 +31,7 @@
+  *	Note: when the logging level is set by the user, it must be greater
+  *	than the level indicated above to trigger output.	
+  */
++/* SELP.arm.3.x support A1 2007-10-22 */
+ 
+ #include <linux/module.h>
+ #include <linux/fs.h>
+@@ -47,6 +48,13 @@
+ #include <linux/blkdev.h>
+ #include <linux/blkpg.h>
+ #include <linux/delay.h>
++
++#include <linux/kthread.h>
++#include <linux/timer.h>
++#include <linux/namei.h>
++#include <linux/mount.h>
++#include <linux/buffer_head.h>	
++
+ #include <linux/mutex.h>
+ #include <asm/uaccess.h>
+ 
+@@ -99,13 +107,17 @@
+ /*
+  * Time out in seconds for disks and Magneto-opticals (which are slower).
+  */
+-#define SD_TIMEOUT		(30 * HZ)
++ //hongyabi patch JAN-24-2007
++//#define SD_TIMEOUT            (30 * HZ)
++#define SD_TIMEOUT              (5 * HZ)
+ #define SD_MOD_TIMEOUT		(75 * HZ)
+ 
+ /*
+  * Number of allowed retries
+  */
+-#define SD_MAX_RETRIES		5
++ //hongyabi patch JAN-24-2007
++//#define SD_MAX_RETRIES                5
++#define SD_MAX_RETRIES          3
+ #define SD_PASSTHROUGH_RETRIES	1
+ 
+ /*
+@@ -113,6 +125,12 @@
+  */
+ #define SD_BUF_SIZE		512
+ 
++struct poller_type {
++        int prev_state;
++        int pid;
++        struct completion done_notify;
++};                                                                    
++
+ struct scsi_disk {
+ 	struct scsi_driver *driver;	/* always &sd_template */
+ 	struct scsi_device *device;
+@@ -126,12 +144,16 @@
+ 	unsigned	WCE : 1;	/* state of disk WCE bit */
+ 	unsigned	RCD : 1;	/* state of disk RCD bit, unused */
+ 	unsigned	DPOFUA : 1;	/* state of disk DPOFUA bit */
++ 	struct poller_type poller;
+ };
+ #define to_scsi_disk(obj) container_of(obj,struct scsi_disk,cdev)
+ 
+ static DEFINE_IDR(sd_index_idr);
+ static DEFINE_SPINLOCK(sd_index_lock);
+ 
++//hongyabi patch JAN-26-2007
++static DECLARE_MUTEX(sd_thread_create_sem);
++
+ /* This semaphore is used to mediate the 0->1 reference get in the
+  * face of object destruction (i.e. we can't allow a get on an
+  * object after last put) */
+@@ -262,6 +284,8 @@
+ 	.class_dev_attrs = sd_disk_attrs,
+ };
+ 
++static int sd_poller_thread (void * __sdkp);
++
+ static struct scsi_driver sd_template = {
+ 	.owner			= THIS_MODULE,
+ 	.gendrv = {
+@@ -1701,6 +1725,14 @@
+ 	dev_set_drvdata(dev, sdkp);
+ 	add_disk(gd);
+ 
++ 	if (sdp->removable){
++ 		init_completion(&sdkp->poller.done_notify);
++		//hongyabi patch JAN-26-2007
++                //this lock will be up in sd_poller_thread()
++                down(&sd_thread_create_sem);
++ 		sdkp->poller.pid = kernel_thread(sd_poller_thread, sdkp, CLONE_VM | CLONE_FS | CLONE_FILES);
++ 	}
++
+ 	sdev_printk(KERN_NOTICE, sdp, "Attached scsi %sdisk %s\n",
+ 		    sdp->removable ? "removable " : "", gd->disk_name);
+ 
+@@ -1714,6 +1746,94 @@
+ 	return error;
+ }
+ 
++
++static int sd_poller_thread (void * __sdkp){
++
++	struct scsi_disk *sdkp =  (struct scsi_disk *)__sdkp;
++	struct block_device *bdev;
++	int retval,state=1,p;
++	struct buffer_head *bh;
++	int isNoPartition;
++	lock_kernel();
++
++	daemonize("scsi-poller");
++	allow_signal(SIGTERM);
++	current->flags |= PF_NOFREEZE;
++
++	unlock_kernel();
++
++	printk(KERN_DEBUG "Poller thread started for %s, PID = %d\n",sdkp->disk->disk_name, current->pid);
++
++        //hongyabi patch JAN-27-2007
++        //sd_thread_create_sem is down when sd_poller_thread created in sd_probe function
++        up(&sd_thread_create_sem);
++
++	for (;;){
++		if(signal_pending(current))
++			complete_and_exit(&sdkp->poller.done_notify, 0);
++#define POLL_INTERVAL	1	//Poll interval in seconds
++		msleep(POLL_INTERVAL*1000);
++		
++		retval = sd_media_changed(sdkp->disk);
++		if (retval != state){
++		//Connection state changed
++			if (retval == 0){
++			//Connected
++		                bdev = bdget_disk(sdkp->disk, 0);
++		                bdev->bd_disk = sdkp->disk;
++		                bdev->bd_contains = bdev;        
++		                if (!bdev){
++			                printk(KERN_ERR "Unable to get block device pointer\n");
++			                continue;
++		                }
++
++				//We should rescan partitions only if they were not found
++				isNoPartition = 0;
++				if (!sdkp->disk->part[0]){
++					bh = __getblk(bdev, 0, sdkp->device->sector_size);
++					ll_rw_block(READ, 1, &bh);
++					wait_on_buffer(bh);
++
++					//hongyabi patch FEB-01-2007
++                                        if(bdev->bd_disk != NULL)
++					rescan_partitions(sdkp->disk, bdev);
++
++					/* this is no partition media and check card reader */
++					if( !sdkp->disk->part[0]){
++						printk(KERN_ERR "FIXED SELP: no partition Media Connected\n");
++						isNoPartition = 1;
++						kobject_uevent(&sdkp->disk->kobj, KOBJ_ADD);
++					}
++				}
++			}
++			else{
++			//Disconnected
++				//Let's delete partitions only if they exist
++				if (sdkp->disk->part[0]){
++				        invalidate_partition(sdkp->disk, 0);
++				        bdev->bd_invalidated = 0;
++				        for (p = 1; p < sdkp->disk->minors; p++)
++				                delete_partition(sdkp->disk, p);
++				        sd_revalidate_disk(sdkp->disk);    
++				}
++				else if(isNoPartition){
++					printk(KERN_ERR "FIXED SELP: no partition Media Disconnected\n");
++					/* for no partiton device , make hotplug event */
++					kobject_uevent(&sdkp->disk->kobj, KOBJ_REMOVE);
++			        	invalidate_partition(sdkp->disk, 0);
++			        	bdev->bd_invalidated = 0;
++
++					/* remove disk */
++				        sd_revalidate_disk(sdkp->disk);    
++				}
++			}
++			state = retval;
++		}
++	}
++	
++	
++}
++
+ /**
+  *	sd_remove - called whenever a scsi disk (previously recognized by
+  *	sd_probe) is detached from the system. It is called (potentially
+@@ -1728,9 +1848,21 @@
+ static int sd_remove(struct device *dev)
+ {
+ 	struct scsi_disk *sdkp = dev_get_drvdata(dev);
++ 	struct scsi_device *sdp = to_scsi_device(dev);
+ 
+ 	class_device_del(&sdkp->cdev);
+ 	del_gendisk(sdkp->disk);
++ 	if (sdp->removable){
++                //hongyabi patch JAN-27-2007
++                //kill_proc should be called after thread function start
++                down(&sd_thread_create_sem);
++
++ 		kill_proc(sdkp->poller.pid, SIGTERM, 1);
++
++                //hongyabi patch JAN-27-2007
++                up(&sd_thread_create_sem);
++ 		wait_for_completion(&sdkp->poller.done_notify);
++ 	}
+ 	sd_shutdown(dev);
+ 
+ 	mutex_lock(&sd_ref_mutex);
+--- old/include/scsi/scsi_host.h	2007-02-24 00:52:30.000000000 +0100
++++ new/include/scsi/scsi_host.h	2008-08-07 15:05:12.000000000 +0200
+@@ -590,6 +590,10 @@
+ 	 */
+ 	void *shost_data;
+ 
++        //hongyabi patch for wrong inquiry response length case of SUNSTAR memory stick
++        //JUN-18-2007
++        unsigned long           flags;
++
+ 	/*
+ 	 * We should ensure that this is aligned, both for better performance
+ 	 * and also because some compilers (m68k) don't automatically force
+--- old/include/scsi/scsi_device.h	2007-02-24 00:52:30.000000000 +0100
++++ new/include/scsi/scsi_device.h	2008-08-07 14:58:43.000000000 +0200
+@@ -82,6 +82,13 @@
+ 	const char * vendor;		/* [back_compat] point into 'inquiry' ... */
+ 	const char * model;		/* ... after scan; point to static string */
+ 	const char * rev;		/* ... "nullnullnullnull" before scan */
++	//hongyabi add for usb serial number
++	const char * serial;
++	//hongyabi add for usb logical number
++	const char * logicalnumber;
++	//hongyabi add for usb device path
++	const char * usbdevpath;
++	
+ 	unsigned char current_tag;	/* current tag */
+ 	struct scsi_target      *sdev_target;   /* used only for single_lun */
+ 
+--- old/include/scsi/scsi.h	2007-02-24 00:52:30.000000000 +0100
++++ new/include/scsi/scsi.h	2008-08-07 14:57:59.000000000 +0200
+@@ -15,7 +15,9 @@
+  *	(currently must be a power of 2 between 32 and 256)
+  */
+ #define SCSI_MAX_PHYS_SEGMENTS	MAX_PHYS_SEGMENTS
+-
++//hongyabi patch for US_FLIDX_SCSI_MAX_32_BLOCK device
++//20070716
++#define SCSI_MAX_PHYS_SEGMENTS_32       32
+ 
+ /*
+  *	SCSI command lengths

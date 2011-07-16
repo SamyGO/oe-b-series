@@ -1,0 +1,138 @@
+diff -ur old/x11vnc/connections.c new/x11vnc/connections.c
+--- old/x11vnc/connections.c	2009-12-21 05:58:10.000000000 +0100
++++ new/x11vnc/connections.c	2010-08-15 09:30:34.000000000 +0200
+@@ -2976,7 +2976,7 @@
+ 		return;
+ 	}
+ 	rfbLog("pmove: x y: %d %d\n", x, y);
+-	pointer(0, x, y, NULL);
++	pointerl(0, x, y, NULL);
+ 	X_LOCK;
+ 	XFlush_wr(dpy);
+ 	X_UNLOCK;
+diff -ur old/x11vnc/keyboard.c new/x11vnc/keyboard.c
+--- old/x11vnc/keyboard.c	2009-12-21 05:58:10.000000000 +0100
++++ new/x11vnc/keyboard.c	2010-08-15 09:31:20.000000000 +0200
+@@ -2894,9 +2894,9 @@
+ 			t[1] = '\0';
+ 			if (sscanf(t, "%d", &butt) == 1) {
+ 				mask = 1<<(butt-1);
+-				pointer(mask, x, y, client);
++				pointerl(mask, x, y, client);
+ 				mask = 0;
+-				pointer(mask, x, y, client);
++				pointerl(mask, x, y, client);
+ 			}
+ 			b++;
+ 		}
+diff -ur old/x11vnc/pointer.c new/x11vnc/pointer.c
+--- old/x11vnc/pointer.c	2009-12-21 05:58:10.000000000 +0100
++++ new/x11vnc/pointer.c	2010-08-15 09:28:37.000000000 +0200
+@@ -54,7 +54,7 @@
+ 
+ void initialize_pointer_map(char *pointer_remap);
+ void do_button_mask_change(int mask, int button);
+-void pointer(int mask, int x, int y, rfbClientPtr client);
++void pointerl(int mask, int x, int y, rfbClientPtr client);
+ void initialize_pipeinput(void);
+ int check_pipeinput(void);
+ void update_x11_pointer_position(int x, int y);
+@@ -668,7 +668,7 @@
+  * This may queue pointer events rather than sending them immediately
+  * to the X server. (see update_x11_pointer*())
+  */
+-void pointer(int mask, int x, int y, rfbClientPtr client) {
++void pointerl(int mask, int x, int y, rfbClientPtr client) {
+ 	allowed_input_t input;
+ 	int sent = 0, buffer_it = 0;
+ 	double now;
+diff -ur old/x11vnc/pointer.h new/x11vnc/pointer.h
+--- old/x11vnc/pointer.h	2009-12-21 05:58:10.000000000 +0100
++++ new/x11vnc/pointer.h	2010-08-15 09:28:41.000000000 +0200
+@@ -39,7 +39,7 @@
+ 
+ extern void initialize_pointer_map(char *pointer_remap);
+ extern void do_button_mask_change(int mask, int button);
+-extern void pointer(int mask, int x, int y, rfbClientPtr client);
++extern void pointerl(int mask, int x, int y, rfbClientPtr client);
+ extern int check_pipeinput(void);
+ extern void initialize_pipeinput(void);
+ extern void update_x11_pointer_position(int x, int y);
+diff -ur old/x11vnc/remote.c new/x11vnc/remote.c
+--- old/x11vnc/remote.c	2009-12-21 05:58:10.000000000 +0100
++++ new/x11vnc/remote.c	2010-08-15 09:32:10.000000000 +0200
+@@ -4225,9 +4225,9 @@
+ 		p += strlen("ptr:");
+ 		rfbLog("remote_cmd: insert pointer event: %s\n", p);
+ 		if (sscanf(p, "%d,%d,%d", &x, &y, &m) == 3) {
+-			pointer(m, x, y, NULL);
++			pointerl(m, x, y, NULL);
+ 		} else if (sscanf(p, "%d,%d", &x, &y) == 2) {
+-			pointer(m, x, y, NULL);
++			pointerl(m, x, y, NULL);
+ 		} else {
+ 			rfbLog("remote_cmd: bad ptr:x,y,mask\n");
+ 		}
+@@ -4392,7 +4392,7 @@
+ 		} else if (strstr(res, "GRAB_FAIL") && try < max_tries) {
+ 			rfbLog("bcx_xattach: failed grab check for '%s': %s.  Retrying[%d]...\n", p, res, try);
+ 			free(res);
+-			pointer(0, dpy_x/2 + try, dpy_y/2 + try, NULL);
++			pointerl(0, dpy_x/2 + try, dpy_y/2 + try, NULL);
+ #if !NO_X11
+ 			X_LOCK;
+ 			XFlush_wr(dpy);
+diff -ur old/x11vnc/scan.c new/x11vnc/scan.c
+--- old/x11vnc/scan.c	2009-12-21 05:58:10.000000000 +0100
++++ new/x11vnc/scan.c	2010-08-15 09:32:20.000000000 +0200
+@@ -3547,7 +3547,7 @@
+ 			fb_copy_in_progress = 0;
+ 			SCAN_FATAL(cs);
+ 			if (use_threads && pointer_mode != 1) {
+-				pointer(-1, 0, 0, NULL);
++				pointerl(-1, 0, 0, NULL);
+ 			}
+ 			nap_check(tile_count);
+ 			return tile_count;
+@@ -3634,7 +3634,7 @@
+ 		 * tell the pointer handler it can process any queued
+ 		 * pointer events:
+ 		 */
+-		pointer(-1, 0, 0, NULL);
++		pointerl(-1, 0, 0, NULL);
+ 	}
+ 
+ 	if (blackouts) {
+diff -ur old/x11vnc/screen.c new/x11vnc/screen.c
+--- old/x11vnc/screen.c	2009-12-21 05:58:10.000000000 +0100
++++ new/x11vnc/screen.c	2010-08-15 09:33:51.000000000 +0200
+@@ -3536,7 +3536,7 @@
+ 	/* event callbacks: */
+ 	screen->newClientHook = new_client;
+ 	screen->kbdAddEvent = keyboard;
+-	screen->ptrAddEvent = pointer;
++	screen->ptrAddEvent = pointerl;
+ 	screen->setXCutText = xcut_receive;
+ 	screen->setTranslateFunction = set_xlate_wrapper;
+ 
+diff -ur old/x11vnc/userinput.c new/x11vnc/userinput.c
+--- old/x11vnc/userinput.c	2009-12-21 05:58:10.000000000 +0100
++++ new/x11vnc/userinput.c	2010-08-15 09:35:06.000000000 +0200
+@@ -3008,7 +3008,7 @@
+ 	pointer_queued_sent = 0;
+ 	last_x = cursor_x;
+ 	last_y = cursor_y;
+-	pointer(-1, 0, 0, NULL);
++	pointerl(-1, 0, 0, NULL);
+ 	pointer_flush_delay = 0.0;
+ 
+ 	if (xrecording && pointer_queued_sent && button_mask_save &&
+@@ -4565,7 +4565,7 @@
+ 	/* -threads support for check_wireframe() is rough... crash? */
+ 	if (use_threads) {
+ 		/* purge any stored up pointer events: */
+-		pointer(-1, 0, 0, NULL);
++		pointerl(-1, 0, 0, NULL);
+ 	}
+ 
+ 	if (cursor_noshape_updates_clients(screen)) {

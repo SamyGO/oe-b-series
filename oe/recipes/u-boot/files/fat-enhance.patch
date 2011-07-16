@@ -1,0 +1,768 @@
+--- org/common/cmd_fat.c	2006-11-02 15:15:01.000000000 +0100
++++ new/common/cmd_fat.c	2010-06-10 11:37:31.000000000 +0200
+@@ -5,6 +5,13 @@
+  * See file CREDITS for list of people who contributed to this
+  * project.
+  *
++ ********
++ * SamyGO, http://samygo.sourceforge.net
++ * sdp_fatload and sdp_fatls code copied from Samsung u-boot sources
++ * released in 2009 with GPL v2 license.
++ * Copyright (C) 2003-2009 Samsung Electronics
++ * http://www.samsung.com/global/opensource/files/uboot_b650.tgz
++ ********
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License as
+  * published by the Free Software Foundation; either version 2 of
+@@ -134,6 +141,55 @@
+ 	"      to address 'addr' from dos filesystem\n"
+ );
+ 
++
++int sdp_fatload (char *name, unsigned int addr)
++{
++	long size;
++	unsigned long offset;
++	unsigned long count;
++	char buf [12];
++	block_dev_desc_t *dev_desc=NULL;
++	int dev=0;
++	int part=1;
++	char *ep;
++
++	dev = (int)simple_strtoul ("0:1", &ep, 16);
++	dev_desc=get_dev("usb", dev);
++	if (dev_desc==NULL) {
++		puts ("\n** Invalid boot device **\n");
++		return 1;
++	}
++	if (*ep) {
++		if (*ep != ':') {
++			puts ("\n** Invalid boot device, use `dev[:part]' **\n");
++			return 1;
++		}
++		part = (int)simple_strtoul(++ep, NULL, 16);
++	}
++	if (fat_register_device(dev_desc,part)!=0) {
++		printf ("\n** Unable to use %s %d:%d for fatload **\n","usb",dev,part);
++		return 1;
++	}
++	offset = addr;	
++	count = 0;
++	
++	size = file_fat_read (name, (unsigned char *) offset, count);
++
++	if(size==-1) {
++		printf("\n** Unable to read \"%s\" from %s %d:%d **\n",name, "usb" ,dev,part);
++		return 1;
++	}
++
++	printf ("%ld bytes read\n\n", size);
++
++	sprintf(buf, "%lX", size);
++	setenv("filesize", buf);
++
++	return 0;
++}
++
++
++
+ int do_fat_ls (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+ {
+ 	char *filename = "/";
+@@ -181,6 +237,42 @@
+ 	"    - list files from 'dev' on 'interface' in a 'directory'\n"
+ );
+ 
++
++int sdp_fatls (char *name)
++{
++	int ret;
++	int dev=0;
++	int part=1;
++	char *ep;
++	block_dev_desc_t *dev_desc=NULL;
++
++	dev = (int)simple_strtoul ("0:1", &ep, 16);
++	dev_desc=get_dev("usb", dev);
++	if (dev_desc==NULL) {
++		puts ("\n** Invalid boot device **\n");
++		return 1;
++	}
++	if (*ep) {
++		if (*ep != ':') {
++			puts ("\n** Invalid boot device, use `dev[:part]' **\n");
++			return 1;
++		}
++		part = (int)simple_strtoul(++ep, NULL, 16);
++	}
++	if (fat_register_device(dev_desc,part)!=0) {
++		printf ("\n** Unable to use %s %d:%d for fatls **\n", "usb" ,dev,part);
++		return 1;
++	}
++	
++	ret = file_fat_ls (name);
++
++	if(ret!=0)
++		printf("No Fat FS detected\n");
++	return (ret);
++}
++
++
++
+ int do_fat_fsinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+ {
+ 	int dev=0;
+--- org/fs/fat/fat.c	2006-11-02 15:15:01.000000000 +0100
++++ new/fs/fat/fat.c	2010-06-10 11:48:25.000000000 +0200
+@@ -9,6 +9,13 @@
+  * See file CREDITS for list of people who contributed to this
+  * project.
+  *
++ ********
++ * SamyGO, http://samygo.sourceforge.net
++ * fixes and modification to fat32 and long file support
++ * code copied from Samsung u-boot sources released in 2009 with GPL v2 license.
++ * Copyright (C) 2003-2009 Samsung Electronics
++ * http://www.samsung.com/global/opensource/files/uboot_b650.tgz
++ ********
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License as
+  * published by the Free Software Foundation; either version 2 of
+@@ -30,9 +37,9 @@
+ #include <fat.h>
+ #include <asm/byteorder.h>
+ #include <part.h>
++//#define FAT_DPRINT(args...)	printf(args)
+ 
+ #if (CONFIG_COMMANDS & CFG_CMD_FAT)
+-
+ /*
+  * Convert a string to lowercase.
+  */
+@@ -49,6 +56,18 @@
+ static unsigned long part_offset = 0;
+ static int cur_part = 1;
+ 
++static __u32 get_maxclustnum(fsdata* mydata)
++{
++	if (mydata->fatsize == 32)
++		return 0xffffff0;
++	else if (mydata->fatsize == 16)
++		return 0xfff0;
++	else if (mydata->fatsize == 12)
++		return 0xff0;
++	else
++		return 0;
++}
++
+ #define DOS_PART_TBL_OFFSET	0x1be
+ #define DOS_PART_MAGIC_OFFSET	0x1fe
+ #define DOS_FS_TYPE_OFFSET	0x36
+@@ -162,6 +181,7 @@
+ 	memcpy (s_name, dirent->name, 8);
+ 	s_name[8] = '\0';
+ 	ptr = s_name;
++
+ 	while (*ptr && *ptr != ' ')
+ 		ptr++;
+ 	if (dirent->ext[0] && dirent->ext[0] != ' ') {
+@@ -173,10 +193,14 @@
+ 			ptr++;
+ 	}
+ 	*ptr = '\0';
++
++	if (*s_name < ' ' || *s_name > 0x7f)
++		*s_name= '\0';
++
+ 	if (*s_name == DELETED_FLAG)
+ 		*s_name = '\0';
+-	else if (*s_name == aRING)
+-		*s_name = 'å';
++	else if (*s_name == aRING)	
++		*s_name = '?';
+ 	downcase (s_name);
+ }
+ 
+@@ -325,7 +349,7 @@
+ 	unsigned long filesize = FAT2CPU32(dentptr->size), gotsize = 0;
+ 	unsigned int bytesperclust = mydata->clust_size * SECTOR_SIZE;
+ 	__u32 curclust = START(dentptr);
+-	__u32 endclust, newclust;
++	__u32 endclust, newclust, maxclust;
+ 	unsigned long actsize;
+ 
+ 	FAT_DPRINT("Filesize: %ld bytes\n", filesize);
+@@ -336,13 +360,14 @@
+ 
+ 	actsize=bytesperclust;
+ 	endclust=curclust;
++	maxclust = get_maxclustnum (mydata);
+ 	do {
+ 		/* search for consecutive clusters */
+ 		while(actsize < filesize) {
+ 			newclust = get_fatent(mydata, endclust);
+ 			if((newclust -1)!=endclust)
+ 				goto getit;
+-			if (newclust <= 0x0001 || newclust >= 0xfff0) {
++			if (newclust <= 0x0001 || newclust >= maxclust) {
+ 				FAT_DPRINT("curclust: 0x%x\n", newclust);
+ 				FAT_DPRINT("Invalid FAT entry\n");
+ 				return gotsize;
+@@ -377,7 +402,7 @@
+ 		filesize -= actsize;
+ 		buffer += actsize;
+ 		curclust = get_fatent(mydata, endclust);
+-		if (curclust <= 0x0001 || curclust >= 0xfff0) {
++		if (curclust <= 0x0001 || curclust >= maxclust) {
+ 			FAT_DPRINT("curclust: 0x%x\n", curclust);
+ 			FAT_ERROR("Invalid FAT entry\n");
+ 			return gotsize;
+@@ -435,6 +460,12 @@
+ 	__u8	  *nextclust = cluster + mydata->clust_size * SECTOR_SIZE;
+ 	__u8	   counter = (slotptr->id & ~LAST_LONG_ENTRY_MASK) & 0xff;
+ 	int idx = 0;
++	 __u32 eoc_mark = 0x0ff8; // Fat12 EOC mark
++	
++	if (mydata->fatsize == 32)
++		eoc_mark = 0x0ffffff8;
++	else if (mydata->fatsize == 16)
++		eoc_mark = 0xfff8;
+ 
+ 	while ((__u8*)slotptr < nextclust) {
+ 		if (counter == 0) break;
+@@ -449,11 +480,17 @@
+ 
+ 		slotptr--;
+ 		curclust = get_fatent(mydata, curclust);
+-		if (curclust <= 0x0001 || curclust >= 0xfff0) {
+-			FAT_DPRINT("curclust: 0x%x\n", curclust);
+-			FAT_ERROR("Invalid FAT entry\n");
++
++		if (curclust  >= eoc_mark) { // EOC Mark?
+ 			return -1;
+ 		}
++		
++		if (curclust <= 0x0001 || curclust >= (eoc_mark & ~(0xf))) { // 0xfff0	
++		    FAT_DPRINT ("curclust: 0x%x(eoc:0x%x)\n", curclust, eoc_mark);			
++		    FAT_ERROR ("Invalid FAT entry\n");
++		    return -1;
++		}		
++
+ 		if (get_cluster(mydata, curclust, get_vfatname_block,
+ 				mydata->clust_size * SECTOR_SIZE) != 0) {
+ 			FAT_DPRINT("Error: reading directory block\n");
+@@ -481,7 +518,7 @@
+ 
+ 	l_name[idx] = '\0';
+ 	if (*l_name == DELETED_FLAG) *l_name = '\0';
+-	else if (*l_name == aRING) *l_name = 'å';
++	else if (*l_name == aRING) *l_name = '?';
+ 	downcase(l_name);
+ 
+ 	/* Return the real directory entry */
+@@ -518,6 +555,13 @@
+ {
+     __u16 prevcksum = 0xffff;
+     __u32 curclust = START (retdent);
++    __u32 eoc_mark = 0x0ff8; // Fat12 EOC mark
++	
++    if (mydata->fatsize == 32)
++	eoc_mark = 0x0ffffff8;
++    else if (mydata->fatsize == 16)
++	eoc_mark = 0xfff8;
++    
+     int files = 0, dirs = 0;
+ 
+     FAT_DPRINT ("get_dentfromdir: %s\n", filename);
+@@ -531,101 +575,96 @@
+ 	    return NULL;
+ 	}
+ 	dentptr = (dir_entry *) get_dentfromdir_block;
++	
+ 	for (i = 0; i < DIRENTSPERCLUST; i++) {
+-	    char s_name[14], l_name[256];
+-
+-	    l_name[0] = '\0';
+-	    if (dentptr->name[0] == DELETED_FLAG) {
+-		    dentptr++;
+-		    continue;
+-	    }
+-	    if ((dentptr->attr & ATTR_VOLUME)) {
+-#ifdef CONFIG_SUPPORT_VFAT
+-		if ((dentptr->attr & ATTR_VFAT) &&
+-		    (dentptr->name[0] & LAST_LONG_ENTRY_MASK)) {
+-		    prevcksum = ((dir_slot *) dentptr)
+-			    ->alias_checksum;
+-		    get_vfatname (mydata, curclust, get_dentfromdir_block,
+-				  dentptr, l_name);
+-		    if (dols) {
+-			int isdir = (dentptr->attr & ATTR_DIR);
+-			char dirc;
+-			int doit = 0;
+-
+-			if (isdir) {
+-			    dirs++;
+-			    dirc = '/';
+-			    doit = 1;
+-			} else {
+-			    dirc = ' ';
+-			    if (l_name[0] != 0) {
+-				files++;
+-				doit = 1;
+-			    }
+-			}
+-			if (doit) {
+-			    if (dirc == ' ') {
+-				printf (" %8ld   %s%c\n",
+-					(long) FAT2CPU32 (dentptr->size),
+-					l_name, dirc);
+-			    } else {
+-				printf ("            %s%c\n", l_name, dirc);
+-			    }
+-			}
++	    static char s_name[14], l_name[256];
++	    static int blong = 0;
++	    s_name[0] = '\0';
++		
++		if (dentptr->name[0] == DELETED_FLAG || (dentptr->attr & ~(ATTR_LONG_NAME_MASK)) )
++		{
+ 			dentptr++;
++			blong = 0;
+ 			continue;
+-		    }
+-		    FAT_DPRINT ("vfatname: |%s|\n", l_name);
+-		} else
+-#endif
+-		{
+-		    /* Volume label or VFAT entry */
+-		    dentptr++;
+-		    continue;
+ 		}
+-	    }
+-	    if (dentptr->name[0] == 0) {
+-		if (dols) {
+-		    printf ("\n%d file(s), %d dir(s)\n\n", files, dirs);
++		
++		if ((dentptr->attr & ATTR_LONG_NAME_MASK) == ATTR_LONG_NAME )
++		{
++			if (dentptr->name[0] & LAST_LONG_ENTRY_MASK)
++			{
++				prevcksum = ((dir_slot *) dentptr)->alias_checksum;
++				get_vfatname (mydata, curclust, get_dentfromdir_block, dentptr, l_name);
++				if (l_name[0] != '\0')
++					blong = 1;				
++			}
++			dentptr++;
++			continue;
+ 		}
+-		FAT_DPRINT ("Dentname == NULL - %d\n", i);
+-		return NULL;
+-	    }
+-#ifdef CONFIG_SUPPORT_VFAT
+-	    if (dols && mkcksum (dentptr->name) == prevcksum) {
+-		dentptr++;
+-		continue;
+-	    }
+-#endif
+-	    get_name (dentptr, s_name);
+-	    if (dols) {
+-		int isdir = (dentptr->attr & ATTR_DIR);
+-		char dirc;
+-		int doit = 0;
+-
+-		if (isdir) {
+-		    dirs++;
+-		    dirc = '/';
+-		    doit = 1;
+-		} else {
+-		    dirc = ' ';
+-		    if (s_name[0] != 0) {
+-			files++;
+-			doit = 1;
+-		    }
+-		}
+-		if (doit) {
+-		    if (dirc == ' ') {
+-			printf (" %8ld   %s%c\n",
+-				(long) FAT2CPU32 (dentptr->size), s_name,
+-				dirc);
+-		    } else {
+-			printf ("            %s%c\n", s_name, dirc);
+-		    }
++
++		if ((dentptr->attr & ATTR_LONG_NAME_MASK) != ATTR_LONG_NAME )
++		{
++			if (blong == 1)
++			{
++				if (mkcksum (dentptr->name) != prevcksum) 
++				{
++					dentptr++;
++					l_name[0] = '\0';
++					blong = 0;
++					continue;
++				} 				
++			}
++			else
++			{
++				l_name[0] = '\0';
++			}
++
++			if (dentptr->name[0] == 0) {
++				FAT_DPRINT ("RootDentname == NULL - %d\n", i);
++				if (dols) {
++				    printf ("\n%d file(s), %d dir(s)\n\n", files, dirs);
++				}
++				return NULL;
++			}
++			
++			get_name (dentptr, s_name);
++
++			if (s_name[0] == 0 || s_name[0] == '?')
++			{
++				dentptr++;
++				blong = 0;
++				continue;
++			}
++
++			if (dols) 						
++			{
++				if ( (dentptr->attr & ( ATTR_DIR | ATTR_VOLUME )) == 0x00)
++				{
++					files++;
++					printf (" %8ld   %s\n",
++							(long) FAT2CPU32 (dentptr->size), (blong)?l_name:s_name);
++				}
++				else if ( (dentptr->attr & ( ATTR_DIR | ATTR_VOLUME )) == ATTR_DIR)
++				{
++					dirs++;
++					printf ("            %s/\n", (blong)?l_name:s_name);
++
++				}
++				else if ( (dentptr->attr & ( ATTR_DIR | ATTR_VOLUME )) == ATTR_VOLUME)
++				{
++					//dentptr++;
++				}	
++				else
++				{
++					//dentptr++;
++				}
++
++				dentptr++;
++				blong = 0;
++				continue;
++			}	
++			blong = 0;
+ 		}
+-		dentptr++;
+-		continue;
+-	    }
++
+ 	    if (strcmp (filename, s_name) && strcmp (filename, l_name)) {
+ 		FAT_DPRINT ("Mismatch: |%s|%s|\n", s_name, l_name);
+ 		dentptr++;
+@@ -641,13 +680,22 @@
+ 
+ 	    return retdent;
+ 	}
+-	curclust = get_fatent (mydata, curclust);
+-	if (curclust <= 0x0001 || curclust >= 0xfff0) {
+-	    FAT_DPRINT ("curclust: 0x%x\n", curclust);
++	curclust = get_fatent (mydata, curclust);	
++
++	if (curclust  >= eoc_mark) 
++	{
++		if (dols)  {
++		    printf ("\n%d file(s), %d dir(s)\n\n", files, dirs);
++		}
++		return NULL;
++	}
++	
++	if (curclust <= 0x0001 || curclust >= (eoc_mark & ~(0xf))) { // 0xfff0
++	    FAT_DPRINT ("curclust: 0x%x(eoc:0x%x)\n", curclust, eoc_mark);
+ 	    FAT_ERROR ("Invalid FAT entry\n");
+ 	    return NULL;
+ 	}
+-    }
++    }	
+ 
+     return NULL;
+ }
+@@ -738,6 +786,9 @@
+     int files = 0, dirs = 0;
+     long ret = 0;
+     int firsttime;
++    int dentry_count = 0;
++     __u32 curclust = 0;
++     __u32 eoc_mark = 0x0ff8; // Fat12 EOC Mark
+ 
+     if (read_bootsectandvi (&bs, &volinfo, &mydata->fatsize)) {
+ 	FAT_DPRINT ("Error: reading boot sector\n");
+@@ -745,8 +796,11 @@
+     }
+     if (mydata->fatsize == 32) {
+ 	mydata->fatlength = bs.fat32_length;
++	eoc_mark = 0x0ffffff8;
+     } else {
+ 	mydata->fatlength = bs.fat_length;
++	if (mydata->fatsize == 16)
++		eoc_mark = 0xfff8;	
+     }
+     mydata->fat_sect = bs.reserved;
+     cursect = mydata->rootdir_sect
+@@ -763,6 +817,7 @@
+ 		- (mydata->clust_size * 2);
+     }
+     mydata->fatbufnum = -1;
++    curclust  = bs.root_cluster;
+ 
+     FAT_DPRINT ("FAT%d, fatlength: %d\n", mydata->fatsize,
+ 		mydata->fatlength);
+@@ -796,103 +851,114 @@
+     while (1) {
+ 	int i;
+ 
+-	if (disk_read (cursect, mydata->clust_size, do_fat_read_block) < 0) {
+-	    FAT_DPRINT ("Error: reading rootdir block\n");
+-	    return -1;
+-	}
+-	dentptr = (dir_entry *) do_fat_read_block;
+-	for (i = 0; i < DIRENTSPERBLOCK; i++) {
+-	    char s_name[14], l_name[256];
+-
+-	    l_name[0] = '\0';
+-	    if ((dentptr->attr & ATTR_VOLUME)) {
+-#ifdef CONFIG_SUPPORT_VFAT
+-		if ((dentptr->attr & ATTR_VFAT) &&
+-		    (dentptr->name[0] & LAST_LONG_ENTRY_MASK)) {
+-		    prevcksum = ((dir_slot *) dentptr)->alias_checksum;
+-		    get_vfatname (mydata, 0, do_fat_read_block, dentptr, l_name);
+-		    if (dols == LS_ROOT) {
+-			int isdir = (dentptr->attr & ATTR_DIR);
+-			char dirc;
+-			int doit = 0;
+-
+-			if (isdir) {
+-			    dirs++;
+-			    dirc = '/';
+-			    doit = 1;
+-			} else {
+-			    dirc = ' ';
+-			    if (l_name[0] != 0) {
+-				files++;
+-				doit = 1;
+-			    }
+-			}
+-			if (doit) {
+-			    if (dirc == ' ') {
+-				printf (" %8ld   %s%c\n",
+-					(long) FAT2CPU32 (dentptr->size),
+-					l_name, dirc);
+-			    } else {
+-				printf ("            %s%c\n", l_name, dirc);
+-			    }
+-			}
++	if (mydata->fatsize != 32)	
++	{
++		if (disk_read (cursect, mydata->clust_size, do_fat_read_block) < 0) {
++		    FAT_DPRINT ("Error: reading rootdir block\n");
++		    return -1;
++		}
++		dentry_count=DIRENTSPERBLOCK;
++	}
++	else
++	{
++		if (get_cluster (mydata, curclust, do_fat_read_block,
++			 mydata->clust_size * SECTOR_SIZE) != 0) {
++		    FAT_DPRINT ("Error: reading directory block\n");
++		    return NULL;
++		}
++		dentry_count=DIRENTSPERCLUST;
++	}
++	dentptr = (dir_entry *) do_fat_read_block;	
++
++	for (i = 0; i < dentry_count; i++) {
++	    static char s_name[14], l_name[256];
++	    static int blong = 0;
++	    s_name[0] = '\0';
++		if (dentptr->name[0] == DELETED_FLAG || (dentptr->attr & ~(ATTR_LONG_NAME_MASK)) )
++		{
+ 			dentptr++;
++			blong = 0;
+ 			continue;
+-		    }
+-		    FAT_DPRINT ("Rootvfatname: |%s|\n", l_name);
+-		} else
+-#endif
++		}
++		
++		if ((dentptr->attr & ATTR_LONG_NAME_MASK) == ATTR_LONG_NAME )
+ 		{
+-		    /* Volume label or VFAT entry */
+-		    dentptr++;
+-		    continue;
+-		}
+-	    } else if (dentptr->name[0] == 0) {
+-		FAT_DPRINT ("RootDentname == NULL - %d\n", i);
+-		if (dols == LS_ROOT) {
+-		    printf ("\n%d file(s), %d dir(s)\n\n", files, dirs);
+-		    return 0;
++			if (dentptr->name[0] & LAST_LONG_ENTRY_MASK)
++			{
++				prevcksum = ((dir_slot *) dentptr)->alias_checksum;
++				get_vfatname (mydata, 0, do_fat_read_block, dentptr, l_name);
++				if (l_name[0] != '\0')
++					blong = 1;				
++			}
++			dentptr++;
++			continue;
+ 		}
+-		return -1;
+-	    }
+-#ifdef CONFIG_SUPPORT_VFAT
+-	    else if (dols == LS_ROOT
+-		     && mkcksum (dentptr->name) == prevcksum) {
+-		dentptr++;
+-		continue;
+-	    }
+-#endif
+-	    get_name (dentptr, s_name);
+-	    if (dols == LS_ROOT) {
+-		int isdir = (dentptr->attr & ATTR_DIR);
+-		char dirc;
+-		int doit = 0;
+-
+-		if (isdir) {
+-		    dirc = '/';
+-		    if (s_name[0] != 0) {
+-			dirs++;
+-			doit = 1;
+-		    }
+-		} else {
+-		    dirc = ' ';
+-		    if (s_name[0] != 0) {
+-			files++;
+-			doit = 1;
+-		    }
+-		}
+-		if (doit) {
+-		    if (dirc == ' ') {
+-			printf (" %8ld   %s%c\n",
+-				(long) FAT2CPU32 (dentptr->size), s_name,
+-				dirc);
+-		    } else {
+-			printf ("            %s%c\n", s_name, dirc);
+-		    }
++
++		if ((dentptr->attr & ATTR_LONG_NAME_MASK) != ATTR_LONG_NAME )
++		{
++			if (blong == 1)
++			{
++				if (mkcksum (dentptr->name) != prevcksum) 
++				{
++					dentptr++;
++					l_name[0] = '\0';
++					blong = 0;
++					continue;
++				} 				
++			}
++			else
++			{
++				l_name[0] = '\0';
++			}
++
++			if (dentptr->name[0] == 0) {
++				FAT_DPRINT ("RootDentname == NULL - %d\n", i);
++				if (dols == LS_ROOT) {
++				    printf ("\n%d file(s), %d dir(s)\n\n", files, dirs);
++				    return 0;
++				}
++				return -1;
++			}
++			
++			get_name (dentptr, s_name);
++
++			if (s_name[0] == 0 || s_name[0] == '?')
++			{
++				dentptr++;
++				blong = 0;
++				continue;
++			}
++
++			if (dols == LS_ROOT) 						
++			{
++				if ( (dentptr->attr & ( ATTR_DIR | ATTR_VOLUME )) == 0x00)
++				{
++					files++;
++					printf (" %8ld   %s\n",
++							(long) FAT2CPU32 (dentptr->size), (blong)?l_name:s_name);
++				}
++				else if ( (dentptr->attr & ( ATTR_DIR | ATTR_VOLUME )) == ATTR_DIR)
++				{
++					dirs++;
++					printf ("            %s/\n", (blong)?l_name:s_name);
++
++				}
++				else if ( (dentptr->attr & ( ATTR_DIR | ATTR_VOLUME )) == ATTR_VOLUME)
++				{
++					//dentptr++;
++				}	
++				else
++				{
++					//dentptr++;
++				}
++
++				dentptr++;
++				blong = 0;
++				continue;
++			}	
++			blong = 0;
+ 		}
+-		dentptr++;
+-		continue;
+-	    }
++		
+ 	    if (strcmp (fnamecopy, s_name) && strcmp (fnamecopy, l_name)) {
+ 		FAT_DPRINT ("RootMismatch: |%s|%s|\n", s_name, l_name);
+ 		dentptr++;
+@@ -908,7 +974,28 @@
+ 
+ 	    goto rootdir_done;  /* We got a match */
+ 	}
+-	cursect++;
++	if (mydata->fatsize != 32)
++	{
++		cursect++;
++	}
++	else
++	{
++		curclust = get_fatent (mydata, curclust);
++		
++		if (curclust  >= eoc_mark) { // EOC Mark?
++			if (dols == LS_ROOT)  {
++			    printf ("\n%d file(s), %d dir(s)\n\n", files, dirs);
++			    return 0;
++			}
++			return -1;
++		}
++		
++		if (curclust <= 0x0001 || curclust >= (eoc_mark & ~(0xf))) { // 0xfff0	
++		    FAT_DPRINT ("curclust: 0x%x(eoc:0x%x)\n", curclust, eoc_mark);			
++		    FAT_ERROR ("Invalid FAT entry\n");
++		    return NULL;
++		}		
++	}
+     }
+   rootdir_done:
+ 
+--- org/include/fat.h	2006-11-02 15:15:01.000000000 +0100
++++ new/include/fat.h	2010-06-05 09:13:29.000000000 +0200
+@@ -65,6 +65,8 @@
+ #define ATTR_ARCH    32
+ 
+ #define ATTR_VFAT     (ATTR_RO | ATTR_HIDDEN | ATTR_SYS | ATTR_VOLUME)
++#define ATTR_LONG_NAME  (ATTR_RO | ATTR_HIDDEN | ATTR_SYS | ATTR_VOLUME)
++#define ATTR_LONG_NAME_MASK    (ATTR_RO | ATTR_HIDDEN | ATTR_SYS | ATTR_VOLUME | ATTR_DIR | ATTR_ARCH)
+ 
+ #define DELETED_FLAG	((char)0xe5) /* Marks deleted files when in name[0] */
+ #define aRING		0x05	     /* Used to represent 'å' in name[0] */

@@ -1,0 +1,110 @@
+# This patch content was copied from Samsung kernel sources SELP.3.2.x-Chelsea.src.tgz,
+# from package released as GPL v2 http://www.samsung.com/global/opensource/files/32B650.zip
+--- old/kernel/irq/chip.c	2010-07-04 08:00:06.000000000 +0200
++++ new/kernel/irq/chip.c	2008-07-24 02:41:51.000000000 +0200
+@@ -388,11 +388,12 @@
+ 	desc->status |= IRQ_INPROGRESS;
+ 
+ 	/*
+-	 * In the threaded case we fall back to a mask+ack sequence:
++	 * In the threaded case we fall back to a mask+eoi sequence:
+ 	 */
+ 	if (redirect_hardirq(desc)) {
+-		mask_ack_irq(desc, irq);
+-		goto out_unlock;
++		if (desc->chip->mask)
++			desc->chip->mask(irq);
++		goto out;
+ 	}
+ 
+ 	desc->status &= ~IRQ_PENDING;
+@@ -406,7 +407,6 @@
+ 	desc->status &= ~IRQ_INPROGRESS;
+ out:
+ 	desc->chip->eoi(irq);
+-out_unlock:
+ 	spin_unlock(&desc->lock);
+ }
+ 
+--- old/kernel/irq/manage.c	2010-07-04 08:35:42.000000000 +0200
++++ new/kernel/irq/manage.c	2008-07-24 02:41:51.000000000 +0200
+@@ -542,6 +543,7 @@
+ 	unsigned int irq = desc - irq_desc;
+ 	irqreturn_t action_ret;
+ 
++	restart:
+ 	if (action && !desc->depth) {
+ 		spin_unlock(&desc->lock);
+ 		action_ret = handle_IRQ_event(irq, NULL, action);
+@@ -551,6 +553,19 @@
+ 		if (!noirqdebug)
+ 			note_interrupt(irq, desc, action_ret, NULL);
+ 	}
++	
++	/*
++	 * Some boards will disable an interrupt when it
++	 * sets IRQ_PENDING . So we have to remove the flag
++	 * and re-enable to handle it.
++	 */
++	if (desc->status & IRQ_PENDING) {
++		desc->status &= ~IRQ_PENDING;
++		if (desc->chip)
++			desc->chip->enable(irq);
++		goto restart;
++	}
++
+ 	desc->status &= ~IRQ_INPROGRESS;
+ }
+ 
+@@ -690,11 +705,9 @@
+ 	current->flags |= PF_NOFREEZE | PF_HARDIRQ;
+ 
+ 	/*
+-	 * Scale irq thread priorities from prio 50 to prio 25
++	 * Set irq thread priority to SCHED_FIFO/50:
+ 	 */
+-	param.sched_priority = curr_irq_prio;
+-	if (param.sched_priority > 25)
+-		curr_irq_prio = param.sched_priority - 1;
++	param.sched_priority = MAX_USER_RT_PRIO/2;
+ 
+ 	sys_sched_setscheduler(current->pid, SCHED_FIFO, &param);
+ 
+--- old/kernel/softirq.c	2010-07-04 08:00:06.000000000 +0200
++++ new/kernel/softirq.c	2008-07-24 02:41:51.000000000 +0200
+@@ -693,12 +693,11 @@
+ 
+ static int ksoftirqd(void * __data)
+ {
+-	struct sched_param param = { .sched_priority = MAX_RT_PRIO/4-1 };
++	struct sched_param param = { .sched_priority = MAX_USER_RT_PRIO/2 };
+ 	struct softirqdata *data = __data;
+ 	u32 mask = (1 << data->nr);
+ 	struct softirq_action *h;
+ 
+-	param.sched_priority = 1;
+ 	sys_sched_setscheduler(current->pid, SCHED_FIFO, &param);
+ //	set_user_nice(current, -10);
+ 	current->flags |= PF_NOFREEZE | PF_SOFTIRQ;
+@@ -843,12 +842,6 @@
+ 
+ 	switch (action) {
+ 	case CPU_UP_PREPARE:
+-		/* We may have tasklets already scheduled on
+-		   processor 0, so don't check there. */
+-		if (hotcpu != 0) {
+-			BUG_ON(per_cpu(tasklet_vec, hotcpu).list);
+-			BUG_ON(per_cpu(tasklet_hi_vec, hotcpu).list);
+-		}
+ 		for (i = 0; i < MAX_SOFTIRQ; i++) {
+ 			per_cpu(ksoftirqd[i].nr, hotcpu) = i;
+ 			per_cpu(ksoftirqd[i].cpu, hotcpu) = hotcpu;
+@@ -868,8 +861,6 @@
+ 		break;
+ #ifdef CONFIG_HOTPLUG_CPU
+ 	case CPU_UP_CANCELED:
+-		if (!per_cpu(ksoftirqd, hotcpu))
+-			break;
+ 		/* Unbind so it can run.  Fall thru. */
+ 		for (i = 0; i < MAX_SOFTIRQ; i++)
+ 			if (!per_cpu(ksoftirqd[i].tsk, hotcpu))

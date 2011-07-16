@@ -1,0 +1,866 @@
+# This patch content was copied from Samsung kernel sources SELP.3.2.x-Chelsea.src.tgz,
+# from package released as GPL v2 http://www.samsung.com/global/opensource/files/32B650.zip
+--- old/fs/ntfs/ChangeLog	2007-02-24 00:52:30.000000000 +0100
++++ new/fs/ntfs/ChangeLog	2008-08-07 15:25:14.000000000 +0200
+@@ -17,6 +17,25 @@
+ 	  happen is unclear however so it is worth waiting until someone hits
+ 	  the problem.
+ 
++2.1.29 - Fix a deadlock at mount time.
++
++       - During mount the VFS holds s_umount lock on the superblock.  So when
++         we try to empty the journal $LogFile contents by calling
++         ntfs_attr_set() when the machine does not have much memory and the
++         journal is large ntfs_attr_set() results in the VM trying to balance
++         dirty pages which in turn tries to that the s_umount lock and thus we
++         get a deadlock.  The solution is to not use ntfs_attr_set() and
++         instead do the zeroing by hand at the block level rather than page
++         cache level.
++       - Fix sparse warnings.
++	  
++2.1.28 - Fix a deadlock.
++
++       - Fix deadlock in fs/ntfs/inode.c::ntfs_put_inode().  Thanks to Sergey
++         Vlasov for the report and detailed analysis of the deadlock.  The fix
++         involved getting rid of ntfs_put_inode() altogether and hence NTFS no
++         longer has a ->put_inode super operation.
++
+ 2.1.27 - Various bug fixes and cleanups.
+ 
+ 	- Fix two compiler warnings on Alpha.  Thanks to Andrew Morton for
+@@ -1566,7 +1585,7 @@
+ 	  for reading $MFT (ntfs_mft_readpage). In the process create dedicated
+ 	  address space operations (ntfs_mft_aops) for $MFT inode mapping. Also
+ 	  removed the now superfluous exports from the kernel core patch.
+-	- Fix a bug where kfree() was used insted of ntfs_free().
++	- Fix a bug where kfree() was used instead of ntfs_free().
+ 	- Change map_mft_record() to take ntfs_inode as argument instead of
+ 	  vfs inode. Dito for unmap_mft_record(). Adapt all callers.
+ 	- Add pointer to ntfs_volume to ntfs_inode.
+--- old/fs/ntfs/Makefile	2007-02-24 00:52:30.000000000 +0100
++++ new/fs/ntfs/Makefile	2008-08-07 15:28:51.000000000 +0200
+@@ -6,7 +6,7 @@
+ 	     index.o inode.o mft.o mst.o namei.o runlist.o super.o sysctl.o \
+ 	     unistr.o upcase.o
+ 
+-EXTRA_CFLAGS = -DNTFS_VERSION=\"2.1.27\"
++EXTRA_CFLAGS = -DNTFS_VERSION=\"2.1.29\"
+ 
+ ifeq ($(CONFIG_NTFS_DEBUG),y)
+ EXTRA_CFLAGS += -DDEBUG
+--- old/fs/ntfs/aops.c	2010-07-04 08:00:06.000000000 +0200
++++ new/fs/ntfs/aops.c	2008-08-07 15:24:56.000000000 +0200
+@@ -2,7 +2,7 @@
+  * aops.c - NTFS kernel address space operations and page cache handling.
+  *	    Part of the Linux-NTFS project.
+  *
+- * Copyright (c) 2001-2006 Anton Altaparmakov
++ * Copyright (c) 2001-2007 Anton Altaparmakov
+  * Copyright (c) 2002 Richard Russon
+  *
+  * This program/include file is free software; you can redistribute it and/or
+@@ -398,7 +398,7 @@
+ 	loff_t i_size;
+ 	struct inode *vi;
+ 	ntfs_inode *ni, *base_ni;
+-	u8 *kaddr;
++	u8 *addr;
+ 	ntfs_attr_search_ctx *ctx;
+ 	MFT_RECORD *mrec;
+ 	unsigned long flags;
+@@ -453,8 +453,8 @@
+ 	 * ok to ignore the compressed flag here.
+ 	 */
+ 	if (unlikely(page->index > 0)) {
+-		kaddr = kmap_atomic(page, KM_USER0);
+-		memset(kaddr, 0, PAGE_CACHE_SIZE);
++		addr = kmap_atomic(page, KM_USER0);
++		memset(addr, 0, PAGE_CACHE_SIZE);
+ 		flush_dcache_page(page);
+ 		kunmap_atomic(kaddr, KM_USER0);
+ 		goto done;
+@@ -496,15 +496,15 @@
+ 		/* Race with shrinking truncate. */
+ 		attr_len = i_size;
+ 	}
+-	kaddr = kmap_atomic(page, KM_USER0);
++	addr = kmap_atomic(page, KM_USER0);
+ 	/* Copy the data to the page. */
+-	memcpy(kaddr, (u8*)ctx->attr +
++	memcpy(addr, (u8*)ctx->attr +
+ 			le16_to_cpu(ctx->attr->data.resident.value_offset),
+ 			attr_len);
+ 	/* Zero the remainder of the page. */
+-	memset(kaddr + attr_len, 0, PAGE_CACHE_SIZE - attr_len);
++	memset(addr + attr_len, 0, PAGE_CACHE_SIZE - attr_len);
+ 	flush_dcache_page(page);
+-	kunmap_atomic(kaddr, KM_USER0);
++	kunmap_atomic(addr, KM_USER0);
+ put_unm_err_out:
+ 	ntfs_attr_put_search_ctx(ctx);
+ unm_err_out:
+@@ -517,7 +517,6 @@
+ }
+ 
+ #ifdef NTFS_RW
+-
+ /**
+  * ntfs_write_block - write a @page to the backing store
+  * @page:	page cache page to write out
+@@ -1353,7 +1352,7 @@
+ 	loff_t i_size;
+ 	struct inode *vi = page->mapping->host;
+ 	ntfs_inode *base_ni = NULL, *ni = NTFS_I(vi);
+-	char *kaddr;
++	char *addr;
+ 	ntfs_attr_search_ctx *ctx = NULL;
+ 	MFT_RECORD *m = NULL;
+ 	u32 attr_len;
+@@ -1415,9 +1414,9 @@
+ 		if (page->index >= (i_size >> PAGE_CACHE_SHIFT)) {
+ 			/* The page straddles i_size. */
+ 			unsigned int ofs = i_size & ~PAGE_CACHE_MASK;
+-			kaddr = kmap_atomic(page, KM_USER0);
+-			memset(kaddr + ofs, 0, PAGE_CACHE_SIZE - ofs);
+-			kunmap_atomic(kaddr, KM_USER0);
++			addr = kmap_atomic(page, KM_USER0);
++			memset(addr + ofs, 0, PAGE_CACHE_SIZE - ofs);
++			kunmap_atomic(addr, KM_USER0);
+ 			flush_dcache_page(page);
+ 		}
+ 		/* Handle mst protected attributes. */
+@@ -1495,14 +1494,14 @@
+ 		/* Shrinking cannot fail. */
+ 		BUG_ON(err);
+ 	}
+-	kaddr = kmap_atomic(page, KM_USER0);
++	addr = kmap_atomic(page, KM_USER0);
+ 	/* Copy the data from the page to the mft record. */
+ 	memcpy((u8*)ctx->attr +
+ 			le16_to_cpu(ctx->attr->data.resident.value_offset),
+-			kaddr, attr_len);
++			addr, attr_len);
+ 	/* Zero out of bounds area in the page cache page. */
+-	memset(kaddr + attr_len, 0, PAGE_CACHE_SIZE - attr_len);
+-	kunmap_atomic(kaddr, KM_USER0);
++	memset(addr + attr_len, 0, PAGE_CACHE_SIZE - attr_len);
++	kunmap_atomic(addr, KM_USER0);
+ 	flush_dcache_page(page);
+ 	flush_dcache_mft_record_page(ctx->ntfs_ino);
+ 	/* We are done with the page. */
+--- old/fs/ntfs/attrib.c	2007-02-24 00:52:30.000000000 +0100
++++ new/fs/ntfs/attrib.c	2008-08-07 15:22:45.000000000 +0200
+@@ -1,7 +1,7 @@
+ /**
+  * attrib.c - NTFS attribute operations.  Part of the Linux-NTFS project.
+  *
+- * Copyright (c) 2001-2006 Anton Altaparmakov
++ * Copyright (c) 2001-2007 Anton Altaparmakov
+  * Copyright (c) 2002 Richard Russon
+  *
+  * This program/include file is free software; you can redistribute it and/or
+@@ -2555,6 +2555,8 @@
+ 		kunmap_atomic(kaddr, KM_USER0);
+ 		set_page_dirty(page);
+ 		page_cache_release(page);
++		balance_dirty_pages_ratelimited(mapping);
++		cond_resched();		
+ 		if (idx == end)
+ 			goto done;
+ 		idx++;
+@@ -2618,6 +2620,8 @@
+ 		kunmap_atomic(kaddr, KM_USER0);
+ 		set_page_dirty(page);
+ 		page_cache_release(page);
++		balance_dirty_pages_ratelimited(mapping);
++		cond_resched();		
+ 	}
+ done:
+ 	ntfs_debug("Done.");
+--- old/fs/ntfs/dir.c	2007-02-24 00:52:30.000000000 +0100
++++ new/fs/ntfs/dir.c	2008-08-07 15:24:42.000000000 +0200
+@@ -1,7 +1,7 @@
+ /**
+  * dir.c - NTFS kernel directory operations. Part of the Linux-NTFS project.
+  *
+- * Copyright (c) 2001-2005 Anton Altaparmakov
++ * Copyright (c) 2001-2007 Anton Altaparmakov
+  * Copyright (c) 2002 Richard Russon
+  *
+  * This program/include file is free software; you can redistribute it and/or
+@@ -1250,16 +1250,13 @@
+ 	/* Get the offset into the index allocation attribute. */
+ 	ia_pos = (s64)fpos - vol->mft_record_size;
+ 	ia_mapping = vdir->i_mapping;
+-	bmp_vi = ndir->itype.index.bmp_ino;
+-	if (unlikely(!bmp_vi)) {
+-		ntfs_debug("Inode 0x%lx, regetting index bitmap.", vdir->i_ino);
+-		bmp_vi = ntfs_attr_iget(vdir, AT_BITMAP, I30, 4);
+-		if (IS_ERR(bmp_vi)) {
+-			ntfs_error(sb, "Failed to get bitmap attribute.");
+-			err = PTR_ERR(bmp_vi);
+-			goto err_out;
+-		}
+-		ndir->itype.index.bmp_ino = bmp_vi;
++
++       ntfs_debug("Inode 0x%lx, getting index bitmap.", vdir->i_ino);
++       bmp_vi = ntfs_attr_iget(vdir, AT_BITMAP, I30, 4);
++       if (IS_ERR(bmp_vi)) {
++		ntfs_error(sb, "Failed to get bitmap attribute.");
++		err = PTR_ERR(bmp_vi);
++		goto err_out;
+ 	}
+ 	bmp_mapping = bmp_vi->i_mapping;
+ 	/* Get the starting bitmap bit position and sanity check it. */
+@@ -1267,7 +1264,7 @@
+ 	if (unlikely(bmp_pos >> 3 >= i_size_read(bmp_vi))) {
+ 		ntfs_error(sb, "Current index allocation position exceeds "
+ 				"index bitmap size.");
+-		goto err_out;
++		goto iput_err_out;
+ 	}
+ 	/* Get the starting bit position in the current bitmap page. */
+ 	cur_bmp_pos = bmp_pos & ((PAGE_CACHE_SIZE * 8) - 1);
+@@ -1283,7 +1280,7 @@
+ 		ntfs_error(sb, "Reading index bitmap failed.");
+ 		err = PTR_ERR(bmp_page);
+ 		bmp_page = NULL;
+-		goto err_out;
++		goto iput_err_out;
+ 	}
+ 	bmp = (u8*)page_address(bmp_page);
+ 	/* Find next index block in use. */
+@@ -1430,6 +1427,7 @@
+ 			/* @ia_page is already unlocked in this case. */
+ 			ntfs_unmap_page(ia_page);
+ 			ntfs_unmap_page(bmp_page);
++			iput(bmp_vi);
+ 			goto abort;
+ 		}
+ 	}
+@@ -1440,6 +1438,7 @@
+ 		ntfs_unmap_page(ia_page);
+ 	}
+ 	ntfs_unmap_page(bmp_page);
++	iput(bmp_vi);
+ EOD:
+ 	/* We are finished, set fpos to EOD. */
+ 	fpos = i_size + vol->mft_record_size;
+@@ -1456,8 +1455,11 @@
+ 	filp->f_pos = fpos;
+ 	return 0;
+ err_out:
+-	if (bmp_page)
++       if (bmp_page) {
+ 		ntfs_unmap_page(bmp_page);
++iput_err_out:
++		iput(bmp_vi);
++	}		
+ 	if (ia_page) {
+ 		unlock_page(ia_page);
+ 		ntfs_unmap_page(ia_page);
+@@ -1530,14 +1532,23 @@
+ static int ntfs_dir_fsync(struct file *filp, struct dentry *dentry,
+ 		int datasync)
+ {
+-	struct inode *vi = dentry->d_inode;
+-	ntfs_inode *ni = NTFS_I(vi);
++	struct inode *bmp_vi, *vi = dentry->d_inode;
+ 	int err, ret;
++	ntfs_attr na;
+ 
+ 	ntfs_debug("Entering for inode 0x%lx.", vi->i_ino);
+ 	BUG_ON(!S_ISDIR(vi->i_mode));
+-	if (NInoIndexAllocPresent(ni) && ni->itype.index.bmp_ino)
+-		write_inode_now(ni->itype.index.bmp_ino, !datasync);
++
++       /* If the bitmap attribute inode is in memory sync it, too. */
++	na.mft_no = vi->i_ino;
++	na.type = AT_BITMAP;
++	na.name = I30;
++	na.name_len = 4;
++	bmp_vi = ilookup5(vi->i_sb, vi->i_ino, (test_t)ntfs_test_inode, &na);
++	if (bmp_vi) {
++		write_inode_now(bmp_vi, !datasync);
++		iput(bmp_vi);
++	}
+ 	ret = ntfs_write_inode(vi, 1);
+ 	write_inode_now(vi, !datasync);
+ 	err = sync_blockdev(vi->i_sb->s_bdev);
+--- old/fs/ntfs/file.c	2007-02-24 00:52:30.000000000 +0100
++++ new/fs/ntfs/file.c	2008-08-07 15:26:18.000000000 +0200
+@@ -1,7 +1,7 @@
+ /*
+  * file.c - NTFS kernel file operations.  Part of the Linux-NTFS project.
+  *
+- * Copyright (c) 2001-2006 Anton Altaparmakov
++ * Copyright (c) 2001-2007 Anton Altaparmakov
+  *
+  * This program/include file is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License as published
+@@ -22,7 +22,6 @@
+ #include <linux/buffer_head.h>
+ #include <linux/pagemap.h>
+ #include <linux/pagevec.h>
+-#include <linux/sched.h>
+ #include <linux/swap.h>
+ #include <linux/uio.h>
+ #include <linux/writeback.h>
+@@ -362,7 +361,7 @@
+ 	volatile char c;
+ 
+ 	/* Set @end to the first byte outside the last page we care about. */
+-	end = (const char __user*)PAGE_ALIGN((ptrdiff_t __user)uaddr + bytes);
++	end = (const char __user*)PAGE_ALIGN((unsigned long)uaddr + bytes);
+ 
+ 	while (!__get_user(c, uaddr) && (uaddr += PAGE_SIZE, uaddr < end))
+ 		;
+@@ -532,7 +531,8 @@
+ 	blocksize_bits = vol->sb->s_blocksize_bits;
+ 	u = 0;
+ 	do {
+-		struct page *page = pages[u];
++		page = pages[u];
++		BUG_ON(!page);
+ 		/*
+ 		 * create_empty_buffers() will create uptodate/dirty buffers if
+ 		 * the page is uptodate/dirty.
+@@ -1312,7 +1312,7 @@
+ 		size_t bytes)
+ {
+ 	struct page **last_page = pages + nr_pages;
+-	char *kaddr;
++	char *addr;
+ 	size_t total = 0;
+ 	unsigned len;
+ 	int left;
+@@ -1321,13 +1321,13 @@
+ 		len = PAGE_CACHE_SIZE - ofs;
+ 		if (len > bytes)
+ 			len = bytes;
+-		kaddr = kmap_atomic(*pages, KM_USER0);
+-		left = __copy_from_user_inatomic(kaddr + ofs, buf, len);
+-		kunmap_atomic(kaddr, KM_USER0);
++		addr = kmap_atomic(*pages, KM_USER0);
++		left = __copy_from_user_inatomic(addr + ofs, buf, len);
++		kunmap_atomic(addr, KM_USER0);
+ 		if (unlikely(left)) {
+ 			/* Do it the slow way. */
+-			kaddr = kmap(*pages);
+-			left = __copy_from_user(kaddr + ofs, buf, len);
++			addr = kmap(*pages);
++			left = __copy_from_user(addr + ofs, buf, len);
+ 			kunmap(*pages);
+ 			if (unlikely(left))
+ 				goto err_out;
+@@ -1351,9 +1351,9 @@
+ 		len = PAGE_CACHE_SIZE;
+ 		if (len > bytes)
+ 			len = bytes;
+-		kaddr = kmap_atomic(*pages, KM_USER0);
+-		memset(kaddr, 0, len);
+-		kunmap_atomic(kaddr, KM_USER0);
++		addr = kmap_atomic(*pages, KM_USER0);
++		memset(addr, 0, len);
++		kunmap_atomic(addr, KM_USER0);
+ 	}
+ 	goto out;
+ }
+@@ -1431,26 +1431,26 @@
+ 		size_t *iov_ofs, size_t bytes)
+ {
+ 	struct page **last_page = pages + nr_pages;
+-	char *kaddr;
++	char *addr;
+ 	size_t copied, len, total = 0;
+ 
+ 	do {
+ 		len = PAGE_CACHE_SIZE - ofs;
+ 		if (len > bytes)
+ 			len = bytes;
+-		kaddr = kmap_atomic(*pages, KM_USER0);
+-		copied = __ntfs_copy_from_user_iovec_inatomic(kaddr + ofs,
++		addr = kmap_atomic(*pages, KM_USER0);
++		copied = __ntfs_copy_from_user_iovec_inatomic(addr + ofs,
+ 				*iov, *iov_ofs, len);
+-		kunmap_atomic(kaddr, KM_USER0);
++		kunmap_atomic(addr, KM_USER0);
+ 		if (unlikely(copied != len)) {
+ 			/* Do it the slow way. */
+-			kaddr = kmap(*pages);
+-			copied = __ntfs_copy_from_user_iovec_inatomic(kaddr + ofs,
++			addr = kmap(*pages);
++			copied = __ntfs_copy_from_user_iovec_inatomic(addr + ofs,
+ 					*iov, *iov_ofs, len);
+ 			/*
+ 			 * Zero the rest of the target like __copy_from_user().
+ 			 */
+-			memset(kaddr + ofs + copied, 0, len - copied);
++			memset(addr + ofs + copied, 0, len - copied);
+ 			kunmap(*pages);
+ 			if (unlikely(copied != len))
+ 				goto err_out;
+@@ -1474,9 +1474,9 @@
+ 		len = PAGE_CACHE_SIZE;
+ 		if (len > bytes)
+ 			len = bytes;
+-		kaddr = kmap_atomic(*pages, KM_USER0);
+-		memset(kaddr, 0, len);
+-		kunmap_atomic(kaddr, KM_USER0);
++		addr = kmap_atomic(*pages, KM_USER0);
++		memset(addr, 0, len);
++		kunmap_atomic(addr, KM_USER0);
+ 	}
+ 	goto out;
+ }
+@@ -1760,8 +1760,6 @@
+ 	read_unlock_irqrestore(&ni->size_lock, flags);
+ 	BUG_ON(initialized_size != i_size);
+ 	if (end > initialized_size) {
+-		unsigned long flags;
+-
+ 		write_lock_irqsave(&ni->size_lock, flags);
+ 		ni->initialized_size = end;
+ 		i_size_write(vi, end);
+--- old/fs/ntfs/inode.c	2007-02-24 00:52:30.000000000 +0100
++++ new/fs/ntfs/inode.c	2008-08-07 15:27:24.000000000 +0200
+@@ -1,7 +1,7 @@
+ /**
+  * inode.c - NTFS kernel inode handling. Part of the Linux-NTFS project.
+  *
+- * Copyright (c) 2001-2006 Anton Altaparmakov
++ * Copyright (c) 2001-2007 Anton Altaparmakov
+  *
+  * This program/include file is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License as published
+@@ -35,7 +35,6 @@
+ #include "dir.h"
+ #include "debug.h"
+ #include "inode.h"
+-#include "attrib.h"
+ #include "lcnalloc.h"
+ #include "malloc.h"
+ #include "mft.h"
+@@ -95,7 +94,7 @@
+  * If initializing the normal file/directory inode, set @na->type to AT_UNUSED.
+  * In that case, @na->name and @na->name_len should be set to NULL and 0,
+  * respectively. Although that is not strictly necessary as
+- * ntfs_read_inode_locked() will fill them in later.
++ * ntfs_read_locked_inode() will fill them in later.
+  *
+  * Return 0 on success and -errno on error.
+  *
+@@ -171,8 +170,8 @@
+ struct inode *ntfs_iget(struct super_block *sb, unsigned long mft_no)
+ {
+ 	struct inode *vi;
+-	ntfs_attr na;
+ 	int err;
++	ntfs_attr na;
+ 
+ 	na.mft_no = mft_no;
+ 	na.type = AT_UNUSED;
+@@ -229,8 +228,8 @@
+ 		ntfschar *name, u32 name_len)
+ {
+ 	struct inode *vi;
+-	ntfs_attr na;
+ 	int err;
++	ntfs_attr na;
+ 
+ 	/* Make sure no one calls ntfs_attr_iget() for indices. */
+ 	BUG_ON(type == AT_INDEX_ALLOCATION);
+@@ -287,8 +286,8 @@
+ 		u32 name_len)
+ {
+ 	struct inode *vi;
+-	ntfs_attr na;
+ 	int err;
++	ntfs_attr na;
+ 
+ 	na.mft_no = base_vi->i_ino;
+ 	na.type = AT_INDEX_ALLOCATION;
+@@ -402,7 +401,6 @@
+ 	ntfs_init_runlist(&ni->attr_list_rl);
+ 	lockdep_set_class(&ni->attr_list_rl.lock,
+ 				&attr_list_rl_lock_class);
+-	ni->itype.index.bmp_ino = NULL;
+ 	ni->itype.index.block_size = 0;
+ 	ni->itype.index.vcn_size = 0;
+ 	ni->itype.index.collation_rule = 0;
+@@ -546,6 +544,7 @@
+ {
+ 	ntfs_volume *vol = NTFS_SB(vi->i_sb);
+ 	ntfs_inode *ni;
++	struct inode *bvi;
+ 	MFT_RECORD *m;
+ 	ATTR_RECORD *a;
+ 	STANDARD_INFORMATION *si;
+@@ -782,7 +781,6 @@
+ 	 */
+ 	if (S_ISDIR(vi->i_mode)) {
+ 		loff_t bvi_size;
+-		struct inode *bvi;
+ 		ntfs_inode *bni;
+ 		INDEX_ROOT *ir;
+ 		u8 *ir_end, *index_end;
+@@ -987,13 +985,12 @@
+ 			err = PTR_ERR(bvi);
+ 			goto unm_err_out;
+ 		}
+-		ni->itype.index.bmp_ino = bvi;
+ 		bni = NTFS_I(bvi);
+ 		if (NInoCompressed(bni) || NInoEncrypted(bni) ||
+ 				NInoSparse(bni)) {
+ 			ntfs_error(vi->i_sb, "$BITMAP attribute is compressed "
+ 					"and/or encrypted and/or sparse.");
+-			goto unm_err_out;
++			goto iput_unm_err_out;
+ 		}
+ 		/* Consistency check bitmap size vs. index allocation size. */
+ 		bvi_size = i_size_read(bvi);
+@@ -1002,8 +999,10 @@
+ 			ntfs_error(vi->i_sb, "Index bitmap too small (0x%llx) "
+ 					"for index allocation (0x%llx).",
+ 					bvi_size << 3, vi->i_size);
+-			goto unm_err_out;
++			goto iput_unm_err_out;
+ 		}
++		/* No longer need the bitmap attribute inode. */
++		iput(bvi);		
+ skip_large_dir_stuff:
+ 		/* Setup the operations for this inode. */
+ 		vi->i_op = &ntfs_dir_inode_ops;
+@@ -1179,6 +1178,8 @@
+ 	ntfs_debug("Done.");
+ 	return 0;
+ 
++iput_unm_err_out:
++	iput(bvi);
+ unm_err_out:
+ 	if (!err)
+ 		err = -EIO;
+@@ -1701,7 +1702,7 @@
+ 				vi->i_size);
+ 		goto iput_unm_err_out;
+ 	}
+-	ni->itype.index.bmp_ino = bvi;
++	iput(bvi);
+ skip_large_index_stuff:
+ 	/* Setup the operations for this index inode. */
+ 	vi->i_op = NULL;
+@@ -1718,7 +1719,6 @@
+ 
+ 	ntfs_debug("Done.");
+ 	return 0;
+-
+ iput_unm_err_out:
+ 	iput(bvi);
+ unm_err_out:
+@@ -2195,37 +2195,6 @@
+ 	return -1;
+ }
+ 
+-/**
+- * ntfs_put_inode - handler for when the inode reference count is decremented
+- * @vi:		vfs inode
+- *
+- * The VFS calls ntfs_put_inode() every time the inode reference count (i_count)
+- * is about to be decremented (but before the decrement itself.
+- *
+- * If the inode @vi is a directory with two references, one of which is being
+- * dropped, we need to put the attribute inode for the directory index bitmap,
+- * if it is present, otherwise the directory inode would remain pinned for
+- * ever.
+- */
+-void ntfs_put_inode(struct inode *vi)
+-{
+-	if (S_ISDIR(vi->i_mode) && atomic_read(&vi->i_count) == 2) {
+-		ntfs_inode *ni = NTFS_I(vi);
+-		if (NInoIndexAllocPresent(ni)) {
+-			struct inode *bvi = NULL;
+-			mutex_lock(&vi->i_mutex);
+-			if (atomic_read(&vi->i_count) == 2) {
+-				bvi = ni->itype.index.bmp_ino;
+-				if (bvi)
+-					ni->itype.index.bmp_ino = NULL;
+-			}
+-			mutex_unlock(&vi->i_mutex);
+-			if (bvi)
+-				iput(bvi);
+-		}
+-	}
+-}
+-
+ static void __ntfs_clear_inode(ntfs_inode *ni)
+ {
+ 	/* Free all alocated memory. */
+@@ -2291,18 +2260,6 @@
+ {
+ 	ntfs_inode *ni = NTFS_I(vi);
+ 
+-	/*
+-	 * If the inode @vi is an index inode we need to put the attribute
+-	 * inode for the index bitmap, if it is present, otherwise the index
+-	 * inode would disappear and the attribute inode for the index bitmap
+-	 * would no longer be referenced from anywhere and thus it would remain
+-	 * pinned for ever.
+-	 */
+-	if (NInoAttr(ni) && (ni->type == AT_INDEX_ALLOCATION) &&
+-			NInoIndexAllocPresent(ni) && ni->itype.index.bmp_ino) {
+-		iput(ni->itype.index.bmp_ino);
+-		ni->itype.index.bmp_ino = NULL;
+-	}
+ #ifdef NTFS_RW
+ 	if (NInoDirty(ni)) {
+ 		BOOL was_bad = (is_bad_inode(vi));
+@@ -2548,8 +2505,6 @@
+ 	/* Resize the attribute record to best fit the new attribute size. */
+ 	if (new_size < vol->mft_record_size &&
+ 			!ntfs_resident_attr_value_resize(m, a, new_size)) {
+-		unsigned long flags;
+-
+ 		/* The resize succeeded! */
+ 		flush_dcache_mft_record_page(ctx->ntfs_ino);
+ 		mark_mft_record_dirty(ctx->ntfs_ino);
+--- old/fs/ntfs/inode.h	2007-02-24 00:52:30.000000000 +0100
++++ new/fs/ntfs/inode.h	2008-08-07 15:27:54.000000000 +0200
+@@ -2,7 +2,7 @@
+  * inode.h - Defines for inode structures NTFS Linux kernel driver. Part of
+  *	     the Linux-NTFS project.
+  *
+- * Copyright (c) 2001-2005 Anton Altaparmakov
++ * Copyright (c) 2001-2007 Anton Altaparmakov
+  * Copyright (c) 2002 Richard Russon
+  *
+  * This program/include file is free software; you can redistribute it and/or
+@@ -101,8 +101,6 @@
+ 	runlist attr_list_rl;	/* Run list for the attribute list value. */
+ 	union {
+ 		struct { /* It is a directory, $MFT, or an index inode. */
+-			struct inode *bmp_ino;	/* Attribute inode for the
+-						   index $BITMAP. */
+ 			u32 block_size;		/* Size of an index block. */
+ 			u32 vcn_size;		/* Size of a vcn in this
+ 						   index. */
+@@ -300,8 +298,6 @@
+ 
+ extern int ntfs_read_inode_mount(struct inode *vi);
+ 
+-extern void ntfs_put_inode(struct inode *vi);
+-
+ extern int ntfs_show_options(struct seq_file *sf, struct vfsmount *mnt);
+ 
+ #ifdef NTFS_RW
+--- old/fs/ntfs/logfile.c	2007-02-24 00:52:30.000000000 +0100
++++ new/fs/ntfs/logfile.c	2008-08-07 15:28:39.000000000 +0200
+@@ -1,7 +1,7 @@
+ /*
+  * logfile.c - NTFS kernel journal handling. Part of the Linux-NTFS project.
+  *
+- * Copyright (c) 2002-2005 Anton Altaparmakov
++ * Copyright (c) 2002-2007 Anton Altaparmakov
+  *
+  * This program/include file is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License as published
+@@ -724,24 +724,140 @@
+  */
+ BOOL ntfs_empty_logfile(struct inode *log_vi)
+ {
+-	ntfs_volume *vol = NTFS_SB(log_vi->i_sb);
++	VCN vcn, end_vcn;
++	ntfs_inode *log_ni = NTFS_I(log_vi);
++	ntfs_volume *vol = log_ni->vol;
++	struct super_block *sb = vol->sb;
++	runlist_element *rl;
++	unsigned long flags;
++	unsigned block_size, block_size_bits;
++	int err;
++	BOOL should_wait = TRUE;
+ 
+ 	ntfs_debug("Entering.");
+-	if (!NVolLogFileEmpty(vol)) {
+-		int err;
+ 		
+-		err = ntfs_attr_set(NTFS_I(log_vi), 0, i_size_read(log_vi),
+-				0xff);
+-		if (unlikely(err)) {
+-			ntfs_error(vol->sb, "Failed to fill $LogFile with "
+-					"0xff bytes (error code %i).", err);
+-			return FALSE;
++	if (NVolLogFileEmpty(vol)) {
++		ntfs_debug("Done.");
++		return TRUE;
++	}
++	/*
++	* We cannot use ntfs_attr_set() because we may be still in the middle
++	* of a mount operation.  Thus we do the emptying by hand by first
++	* zapping the page cache pages for the $LogFile/$DATA attribute and
++	* then emptying each of the buffers in each of the clusters specified
++	* by the runlist by hand.
++	*/
++	block_size = sb->s_blocksize;
++	block_size_bits = sb->s_blocksize_bits;
++	vcn = 0;
++	read_lock_irqsave(&log_ni->size_lock, flags);
++	end_vcn = (log_ni->initialized_size + vol->cluster_size_mask) >>
++					vol->cluster_size_bits;
++	read_unlock_irqrestore(&log_ni->size_lock, flags);
++	truncate_inode_pages(log_vi->i_mapping, 0);
++	down_write(&log_ni->runlist.lock);
++	rl = log_ni->runlist.rl;
++	if (unlikely(!rl || vcn < rl->vcn || !rl->length)) {
++map_vcn:
++		err = ntfs_map_runlist_nolock(log_ni, vcn, NULL);
++		if (err) {
++			ntfs_error(sb, "Failed to map runlist fragment (error "
++						"%d).", -err);
++			goto err;
+ 		}
++		rl = log_ni->runlist.rl;
++		BUG_ON(!rl || vcn < rl->vcn || !rl->length);
++	}
++	/* Seek to the runlist element containing @vcn. */
++	while (rl->length && vcn >= rl[1].vcn)
++		rl++;
++	do {
++		LCN lcn;
++		sector_t block, end_block;
++		s64 len;
++
++		/*
++		* If this run is not mapped map it now and start again as the
++		* runlist will have been updated.
++		*/
++		lcn = rl->lcn;
++		if (unlikely(lcn == LCN_RL_NOT_MAPPED)) {
++			vcn = rl->vcn;
++			goto map_vcn;
++		}
++		/* If this run is not valid abort with an error. */
++		if (unlikely(!rl->length || lcn < LCN_HOLE))
++		goto rl_err;
++		/* Skip holes. */
++		if (lcn == LCN_HOLE)
++			continue;
++		block = lcn << vol->cluster_size_bits >> block_size_bits;
++		len = rl->length;
++		if (rl[1].vcn > end_vcn)
++			len = end_vcn - rl->vcn;
++		end_block = (lcn + len) << vol->cluster_size_bits >>
++					block_size_bits;
++		/* Iterate over the blocks in the run and empty them. */
++		do {
++			struct buffer_head *bh;
++
++			/* Obtain the buffer, possibly not uptodate. */
++			bh = sb_getblk(sb, block);
++			BUG_ON(!bh);
++			/* Setup buffer i/o submission. */
++			lock_buffer(bh);
++			bh->b_end_io = end_buffer_write_sync;
++			get_bh(bh);
++			/* Set the entire contents of the buffer to 0xff. */
++			memset(bh->b_data, -1, block_size);
++			if (!buffer_uptodate(bh))
++				set_buffer_uptodate(bh);
++			if (buffer_dirty(bh))
++				clear_buffer_dirty(bh);
++			/*
++			* Submit the buffer and wait for i/o to complete but
++			* only for the first buffer so we do not miss really
++			* serious i/o errors.  Once the first buffer has
++			* completed ignore errors afterwards as we can assume
++			* that if one buffer worked all of them will work.
++			*/
++			submit_bh(WRITE, bh);
++			if (should_wait) {
++				should_wait = FALSE;
++				wait_on_buffer(bh);
++				if (unlikely(!buffer_uptodate(bh)))
++					goto io_err;
++		}
++			brelse(bh);
++		} while (++block < end_block);
++	} while ((++rl)->vcn < end_vcn);
++	up_write(&log_ni->runlist.lock);
++	/*
++	* Zap the pages again just in case any got instantiated whilst we were
++	* emptying the blocks by hand.  FIXME: We may not have completed
++	* writing to all the buffer heads yet so this may happen too early.
++	* We really should use a kernel thread to do the emptying
++	* asynchronously and then we can also set the volume dirty and output
++	* an error message if emptying should fail.
++	*/
++	truncate_inode_pages(log_vi->i_mapping, 0);
+ 		/* Set the flag so we do not have to do it again on remount. */
+ 		NVolSetLogFileEmpty(vol);
+-	}
+ 	ntfs_debug("Done.");
+ 	return TRUE;
++io_err:
++	ntfs_error(sb, "Failed to write buffer.  Unmount and run chkdsk.");
++	goto dirty_err;
++rl_err:
++	ntfs_error(sb, "Runlist is corrupt.  Unmount and run chkdsk.");
++dirty_err:
++	NVolSetErrors(vol);
++	err = -EIO;
++err:
++	up_write(&log_ni->runlist.lock);
++	ntfs_error(sb, "Failed to fill $LogFile with 0xff bytes (error %d).",
++				-err);
++	return FALSE;	
+ }
+ 
+ #endif /* NTFS_RW */
+--- old/fs/ntfs/runlist.c	2007-02-24 00:52:30.000000000 +0100
++++ new/fs/ntfs/runlist.c	2008-08-07 15:29:06.000000000 +0200
+@@ -1,7 +1,7 @@
+ /**
+  * runlist.c - NTFS runlist handling code.  Part of the Linux-NTFS project.
+  *
+- * Copyright (c) 2001-2005 Anton Altaparmakov
++ * Copyright (c) 2001-2007 Anton Altaparmakov
+  * Copyright (c) 2002-2005 Richard Russon
+  *
+  * This program/include file is free software; you can redistribute it and/or
+@@ -1714,7 +1714,7 @@
+ 					sizeof(*rl));
+ 		/* Adjust the beginning of the tail if necessary. */
+ 		if (end > rl->vcn) {
+-			s64 delta = end - rl->vcn;
++			delta = end - rl->vcn;
+ 			rl->vcn = end;
+ 			rl->length -= delta;
+ 			/* Only adjust the lcn if it is real. */
+--- old/fs/ntfs/super.c	2007-02-24 00:52:30.000000000 +0100
++++ new/fs/ntfs/super.c	2008-08-07 15:29:32.000000000 +0200
+@@ -1,7 +1,7 @@
+ /*
+  * super.c - NTFS kernel super block handling. Part of the Linux-NTFS project.
+  *
+- * Copyright (c) 2001-2006 Anton Altaparmakov
++ * Copyright (c) 2001-2007 Anton Altaparmakov
+  * Copyright (c) 2001,2002 Richard Russon
+  *
+  * This program/include file is free software; you can redistribute it and/or
+@@ -2702,9 +2702,6 @@
+ static struct super_operations ntfs_sops = {
+ 	.alloc_inode	= ntfs_alloc_big_inode,	  /* VFS: Allocate new inode. */
+ 	.destroy_inode	= ntfs_destroy_big_inode, /* VFS: Deallocate inode. */
+-	.put_inode	= ntfs_put_inode,	  /* VFS: Called just before
+-						     the inode reference count
+-						     is decreased. */
+ #ifdef NTFS_RW
+ 	//.dirty_inode	= NULL,			/* VFS: Called from
+ 	//					   __mark_inode_dirty(). */
+@@ -3279,7 +3276,7 @@
+ }
+ 
+ MODULE_AUTHOR("Anton Altaparmakov <aia21@cantab.net>");
+-MODULE_DESCRIPTION("NTFS 1.2/3.x driver - Copyright (c) 2001-2006 Anton Altaparmakov");
++MODULE_DESCRIPTION("NTFS 1.2/3.x driver - Copyright (c) 2001-2007 Anton Altaparmakov");
+ MODULE_VERSION(NTFS_VERSION);
+ MODULE_LICENSE("GPL");
+ #ifdef DEBUG

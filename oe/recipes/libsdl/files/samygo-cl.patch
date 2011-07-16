@@ -1,0 +1,922 @@
+diff -urNP old/include/begin_code.h new/include/begin_code.h
+--- old/include/begin_code.h	2009-10-13 01:07:19.000000000 +0200
++++ new/include/begin_code.h	2011-06-08 12:21:27.000000000 +0200
+@@ -78,7 +78,7 @@
+ #  endif
+ # else
+ #  if defined(__GNUC__) && __GNUC__ >= 4
+-#   define DECLSPEC	__attribute__ ((visibility("default")))
++#   define DECLSPEC	__attribute__ ((visibility("hidden")))
+ #  else
+ #   define DECLSPEC
+ #  endif
+diff -urNP old/sdl-config.in new/sdl-config.in
+--- old/sdl-config.in	2009-10-13 01:07:20.000000000 +0200
++++ new/sdl-config.in	2011-06-08 12:21:35.000000000 +0200
+@@ -49,7 +49,7 @@
+ @ENABLE_SHARED_TRUE@      ;;
+ @ENABLE_STATIC_TRUE@@ENABLE_SHARED_TRUE@    --static-libs)
+ @ENABLE_STATIC_TRUE@@ENABLE_SHARED_FALSE@    --libs|--static-libs)
+-@ENABLE_STATIC_TRUE@      echo -L@libdir@ @SDL_RLD_FLAGS@ @SDL_STATIC_LIBS@
++@ENABLE_STATIC_TRUE@      echo -L@libdir@ @SDL_RLD_FLAGS@ -lSDL -lpthread -lm -ldl
+ @ENABLE_STATIC_TRUE@      ;;
+     *)
+       echo "${usage}" 1>&2
+diff -urNP old/src/SDL.c new/src/SDL.c
+--- old/src/SDL.c	2009-10-13 01:07:16.000000000 +0200
++++ new/src/SDL.c	2011-06-25 23:38:14.000000000 +0200
+@@ -33,6 +33,8 @@
+ #include <pth.h>
+ #endif
+ 
++#include <dlfcn.h>
++
+ /* Initialization/Cleanup routines */
+ #if !SDL_JOYSTICK_DISABLED
+ extern int  SDL_JoystickInit(void);
+@@ -147,6 +149,24 @@
+ 	return(0);
+ }
+ 
++unsigned *dl_PlayAudioBuffer;
++unsigned *dl_AudioInit;
++unsigned *dl_AudioClose;
++unsigned *dl_AudioPause;
++unsigned *dl_GetFrameBufferAddress;
++unsigned *dl_VideoInit;
++unsigned *dl_VideoClose;
++unsigned *dl_UpdateSurface;
++unsigned *dl_y_SetHWAlpha;
++unsigned *dl_y_SetHWColorKey;
++unsigned *dl_y_HWSWAccelBlit;
++unsigned *dl_y_HWAccelBlit;
++unsigned *dl_y_HWFillRect;
++unsigned *dl_y_AllocHWSurface;
++unsigned *dl_y_FreeHWSurface;
++unsigned *dl_InputKeyData;
++unsigned *dl_InputKeyState;
++
+ int SDL_Init(Uint32 flags)
+ {
+ #if !SDL_THREADS_DISABLED && SDL_THREAD_PTH
+@@ -155,6 +175,36 @@
+ 	}
+ #endif
+ 
++	// get dl handle from exeDSP
++	unsigned *handle;
++	if ((handle = dlopen(NULL, RTLD_LAZY | RTLD_GLOBAL)) == NULL) {
++		printf("Error: can not get dl handle from exeDSP!\n");
++		return(-1);
++	}
++	dl_PlayAudioBuffer = dlsym(handle, "PlayAudioBuffer");
++	dl_AudioInit = dlsym(handle, "AudioInit");
++	dl_AudioClose = dlsym(handle, "AudioClose");
++	dl_AudioPause = dlsym(handle, "AudioPause");
++	dl_GetFrameBufferAddress = dlsym(handle, "GetFrameBufferAddress");
++	dl_VideoInit = dlsym(handle, "VideoInit");
++	dl_VideoClose = dlsym(handle, "VideoClose");
++	dl_UpdateSurface = dlsym(handle, "UpdateSurface");
++	dl_y_SetHWAlpha = dlsym(handle, "y_SetHWAlpha");
++	dl_y_SetHWColorKey = dlsym(handle, "y_SetHWColorKey");
++	dl_y_HWSWAccelBlit = dlsym(handle, "y_HWSWAccelBlit");
++	dl_y_HWAccelBlit = dlsym(handle, "y_HWAccelBlit");
++	dl_y_HWFillRect = dlsym(handle, "y_HWFillRect");
++	dl_y_AllocHWSurface = dlsym(handle, "y_AllocHWSurface");
++	dl_y_FreeHWSurface = dlsym(handle, "y_FreeHWSurface");
++	dl_InputKeyData = dlsym(handle, "InputKeyData");
++	dl_InputKeyState = dlsym(handle, "InputKeyState");
++	dlclose(handle);
++
++	if (!dl_VideoInit || !dl_AudioInit) {
++		printf("Error: can not get functions from exeDSP!\n");
++		return(-1);
++	}
++
+ 	/* Clear the error message */
+ 	SDL_ClearError();
+ 
+diff -urNP old/src/audio/SDL_audio.c new/src/audio/SDL_audio.c
+--- old/src/audio/SDL_audio.c	2009-10-13 12:25:35.000000000 +0200
++++ new/src/audio/SDL_audio.c	2011-06-25 23:29:03.000000000 +0200
+@@ -117,9 +117,9 @@
+ };
+ SDL_AudioDevice *current_audio = NULL;
+ 
++extern unsigned *dl_AudioPause;
++
+ /* Various local functions */
+-int SDL_AudioInit(const char *driver_name);
+-void SDL_AudioQuit(void);
+ 
+ /* The general mixing thread function */
+ int SDLCALL SDL_RunAudio(void *audiop)
+@@ -592,6 +592,12 @@
+ 	if ( audio ) {
+ 		audio->paused = pause_on;
+ 	}
++
++	void (*func_AudioPause)(int) = (void (*)(int))(dl_AudioPause);
++
++	if ( current_audio )
++		if (SDL_strncmp(current_audio->name, "SDL SamsungTV Audio Device", SDL_strlen(current_audio->name)) == 0)
++			func_AudioPause(pause_on);
+ }
+ 
+ void SDL_LockAudio (void)
+diff -urNP old/src/audio/dummy/SDL_dummyaudio.c new/src/audio/dummy/SDL_dummyaudio.c
+--- old/src/audio/dummy/SDL_dummyaudio.c	2009-10-13 01:07:13.000000000 +0200
++++ new/src/audio/dummy/SDL_dummyaudio.c	2011-06-25 23:26:21.000000000 +0200
+@@ -34,7 +34,11 @@
+ #include "SDL_dummyaudio.h"
+ 
+ /* The tag name used by DUMMY audio */
+-#define DUMMYAUD_DRIVER_NAME         "dummy"
++#define DUMMYAUD_DRIVER_NAME         "SDL SamsungTV Audio Device"
++
++extern unsigned *dl_PlayAudioBuffer;
++extern unsigned *dl_AudioInit;
++extern unsigned *dl_AudioClose;
+ 
+ /* Audio driver functions */
+ static int DUMMYAUD_OpenAudio(_THIS, SDL_AudioSpec *spec);
+@@ -46,11 +50,7 @@
+ /* Audio driver bootstrap functions */
+ static int DUMMYAUD_Available(void)
+ {
+-	const char *envr = SDL_getenv("SDL_AUDIODRIVER");
+-	if (envr && (SDL_strcmp(envr, DUMMYAUD_DRIVER_NAME) == 0)) {
+-		return(1);
+-	}
+-	return(0);
++	return(1);
+ }
+ 
+ static void DUMMYAUD_DeleteDevice(SDL_AudioDevice *device)
+@@ -92,23 +92,34 @@
+ }
+ 
+ AudioBootStrap DUMMYAUD_bootstrap = {
+-	DUMMYAUD_DRIVER_NAME, "SDL dummy audio driver",
++	DUMMYAUD_DRIVER_NAME, "SDL SamsungTV audio driver",
+ 	DUMMYAUD_Available, DUMMYAUD_CreateDevice
+ };
+ 
+ /* This function waits until it is possible to write a full sound buffer */
+ static void DUMMYAUD_WaitAudio(_THIS)
+ {
+-	/* Don't block on first calls to simulate initial fragment filling. */
+-	if (this->hidden->initial_calls)
+-		this->hidden->initial_calls--;
+-	else
+-		SDL_Delay(this->hidden->write_delay);
++	Sint32 ticks;
++
++	if (this->hidden->FrameTick)
++	{
++		ticks = ((Sint32)(this->hidden->NextFrame - SDL_GetTicks())) - 10;
++		if (ticks > 0)
++		{
++			SDL_Delay(ticks);
++		}
++	}
+ }
+ 
+ static void DUMMYAUD_PlayAudio(_THIS)
+ {
+-	/* no-op...this is a null driver. */
++	void (*func_PlayAudioBuffer)(unsigned char *, int) = (void (*)(unsigned char *, int))(dl_PlayAudioBuffer);
++
++	if (this->hidden->mixbuf)
++		func_PlayAudioBuffer(this->hidden->mixbuf, this->hidden->mixlen);
++
++	if (this->hidden->FrameTick)
++		this->hidden->NextFrame += this->hidden->FrameTick;
+ }
+ 
+ static Uint8 *DUMMYAUD_GetAudioBuf(_THIS)
+@@ -121,6 +132,8 @@
+ 	if ( this->hidden->mixbuf != NULL ) {
+ 		SDL_FreeAudioMem(this->hidden->mixbuf);
+ 		this->hidden->mixbuf = NULL;
++		void (*func_AudioClose)(void) = (void (*)(void))(dl_AudioClose);
++		func_AudioClose();
+ 	}
+ }
+ 
+@@ -151,6 +164,16 @@
+ 	               (Uint32) ((((float) spec->size) / bytes_per_sec) * 1000.0f);
+ 
+ 	/* We're ready to rock and roll. :-) */
++
++	void (*func_AudioInit)(int, int, int) = (void (*)(int, int, int))(dl_AudioInit);
++
++	func_AudioInit(spec->channels, 16, spec->freq);
++	spec->samples = spec->size / ((spec->format & 0xFF) / 8);
++	spec->samples /= spec->channels;
++
++	this->hidden->FrameTick = (float)(spec->samples * 1000) / spec->freq;
++	this->hidden->NextFrame = SDL_GetTicks() + this->hidden->FrameTick;
++
+ 	return(0);
+ }
+ 
+diff -urNP old/src/audio/dummy/SDL_dummyaudio.h new/src/audio/dummy/SDL_dummyaudio.h
+--- old/src/audio/dummy/SDL_dummyaudio.h	2009-10-13 01:07:13.000000000 +0200
++++ new/src/audio/dummy/SDL_dummyaudio.h	2011-06-08 12:21:27.000000000 +0200
+@@ -35,6 +35,9 @@
+ 	Uint32 mixlen;
+ 	Uint32 write_delay;
+ 	Uint32 initial_calls;
++
++	float FrameTick;
++	float NextFrame;
+ };
+ 
+ #endif /* _SDL_dummyaudio_h */
+diff -urNP old/src/joystick/linux/SDL_sysjoystick.c new/src/joystick/linux/SDL_sysjoystick.c
+--- old/src/joystick/linux/SDL_sysjoystick.c	2009-10-18 19:54:40.000000000 +0200
++++ new/src/joystick/linux/SDL_sysjoystick.c	2011-06-08 12:21:27.000000000 +0200
+@@ -29,10 +29,11 @@
+ #include <unistd.h>
+ #include <fcntl.h>
+ #include <sys/ioctl.h>
+-#include <limits.h>		/* For the definition of PATH_MAX */
++#include <stdint.h>
+ #include <linux/joystick.h>
+ #if SDL_INPUT_LINUXEV
+ #include <linux/input.h>
++#include <linux/limits.h>
+ #endif
+ 
+ #include "SDL_joystick.h"
+@@ -403,6 +404,7 @@
+ 	const char *joydev_pattern[] = {
+ #if SDL_INPUT_LINUXEV
+ 		"/dev/input/event%d",
++		"/dtv/event%d",
+ #endif
+ 		"/dev/input/js%d",
+ 		"/dev/js%d"
+diff -urNP old/src/video/SDL_video.c new/src/video/SDL_video.c
+--- old/src/video/SDL_video.c	2009-10-13 01:07:15.000000000 +0200
++++ new/src/video/SDL_video.c	2011-06-25 23:47:24.000000000 +0200
+@@ -135,9 +135,6 @@
+ SDL_VideoDevice *current_video = NULL;
+ 
+ /* Various local functions */
+-int SDL_VideoInit(const char *driver_name, Uint32 flags);
+-void SDL_VideoQuit(void);
+-void SDL_GL_UpdateRectsLock(SDL_VideoDevice* this, int numrects, SDL_Rect* rects);
+ 
+ static SDL_GrabMode SDL_WM_GrabInputOff(void);
+ #if SDL_VIDEO_OPENGL
+diff -urNP old/src/video/dummy/SDL_nullevents.c new/src/video/dummy/SDL_nullevents.c
+--- old/src/video/dummy/SDL_nullevents.c	2009-10-13 01:07:15.000000000 +0200
++++ new/src/video/dummy/SDL_nullevents.c	2011-06-25 23:32:06.000000000 +0200
+@@ -31,14 +31,339 @@
+ #include "SDL_nullvideo.h"
+ #include "SDL_nullevents_c.h"
+ 
++#if SDL_INPUT_LINUXEV
++#include <linux/input.h>
++#include <linux/limits.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <unistd.h>
++#endif
++
++extern int *dl_InputKeyData;
++extern int *dl_InputKeyState;
++static SDLKey keymapRemote[256];
++static SDLKey keymapKeyboard[KEY_MAX];
++
++#if SDL_INPUT_LINUXEV
++
++#define MAX_EVDEV 32
++
++static struct {
++	int fd;
++} evdevlist[MAX_EVDEV];
++
++#define NBITS(x) ((((x) - 1) / (sizeof(long) * 8)) + 1)
++#define test_bit(nr, addr) (((1UL << ((nr) % (sizeof(long) * 8))) & ((addr)[(nr) / (sizeof(long) * 8)])) != 0)
++
++static int IsMouseOrKeyboard(int fd) {
++	unsigned long evbit[NBITS(EV_MAX)] = { 0 };
++	unsigned long relbit[NBITS(REL_MAX)] = { 0 };
++	unsigned long keybit[NBITS(KEY_MAX)] = { 0 };
++
++	if ((ioctl(fd, EVIOCGBIT(0, sizeof(evbit)), evbit) < 0) ||
++			(ioctl(fd, EVIOCGBIT(EV_REL, sizeof(relbit)), relbit) < 0) ||
++			(ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(keybit)), keybit) < 0) ) {
++		return 0;
++	}
++
++	return 1;
++}
++
++static void InitLinuxEventDevices(void) {
++	char path[PATH_MAX];
++	struct stat sb;
++	int duplicate, i, j, n, fd;
++	int numdevices;
++	dev_t dev_nums[MAX_EVDEV];
++	const char *evdev_pattern[] = {
++		"/dev/input/event%d",
++		"/dtv/event%d"
++	};
++
++	numdevices = 0;
++
++	for (i = 0; i < MAX_EVDEV; i++) {
++		evdevlist[i].fd = -1;
++	}
++
++	for (i = 0; i < SDL_arraysize(evdev_pattern); i++) {
++		for (j = 0; j < MAX_EVDEV; j++) {
++			SDL_snprintf(path, SDL_arraysize(path), evdev_pattern[i], j);
++			if (stat(path, &sb) == 0) {
++				duplicate = 0;
++				for (n = 0; (n < numdevices) && !duplicate; n++) {
++					if (sb.st_rdev == dev_nums[n]) {
++						duplicate = 1;
++					}
++				}
++				if (duplicate) {
++					continue;
++				}
++
++				fd = open(path, O_RDONLY);
++				if (fd < 0) {
++					continue;
++				}
++
++				if (!IsMouseOrKeyboard(fd)) {
++					close(fd);
++					continue;
++				}
++				fcntl(fd, F_SETFL, O_NONBLOCK);
++				evdevlist[numdevices].fd = fd;
++				dev_nums[numdevices] = sb.st_rdev;
++				numdevices++;
++			}
++		}
++	}
++}
++
++static SDL_keysym *TranslateEventKey(unsigned short vkey, SDL_keysym *keysym)
++{
++	keysym->scancode = vkey;
++	keysym->sym = keymapKeyboard[vkey];
++	keysym->mod = KMOD_NONE;
++	keysym->unicode = 0;
++
++	return(keysym);
++}
++
++void DUMMY_CloseEventDevices(void) {
++	int j;
++
++	for (j = 0; j < MAX_EVDEV; j++) {
++		if (evdevlist[j].fd < 0)
++			continue;
++		close(evdevlist[j].fd);
++		evdevlist[j].fd = -1;
++	}
++}
++
++#endif
++
++static SDL_keysym *TranslateKey(unsigned short vkey, SDL_keysym *keysym)
++{
++	keysym->scancode = vkey;
++	keysym->sym = keymapRemote[vkey];
++	keysym->mod = KMOD_NONE;
++	keysym->unicode = 0;
++
++	return(keysym);
++}
++
+ void DUMMY_PumpEvents(_THIS)
+ {
+-	/* do nothing. */
++	SDL_keysym keysym;
++
++	// handle TV remote controller
++
++	if (*dl_InputKeyState == 1) {
++		SDL_PrivateKeyboard(SDL_PRESSED, TranslateKey(*dl_InputKeyData, &keysym));
++	}
++	if (*dl_InputKeyState == 2) {
++		SDL_PrivateKeyboard(SDL_RELEASED, TranslateKey(*dl_InputKeyData, &keysym));
++	}
++
++	*dl_InputKeyState = 0;
++
++#if SDL_INPUT_LINUXEV
++
++	// handle mouse and keyboard
++
++	struct input_event ev[64];
++	int i, j, len;
++
++	for (i = 0; i < MAX_EVDEV; i++) {
++		if (evdevlist[i].fd < 0) {
++			continue;
++		}
++		while ((len = read(evdevlist[i].fd, ev, sizeof(struct input_event))) > 0) {
++			len /= sizeof(struct input_event);
++			for (j = 0; j < len; j++) {
++				if (ev[j].type == EV_KEY) {
++					if (ev[j].code == BTN_LEFT) {
++						if (ev[j].value == 0)
++							SDL_PrivateMouseButton(SDL_RELEASED, SDL_BUTTON_LEFT, 0, 0);
++						if (ev[j].value == 1)
++							SDL_PrivateMouseButton(SDL_PRESSED, SDL_BUTTON_LEFT, 0, 0);
++					} else if (ev[j].code == BTN_MIDDLE) {
++						if (ev[j].value == 0)
++							SDL_PrivateMouseButton(SDL_RELEASED, SDL_BUTTON_MIDDLE, 0, 0);
++						if (ev[j].value == 1)
++							SDL_PrivateMouseButton(SDL_PRESSED, SDL_BUTTON_MIDDLE, 0, 0);
++					} else if (ev[j].code == BTN_RIGHT) {
++						if (ev[j].value == 0)
++							SDL_PrivateMouseButton(SDL_RELEASED, SDL_BUTTON_RIGHT, 0, 0);
++						if (ev[j].value == 1)
++							SDL_PrivateMouseButton(SDL_PRESSED, SDL_BUTTON_RIGHT, 0, 0);
++					} else {
++						if (ev[j].value == 0)
++							SDL_PrivateKeyboard(SDL_RELEASED, TranslateEventKey(ev[j].code, &keysym));
++						if (ev[j].value == 1)
++							SDL_PrivateKeyboard(SDL_PRESSED, TranslateEventKey(ev[j].code, &keysym));
++					}
++				} else if (ev[j].type == EV_REL) {
++					if (ev[j].code == REL_X) {
++						SDL_PrivateMouseMotion(0, 1, ev[j].value, 0);
++					} else if (ev[j].code == REL_Y) {
++						SDL_PrivateMouseMotion(0, 1, 0, ev[j].value);
++					} else if (ev[j].code == REL_WHEEL) {
++						if (ev[j].value == -1) {
++							SDL_PrivateMouseButton(SDL_PRESSED, SDL_BUTTON_WHEELDOWN, 0, 0);
++							SDL_PrivateMouseButton(SDL_RELEASED, SDL_BUTTON_WHEELDOWN, 0, 0);
++						} else if (ev[j].value == 1) {
++							SDL_PrivateMouseButton(SDL_PRESSED, SDL_BUTTON_WHEELUP, 0, 0);
++							SDL_PrivateMouseButton(SDL_RELEASED, SDL_BUTTON_WHEELUP, 0, 0);
++						}
++					}
++				}
++			}
++		}
++	}
++#endif
+ }
+ 
+ void DUMMY_InitOSKeymap(_THIS)
+ {
+-	/* do nothing. */
++	memset(keymapRemote, 0, sizeof(SDLKey) * 256);
++
++	keymapRemote[88]	= SDL_QUIT; // RETURN button
++	keymapRemote[0]		= SDLK_z; // Ok button
++	keymapRemote[2]		= SDLK_UP;
++	keymapRemote[3]		= SDLK_DOWN;
++	keymapRemote[4]		= SDLK_LEFT;
++	keymapRemote[5]		= SDLK_RIGHT;
++	keymapRemote[17]	= SDLK_0;
++	keymapRemote[101]	= SDLK_1;
++	keymapRemote[98]	= SDLK_2;
++	keymapRemote[6]		= SDLK_3;
++	keymapRemote[8]		= SDLK_4;
++	keymapRemote[9]		= SDLK_5;
++	keymapRemote[10]	= SDLK_6;
++	keymapRemote[12]	= SDLK_7;
++	keymapRemote[13]	= SDLK_8;
++	keymapRemote[14]	= SDLK_9;
++	keymapRemote[108]	= SDLK_HOME; // Red button
++	keymapRemote[20]	= SDLK_F1; // Green button
++	keymapRemote[21]	= SDLK_F2; // Yellow button
++	keymapRemote[22]	= SDLK_ESCAPE; // Blue button
++	keymapRemote[45]	= SDLK_POWER; // Exit button
++
++#if SDL_INPUT_LINUXEV
++	InitLinuxEventDevices();
++
++	memset(keymapKeyboard, 0, sizeof(SDLKey) * KEY_MAX);
++
++	keymapKeyboard[KEY_ESC] = SDLK_ESCAPE;
++	keymapKeyboard[KEY_F1] = SDLK_F1;
++	keymapKeyboard[KEY_F2] = SDLK_F2;
++	keymapKeyboard[KEY_F3] = SDLK_F3;
++	keymapKeyboard[KEY_F4] = SDLK_F4;
++	keymapKeyboard[KEY_F5] = SDLK_F5;
++	keymapKeyboard[KEY_F6] = SDLK_F6;
++	keymapKeyboard[KEY_F7] = SDLK_F7;
++	keymapKeyboard[KEY_F8] = SDLK_F8;
++	keymapKeyboard[KEY_F9] = SDLK_F9;
++	keymapKeyboard[KEY_F10] = SDLK_F10;
++	keymapKeyboard[KEY_F11] = SDLK_F11;
++	keymapKeyboard[KEY_F12] = SDLK_F12;
++	keymapKeyboard[KEY_GRAVE] = SDLK_BACKQUOTE;
++	keymapKeyboard[KEY_1] = SDLK_1;
++	keymapKeyboard[KEY_2] = SDLK_2;
++	keymapKeyboard[KEY_3] = SDLK_3;
++	keymapKeyboard[KEY_4] = SDLK_4;
++	keymapKeyboard[KEY_5] = SDLK_5;
++	keymapKeyboard[KEY_6] = SDLK_6;
++	keymapKeyboard[KEY_7] = SDLK_7;
++	keymapKeyboard[KEY_8] = SDLK_8;
++	keymapKeyboard[KEY_9] = SDLK_9;
++	keymapKeyboard[KEY_0] = SDLK_0;
++	keymapKeyboard[KEY_MINUS] = SDLK_MINUS;
++	keymapKeyboard[KEY_EQUAL] = SDLK_EQUALS;
++	keymapKeyboard[KEY_BACKSPACE] = SDLK_BACKSPACE;
++	keymapKeyboard[KEY_TAB] = SDLK_TAB;
++	keymapKeyboard[KEY_Q] = SDLK_q;
++	keymapKeyboard[KEY_W] = SDLK_w;
++	keymapKeyboard[KEY_E] = SDLK_e;
++	keymapKeyboard[KEY_R] = SDLK_r;
++	keymapKeyboard[KEY_T] = SDLK_t;
++	keymapKeyboard[KEY_Y] = SDLK_y;
++	keymapKeyboard[KEY_U] = SDLK_u;
++	keymapKeyboard[KEY_I] = SDLK_i;
++	keymapKeyboard[KEY_O] = SDLK_o;
++	keymapKeyboard[KEY_P] = SDLK_p;
++	keymapKeyboard[KEY_LEFTBRACE] = SDLK_LEFTBRACKET;
++	keymapKeyboard[KEY_RIGHTBRACE] = SDLK_RIGHTBRACKET;
++	keymapKeyboard[KEY_ENTER] = SDLK_RETURN;
++	keymapKeyboard[KEY_CAPSLOCK] = SDLK_CAPSLOCK;
++	keymapKeyboard[KEY_A] = SDLK_a;
++	keymapKeyboard[KEY_S] = SDLK_s;
++	keymapKeyboard[KEY_D] = SDLK_d;
++	keymapKeyboard[KEY_F] = SDLK_f;
++	keymapKeyboard[KEY_G] = SDLK_g;
++	keymapKeyboard[KEY_H] = SDLK_h;
++	keymapKeyboard[KEY_J] = SDLK_j;
++	keymapKeyboard[KEY_K] = SDLK_k;
++	keymapKeyboard[KEY_L] = SDLK_l;
++	keymapKeyboard[KEY_SEMICOLON] = SDLK_SEMICOLON;
++	keymapKeyboard[KEY_APOSTROPHE] = SDLK_QUOTE;
++	keymapKeyboard[KEY_BACKSLASH] = SDLK_BACKSLASH;
++	keymapKeyboard[KEY_LEFTSHIFT] = SDLK_LSHIFT;
++	keymapKeyboard[KEY_Z] = SDLK_z;
++	keymapKeyboard[KEY_X] = SDLK_x;
++	keymapKeyboard[KEY_C] = SDLK_c;
++	keymapKeyboard[KEY_V] = SDLK_v;
++	keymapKeyboard[KEY_B] = SDLK_b;
++	keymapKeyboard[KEY_N] = SDLK_n;
++	keymapKeyboard[KEY_M] = SDLK_m;
++	keymapKeyboard[KEY_COMMA] = SDLK_COMMA;
++	keymapKeyboard[KEY_DOT] = SDLK_PERIOD;
++	keymapKeyboard[KEY_SLASH] = SDLK_SLASH;
++	keymapKeyboard[KEY_RIGHTSHIFT] = SDLK_RSHIFT;
++	keymapKeyboard[KEY_LEFTCTRL] = SDLK_LCTRL;
++	keymapKeyboard[KEY_LEFTALT] = SDLK_LALT;
++	keymapKeyboard[KEY_LEFTMETA] = SDLK_LMETA;
++	keymapKeyboard[KEY_SPACE] = SDLK_SPACE;
++	keymapKeyboard[KEY_RIGHTMETA] = SDLK_RMETA;
++	keymapKeyboard[KEY_RIGHTALT] = SDLK_RALT;
++
++	keymapKeyboard[KEY_LEFT] = SDLK_LEFT;
++	keymapKeyboard[KEY_UP] = SDLK_UP;
++	keymapKeyboard[KEY_DOWN] = SDLK_DOWN;
++	keymapKeyboard[KEY_RIGHT] = SDLK_RIGHT;
++
++	keymapKeyboard[KEY_INSERT] = SDLK_INSERT;
++	keymapKeyboard[KEY_DELETE] = SDLK_DELETE;
++	keymapKeyboard[KEY_HOME] = SDLK_HOME;
++	keymapKeyboard[KEY_END] = SDLK_END;
++	keymapKeyboard[KEY_PAGEUP] = SDLK_PAGEUP;
++	keymapKeyboard[KEY_PAGEDOWN] = SDLK_PAGEDOWN;
++
++	keymapKeyboard[KEY_SYSRQ] = SDLK_SYSREQ;
++	keymapKeyboard[KEY_SCROLLLOCK] = SDLK_SCROLLOCK;
++	keymapKeyboard[KEY_PAUSE] = SDLK_PAUSE;
++
++	keymapKeyboard[KEY_NUMLOCK] = SDLK_NUMLOCK;
++	keymapKeyboard[KEY_KPSLASH] = SDLK_KP_DIVIDE;
++	keymapKeyboard[KEY_KPASTERISK] = SDLK_PAUSE;
++	keymapKeyboard[KEY_KPMINUS] = SDLK_KP_MINUS;
++	keymapKeyboard[KEY_KPPLUS] = SDLK_KP_PLUS;
++	keymapKeyboard[KEY_KPENTER] = SDLK_KP_ENTER;
++	keymapKeyboard[KEY_KPDOT] = SDLK_KP_PERIOD;
++	keymapKeyboard[KEY_KP0] = SDLK_KP0;
++	keymapKeyboard[KEY_KP1] = SDLK_KP1;
++	keymapKeyboard[KEY_KP2] = SDLK_KP2;
++	keymapKeyboard[KEY_KP3] = SDLK_KP3;
++	keymapKeyboard[KEY_KP4] = SDLK_KP4;
++	keymapKeyboard[KEY_KP5] = SDLK_KP5;
++	keymapKeyboard[KEY_KP6] = SDLK_KP6;
++	keymapKeyboard[KEY_KP7] = SDLK_KP7;
++	keymapKeyboard[KEY_KP8] = SDLK_KP8;
++	keymapKeyboard[KEY_KP9] = SDLK_KP9;
++
++//	keymapKeyboard[KEY_] = SDLK_;
++
++#endif
+ }
+ 
+ /* end of SDL_nullevents.c ... */
+diff -urNP old/src/video/dummy/SDL_nullvideo.c new/src/video/dummy/SDL_nullvideo.c
+--- old/src/video/dummy/SDL_nullvideo.c	2009-10-13 01:07:15.000000000 +0200
++++ new/src/video/dummy/SDL_nullvideo.c	2011-06-25 23:39:25.000000000 +0200
+@@ -46,7 +46,19 @@
+ #include "SDL_nullevents_c.h"
+ #include "SDL_nullmouse_c.h"
+ 
+-#define DUMMYVID_DRIVER_NAME "dummy"
++#define DUMMYVID_DRIVER_NAME "SamsungTV Video"
++
++extern unsigned *dl_GetFrameBufferAddress;
++extern unsigned *dl_VideoInit;
++extern unsigned *dl_UpdateSurface;
++extern unsigned *dl_y_SetHWAlpha;
++extern unsigned *dl_y_SetHWColorKey;
++extern unsigned *dl_y_HWSWAccelBlit;
++extern unsigned *dl_y_HWAccelBlit;
++extern unsigned *dl_y_HWFillRect;
++extern unsigned *dl_y_AllocHWSurface;
++extern unsigned *dl_y_FreeHWSurface;
++
+ 
+ /* Initialization/Query functions */
+ static int DUMMY_VideoInit(_THIS, SDL_PixelFormat *vformat);
+@@ -64,16 +76,18 @@
+ /* etc. */
+ static void DUMMY_UpdateRects(_THIS, int numrects, SDL_Rect *rects);
+ 
++static int DUMMY_HWFillRect(_THIS, SDL_Surface *dst, SDL_Rect *rect, Uint32 color);
++static int DUMMY_CheckHWBlit(_THIS, SDL_Surface *src, SDL_Surface *dst);
++static int DUMMY_HWAccelBlit(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_Rect *dstrect);
++static int DUMMY_HWSWAccelBlit(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_Rect *dstrect);
++static int DUMMY_SetHWColorKey(_THIS, SDL_Surface *surface, Uint32 key);
++static int DUMMY_SetHWAlpha(_THIS, SDL_Surface *surface, Uint8 value);
++
+ /* DUMMY driver bootstrap functions */
+ 
+ static int DUMMY_Available(void)
+ {
+-	const char *envr = SDL_getenv("SDL_VIDEODRIVER");
+-	if ((envr) && (SDL_strcmp(envr, DUMMYVID_DRIVER_NAME) == 0)) {
+-		return(1);
+-	}
+-
+-	return(0);
++	return 1;
+ }
+ 
+ static void DUMMY_DeleteDevice(SDL_VideoDevice *device)
+@@ -111,10 +125,19 @@
+ 	device->UpdateRects = DUMMY_UpdateRects;
+ 	device->VideoQuit = DUMMY_VideoQuit;
+ 	device->AllocHWSurface = DUMMY_AllocHWSurface;
+-	device->CheckHWBlit = NULL;
+-	device->FillHWRect = NULL;
+-	device->SetHWColorKey = NULL;
+-	device->SetHWAlpha = NULL;
++	if (dl_y_SetHWAlpha) {
++		printf("SDL: HW blit acceleration available\n");
++		device->CheckHWBlit = DUMMY_CheckHWBlit;
++		device->FillHWRect = DUMMY_HWFillRect;
++		device->SetHWColorKey = DUMMY_SetHWColorKey;
++		device->SetHWAlpha = DUMMY_SetHWAlpha;
++	} else {
++		printf("SDL: HW blit acceleration NOT available\n");
++		device->CheckHWBlit = NULL;
++		device->FillHWRect = NULL;
++		device->SetHWColorKey = NULL;
++		device->SetHWAlpha = NULL;
++	}
+ 	device->LockHWSurface = DUMMY_LockHWSurface;
+ 	device->UnlockHWSurface = DUMMY_UnlockHWSurface;
+ 	device->FlipHWSurface = NULL;
+@@ -133,21 +156,35 @@
+ }
+ 
+ VideoBootStrap DUMMY_bootstrap = {
+-	DUMMYVID_DRIVER_NAME, "SDL dummy video driver",
++	DUMMYVID_DRIVER_NAME, "SDL SamsungTV video driver",
+ 	DUMMY_Available, DUMMY_CreateDevice
+ };
+ 
+ 
+ int DUMMY_VideoInit(_THIS, SDL_PixelFormat *vformat)
+ {
+-	/*
+-	fprintf(stderr, "WARNING: You are using the SDL dummy video driver!\n");
+-	*/
+-
+-	/* Determine the screen depth (use default 8-bit depth) */
+-	/* we change this during the SDL_SetVideoMode implementation... */
+-	vformat->BitsPerPixel = 8;
+-	vformat->BytesPerPixel = 1;
++	vformat->Amask = 0xFF000000;
++	vformat->Rmask = 0x00FF0000;
++	vformat->Gmask = 0x0000FF00;
++	vformat->Bmask = 0x000000FF;
++
++	vformat->BitsPerPixel = 32;
++	vformat->BytesPerPixel = 4;
++	vformat->alpha = 255;
++
++	this->info.wm_available = 0;
++	if (dl_y_SetHWAlpha) {
++		this->info.hw_available = 1;
++		this->info.blit_hw      = 1;
++		this->info.blit_hw_CC   = 1;
++		this->info.blit_hw_A    = 1;
++		this->info.blit_sw      = 1;
++		this->info.blit_sw_CC   = 1;
++		this->info.blit_sw_A    = 1;
++		this->info.blit_fill    = 1;
++	}
++	this->info.current_w    = 960;
++	this->info.current_h    = 540;
+ 
+ 	/* We're done! */
+ 	return(0);
+@@ -161,34 +198,41 @@
+ SDL_Surface *DUMMY_SetVideoMode(_THIS, SDL_Surface *current,
+ 				int width, int height, int bpp, Uint32 flags)
+ {
+-	if ( this->hidden->buffer ) {
+-		SDL_free( this->hidden->buffer );
++	void (*funcVideoInit)(int, int, int) = (void (*)(int, int, int))(dl_VideoInit);
++	char *(*funcGetFrameBufferAddress)(void) = (char *(*)(void))(dl_GetFrameBufferAddress);
++
++	if (width > 960 || height > 540) {
++		SDL_SetError("Resolution bigger then 960x540 not supported");
++		return(NULL);
+ 	}
+ 
+-	this->hidden->buffer = SDL_malloc(width * height * (bpp / 8));
+-	if ( ! this->hidden->buffer ) {
++	bpp = 32; // force to 32 bit
++	funcVideoInit(width, height, 32);
++	this->hidden->buffer = funcGetFrameBufferAddress();
++	if ( ! this->hidden->buffer) {
+ 		SDL_SetError("Couldn't allocate buffer for requested mode");
+ 		return(NULL);
+ 	}
+ 
+-/* 	printf("Setting mode %dx%d\n", width, height); */
+-
+ 	SDL_memset(this->hidden->buffer, 0, width * height * (bpp / 8));
+ 
+ 	/* Allocate the new pixel format for the screen */
+-	if ( ! SDL_ReallocFormat(current, bpp, 0, 0, 0, 0) ) {
+-		SDL_free(this->hidden->buffer);
++	if ( ! SDL_ReallocFormat(current, bpp, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000) ) {
+ 		this->hidden->buffer = NULL;
+ 		SDL_SetError("Couldn't allocate new pixel format for requested mode");
+ 		return(NULL);
+ 	}
+ 
+ 	/* Set up the new mode framebuffer */
+-	current->flags = flags & SDL_FULLSCREEN;
++	current->flags = flags | SDL_FULLSCREEN;
+ 	this->hidden->w = current->w = width;
+ 	this->hidden->h = current->h = height;
++	this->hidden->bpp = bpp;
+ 	current->pitch = current->w * (bpp / 8);
+ 	current->pixels = this->hidden->buffer;
++	if (!dl_y_SetHWAlpha) {
++		current->flags &= ~(SDL_HWSURFACE);
++	}
+ 
+ 	/* We're done */
+ 	return(current);
+@@ -197,11 +241,20 @@
+ /* We don't actually allow hardware surfaces other than the main one */
+ static int DUMMY_AllocHWSurface(_THIS, SDL_Surface *surface)
+ {
+-	return(-1);
++	int (*func_y_AllocHWSurface)(SDL_Surface *) = (int (*)(SDL_Surface *))(dl_y_AllocHWSurface);
++
++	if (dl_y_SetHWAlpha)
++		return func_y_AllocHWSurface(surface);
++	else
++		return -1;
+ }
++
+ static void DUMMY_FreeHWSurface(_THIS, SDL_Surface *surface)
+ {
+-	return;
++	void (*func_y_FreeHWSurface)(SDL_Surface *) = (void (*)(SDL_Surface *))(dl_y_FreeHWSurface);
++
++	if (dl_y_SetHWAlpha)
++		func_y_FreeHWSurface(surface);
+ }
+ 
+ /* We need to wait for vertical retrace on page flipped displays */
+@@ -217,7 +270,10 @@
+ 
+ static void DUMMY_UpdateRects(_THIS, int numrects, SDL_Rect *rects)
+ {
+-	/* do nothing. */
++	void (*funcUpdateSurface)(char *, int, int) = (void (*)(char *, int, int))(dl_UpdateSurface);
++
++	if ( this->hidden->buffer)
++		funcUpdateSurface((char *)this->hidden->buffer, this->hidden->w, this->hidden->h);
+ }
+ 
+ int DUMMY_SetColors(_THIS, int firstcolor, int ncolors, SDL_Color *colors)
+@@ -229,11 +285,85 @@
+ /* Note:  If we are terminated, this could be called in the middle of
+    another SDL video routine -- notably UpdateRects.
+ */
++
++void DUMMY_CloseEventDevices(void);
++
+ void DUMMY_VideoQuit(_THIS)
+ {
+-	if (this->screen->pixels != NULL)
++	SDL_memset(this->hidden->buffer, 0, this->hidden->w * this->hidden->h * (this->hidden->bpp / 8));
++	this->screen->pixels = NULL;
++	this->hidden->buffer = NULL;
++	DUMMY_CloseEventDevices();
++}
++
++int DUMMY_HWFillRect(_THIS, SDL_Surface *dst, SDL_Rect *rect, Uint32 color)
++{
++	int (*func_HWFillRect)(SDL_Surface *, SDL_Rect *, Uint32) = (int (*)(SDL_Surface *, SDL_Rect *, Uint32))(dl_y_HWFillRect);
++
++	return func_y_HWFillRect(dst, rect, color);
++}
++
++int DUMMY_CheckHWBlit(_THIS, SDL_Surface *src, SDL_Surface *dst)
++{
++	if (src->format->BitsPerPixel != this->hidden->bpp || dst->format->BitsPerPixel != this->hidden->bpp)
++		return(-1);
++
++	if ((src->flags & SDL_HWSURFACE) != SDL_HWSURFACE && (dst->flags & SDL_HWSURFACE) != SDL_HWSURFACE)
+ 	{
+-		SDL_free(this->screen->pixels);
+-		this->screen->pixels = NULL;
++		return(-1);
+ 	}
++
++	src->flags |= SDL_HWACCEL;
++
++	if ((src->flags & SDL_SRCCOLORKEY ) == SDL_SRCCOLORKEY)
++	{
++		src->flags &= ~SDL_HWACCEL;
++	}
++
++	if ((src->flags & SDL_SRCALPHA) == SDL_SRCALPHA)
++	{
++		// TODO
++	}
++
++	if ((src->flags & SDL_HWSURFACE) == SDL_HWSURFACE && (dst->flags & SDL_HWSURFACE) == SDL_HWSURFACE)
++	{
++		src->map->hw_blit = DUMMY_HWAccelBlit;
++		return 1;
++	}
++
++	else if ((src->flags & SDL_SWSURFACE) == SDL_SWSURFACE && (dst->flags & SDL_HWSURFACE) == SDL_HWSURFACE)
++	{
++		src->map->hw_blit = DUMMY_HWSWAccelBlit;
++		return 1;
++	}
++
++	return (-1);
++}
++
++int DUMMY_HWAccelBlit(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_Rect *dstrect)
++{
++	int (*func_y_HWAccelBlit)(SDL_Surface *, SDL_Rect *, SDL_Surface *, SDL_Rect *) = (int (*)(SDL_Surface *, SDL_Rect *, SDL_Surface *, SDL_Rect *))(dl_y_HWAccelBlit);
++
++	return func_y_HWAccelBlit(src, srcrect, dst, dstrect);
++}
++
++int DUMMY_HWSWAccelBlit(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_Rect *dstrect)
++{
++	int (*func_y_HWSWAccelBlit)(SDL_Surface *, SDL_Rect *, SDL_Surface *, SDL_Rect *) = (int (*)(SDL_Surface *, SDL_Rect *, SDL_Surface *, SDL_Rect *))(dl_y_HWSWAccelBlit);
++
++	return func_y_HWSWAccelBlit(src, srcrect, dst, dstrect);
++}
++
++int DUMMY_SetHWColorKey(_THIS, SDL_Surface *surface, Uint32 key)
++{
++	int (*func_y_SetHWColorKey)(SDL_Surface *, Uint32) = (int (*)(SDL_Surface *, Uint32))(dl_y_SetHWColorKey);
++
++	return func_y_SetHWColorKey(surface, key);
++}
++
++int DUMMY_SetHWAlpha(_THIS, SDL_Surface *surface, Uint8 value)
++{
++	int (*func_y_SetHWAlpha)(SDL_Surface *, Uint8) = (int (*)(SDL_Surface *, Uint8))(dl_y_SetHWAlpha);
++
++	return func_y_SetHWAlpha(surface, value);
+ }
+diff -urNP old/src/video/dummy/SDL_nullvideo.h new/src/video/dummy/SDL_nullvideo.h
+--- old/src/video/dummy/SDL_nullvideo.h	2009-10-13 01:07:15.000000000 +0200
++++ new/src/video/dummy/SDL_nullvideo.h	2011-06-08 12:21:27.000000000 +0200
+@@ -34,6 +34,7 @@
+ 
+ struct SDL_PrivateVideoData {
+     int w, h;
++    int bpp;
+     void *buffer;
+ };
+ 

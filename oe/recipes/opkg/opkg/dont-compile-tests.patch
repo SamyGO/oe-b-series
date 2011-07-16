@@ -1,0 +1,22 @@
+diff -ur old/Makefile.am new/Makefile.am
+--- old/Makefile.am	2010-05-08 14:50:35.000000000 +0200
++++ new/Makefile.am	2010-05-08 16:20:51.000000000 +0200
+@@ -1,6 +1,6 @@
+ ACLOCAL_AMFLAGS = -I shave
+ 
+-SUBDIRS = libbb libopkg src tests utils man
++SUBDIRS = libbb libopkg src utils man
+ 
+ 
+ HOST_CPU=@host_cpu@
+diff -ur old/configure.ac new/configure.ac
+--- old/configure.ac	2010-05-08 14:50:35.000000000 +0200
++++ new/configure.ac	2010-05-08 16:17:45.000000000 +0200
+@@ -282,7 +282,6 @@
+ AC_OUTPUT(
+     Makefile
+     libopkg/Makefile
+-    tests/Makefile
+     src/Makefile
+     libbb/Makefile
+     utils/Makefile

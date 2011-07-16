@@ -1,0 +1,16 @@
+diff -ur old/src/Makefile.am new/src/Makefile.am
+--- old/src/Makefile.am	2007-11-05 04:24:47.000000000 +0100
++++ new/src/Makefile.am	2010-03-25 09:26:19.000000000 +0100
+@@ -52,9 +52,9 @@
+ endif
+ 
+ 
+-uae$(EXEEXT):	$(uae_OBJECTS) $(uae_DEPENDENCIES)
+-		@rm -f uae$(EXEEXT)
+-		$(LINK) $(uae_LDFLAGS) $(uae_OBJECTS) $(uae_LDADD) $(LIBS)
++uae:	$(uae_OBJECTS) $(uae_DEPENDENCIES)
++		@rm -f uae.so
++		$(LINK) $(uae_LDFLAGS) $(uae_OBJECTS) $(uae_LDADD) $(LIBS) -o uae.so -shared
+ if TARGET_BEOS
+ 		xres -o $@ @UAE_RSRCFILE@
+ 		mimeset -f $@

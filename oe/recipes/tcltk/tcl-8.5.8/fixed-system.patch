@@ -1,0 +1,70 @@
+diff -ur old/unix/configure.in new/unix/configure.in
+--- old/unix/configure.in	2010-08-14 13:05:58.000000000 +0200
++++ new/unix/configure.in	2010-08-14 13:09:15.000000000 +0200
+@@ -157,7 +157,7 @@
+ AC_CHECK_FUNC(wait3, , [AC_DEFINE(NO_WAIT3, 1, [Do we have wait3()])])
+ AC_CHECK_FUNC(uname, , [AC_DEFINE(NO_UNAME, 1, [Do we have uname()])])
+ 
+-if test "`uname -s`" = "Darwin" && test "${TCL_THREADS}" = 1 && \
++if test "`uname -s`" = "xxxDarwin" && test "${TCL_THREADS}" = 1 && \
+ 	test "`uname -r | awk -F. '{print [$]1}'`" -lt 7; then
+     # prior to Darwin 7, realpath is not threadsafe, so don't
+     # use it when threads are enabled, c.f. bug # 711232
+@@ -176,7 +176,7 @@
+     SC_TCL_GETPWNAM_R
+     SC_TCL_GETGRGID_R
+     SC_TCL_GETGRNAM_R
+-    if test "`uname -s`" = "Darwin" && \
++    if test "`uname -s`" = "xxxDarwin" && \
+ 	    test "`uname -r | awk -F. '{print [$]1}'`" -gt 5; then
+ 	# Starting with Darwin 6 (Mac OSX 10.2), gethostbyX
+ 	# are actually MT-safe as they always return pointers
+@@ -507,7 +507,7 @@
+ # Darwin specific API checks and defines
+ #--------------------------------------------------------------------
+ 
+-if test "`uname -s`" = "Darwin" ; then
++if test "`uname -s`" = "xxxDarwin" ; then
+     AC_CHECK_FUNCS(getattrlist)
+     AC_CHECK_HEADERS(copyfile.h)
+     AC_CHECK_FUNCS(copyfile)
+@@ -681,7 +681,7 @@
+     AC_DEFINE(USE_DTRACE, 1, [Are we building with DTrace support?])
+     DTRACE_SRC="\${DTRACE_SRC}"
+     DTRACE_HDR="\${DTRACE_HDR}"
+-    if test "`uname -s`" != "Darwin" ; then
++    if test "`uname -s`" != "xxxDarwin" ; then
+ 	DTRACE_OBJ="\${DTRACE_OBJ}"
+ 	if test "`uname -s`" = "SunOS" -a "$SHARED_BUILD" = "0" ; then
+ 	    # Need to create an intermediate object file to ensure tclDTrace.o
+@@ -743,7 +743,7 @@
+ # AIX remembers this path and will attempt to use it at run-time to look
+ # up the Tcl library.
+ 
+-if test "`uname -s`" = "Darwin" ; then
++if test "`uname -s`" = "xxxDarwin" ; then
+     SC_ENABLE_FRAMEWORK
+     TCL_SHLIB_LD_EXTRAS="-compatibility_version ${TCL_VERSION} -current_version ${TCL_VERSION}`echo ${TCL_PATCH_LEVEL} | awk ['{match($0, "\\\.[0-9]+"); print substr($0,RSTART,RLENGTH)}']`"
+     TCL_SHLIB_LD_EXTRAS="${TCL_SHLIB_LD_EXTRAS}"' -install_name "${DYLIB_INSTALL_DIR}"/${TCL_LIB_FILE}'
+diff -ur old/unix/tcl.m4 new/unix/tcl.m4
+--- old/unix/tcl.m4	2010-08-14 13:05:58.000000000 +0200
++++ new/unix/tcl.m4	2010-08-14 13:11:28.000000000 +0200
+@@ -968,7 +968,8 @@
+ 	    fi
+ 	fi
+     ])
+-    system=$tcl_cv_sys_version
++    system=Linux-2.6.18.8
++    tcl_cv_sys_version=Linux-2.6.18.8
+ ])
+ 
+ #--------------------------------------------------------------------
+@@ -1141,7 +1142,7 @@
+     LDFLAGS_ARCH=""
+     TCL_EXPORT_FILE_SUFFIX=""
+     UNSHARED_LIB_SUFFIX=""
+-    TCL_TRIM_DOTS='`echo ${VERSION} | tr -d .`'
++    TCL_TRIM_DOTS='`echo ${VERSION}`'
+     ECHO_VERSION='`echo ${VERSION}`'
+     TCL_LIB_VERSIONS_OK=ok
+     CFLAGS_DEBUG=-g

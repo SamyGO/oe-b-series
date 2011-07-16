@@ -1,0 +1,12 @@
+diff -ur old/shell/ash.c new/shell/ash.c
+--- old/shell/ash.c	2010-01-23 11:45:05.000000000 +0100
++++ new/shell/ash.c	2010-01-23 11:44:22.000000000 +0100
+@@ -3598,7 +3598,7 @@
+ 			pgrp = tcgetpgrp(fd);
+ 			if (pgrp < 0) {
+  out:
+-				ash_msg("can't access tty; job control turned off");
++				//ash_msg("can't access tty; job control turned off");
+ 				mflag = on = 0;
+ 				goto close;
+ 			}

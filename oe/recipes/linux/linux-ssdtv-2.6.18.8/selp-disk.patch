@@ -1,0 +1,42 @@
+# This patch content was copied from Samsung kernel sources SELP.3.2.x-Chelsea.src.tgz,
+# from package released as GPL v2 http://www.samsung.com/global/opensource/files/32B650.zip
+--- old/include/linux/blkdev.h	2007-02-24 00:52:30.000000000 +0100
++++ new/include/linux/blkdev.h	2008-08-12 09:31:22.000000000 +0200
+@@ -624,6 +624,10 @@
+ 
+ static inline request_queue_t *bdev_get_queue(struct block_device *bdev)
+ {
++        //hongyabi patch FEB-01-2007
++        if(bdev->bd_disk == NULL)
++                return NULL;
++
+ 	return bdev->bd_disk->queue;
+ }
+ 
+--- old/fs/partitions/check.c	2007-02-24 00:52:30.000000000 +0100
++++ new/fs/partitions/check.c	2008-08-12 09:30:52.000000000 +0200
+@@ -129,8 +129,24 @@
+ 
+ const char *bdevname(struct block_device *bdev, char *buf)
+ {
++//hongyabi patch for rapid connect/disconnect case 20080319
++#if 0    // org
+ 	int part = MINOR(bdev->bd_dev) - bdev->bd_disk->first_minor;
+ 	return disk_name(bdev->bd_disk, part, buf);
++#else    // patch by hongyabi
++	int part = 0;
++
++	if(bdev->bd_disk == NULL)
++	{
++		return "sd";
++	}
++	else
++	{
++		part = MINOR(bdev->bd_dev) - bdev->bd_disk->first_minor;
++		return disk_name(bdev->bd_disk, part, buf);
++	}
++#endif
++
+ }
+ 
+ EXPORT_SYMBOL(bdevname);

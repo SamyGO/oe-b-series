@@ -1,0 +1,20 @@
+diff -ur old/include/configs/ssdtv.h new/include/configs/ssdtv.h
+--- old/include/configs/ssdtv.h	2010-06-06 11:58:12.000000000 +0200
++++ new/include/configs/ssdtv.h	2010-06-12 09:50:24.000000000 +0200
+@@ -25,14 +25,14 @@
+ #define CONFIG_USB_STORAGE_ALL		1		// enable more than one usb controller ?
+ 
+ // PCI related defines
+-#define CONFIG_PCI			1
++//#define CONFIG_PCI			1
+ #define CONFIG_PCI_PNP			1
+ #define __io(a)				((void *)(a))
+ #define __mem_pci(a)			((void *)(a))
+ 
+ // ethernet related defines
+ #define CONFIG_NET_MULTI		1
+-#define CONFIG_RTL8139			1
++//#define CONFIG_RTL8139			1
+ #define KSEG1ADDR(x)			(x)
+ 
+ // timer

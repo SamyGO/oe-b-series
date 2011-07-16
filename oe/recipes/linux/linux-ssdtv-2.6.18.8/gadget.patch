@@ -1,0 +1,31 @@
+diff -NurbB a/drivers/usb/gadget/file_storage.c b/drivers/usb/gadget/file_storage.c
+--- a/drivers/usb/gadget/file_storage.c	2008-07-24 02:42:06.000000000 +0200
++++ b/drivers/usb/gadget/file_storage.c	2009-11-17 23:40:19.000000000 +0100
+@@ -261,7 +261,7 @@
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+-#define DRIVER_DESC		"File-backed Storage Gadget"
++#define DRIVER_DESC		"File-backed for SamyGO"
+ #define DRIVER_NAME		"g_file_storage"
+ #define DRIVER_VERSION		"28 November 2005"
+ 
+@@ -373,6 +373,7 @@
+ 	.transport_parm		= "BBB",
+ 	.protocol_parm		= "SCSI",
+ 	.removable		= 0,
++	.file		= {"/dtv/vusb"},
+ 	.can_stall		= 1,
+ 	.vendor			= DRIVER_VENDOR_ID,
+ 	.product		= DRIVER_PRODUCT_ID,
+@@ -3981,9 +3982,7 @@
+ 	/* This should reflect the actual gadget power source */
+ 	usb_gadget_set_selfpowered(gadget);
+ 
+-	snprintf(manufacturer, sizeof manufacturer, "%s %s with %s",
+-			system_utsname.sysname, system_utsname.release,
+-			gadget->name);
++	snprintf(manufacturer, sizeof manufacturer, "SamyGO");
+ 
+ 	/* On a real device, serial[] would be loaded from permanent
+ 	 * storage.  We just encode it from the driver version string. */

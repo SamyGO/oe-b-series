@@ -1,0 +1,4290 @@
+diff -urNP old/arch/arm/mm/Kconfig new/arch/arm/mm/Kconfig
+--- old/arch/arm/mm/Kconfig	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/Kconfig	2006-11-29 22:57:37.000000000 +0100
+@@ -15,6 +15,7 @@
+ 	select CPU_32v3
+ 	select CPU_CACHE_V3
+ 	select CPU_CACHE_VIVT
++	select CPU_CP15_MMU
+ 	select CPU_COPY_V3 if MMU
+ 	select CPU_TLB_V3 if MMU
+ 	help
+@@ -24,6 +25,20 @@
+ 	  Say Y if you want support for the ARM610 processor.
+ 	  Otherwise, say N.
+ 
++# ARM7TDMI
++config CPU_ARM7TDMI
++	bool "Support ARM7TDMI processor"
++	depends on !MMU
++	select CPU_32v4T
++	select CPU_ABRT_LV4T
++	select CPU_CACHE_V4
++	help
++	  A 32-bit RISC microprocessor based on the ARM7 processor core
++	  which has no memory control unit and cache.
++
++	  Say Y if you want support for the ARM7TDMI processor.
++	  Otherwise, say N.
++
+ # ARM710
+ config CPU_ARM710
+ 	bool "Support ARM710 processor" if !ARCH_CLPS7500 && ARCH_RPC
+@@ -31,6 +46,7 @@
+ 	select CPU_32v3
+ 	select CPU_CACHE_V3
+ 	select CPU_CACHE_VIVT
++	select CPU_CP15_MMU
+ 	select CPU_COPY_V3 if MMU
+ 	select CPU_TLB_V3 if MMU
+ 	help
+@@ -50,6 +66,7 @@
+ 	select CPU_ABRT_LV4T
+ 	select CPU_CACHE_V4
+ 	select CPU_CACHE_VIVT
++	select CPU_CP15_MMU
+ 	select CPU_COPY_V4WT if MMU
+ 	select CPU_TLB_V4WT if MMU
+ 	help
+@@ -59,6 +76,36 @@
+ 	  Say Y if you want support for the ARM720T processor.
+ 	  Otherwise, say N.
+ 
++# ARM740T
++config CPU_ARM740T
++	bool "Support ARM740T processor" if ARCH_INTEGRATOR
++	depends on !MMU
++	select CPU_32v4T
++	select CPU_ABRT_LV4T
++	select CPU_CACHE_V3	# although the core is v4t
++	select CPU_CP15_MPU
++	help
++	  A 32-bit RISC processor with 8KB cache or 4KB variants,
++	  write buffer and MPU(Protection Unit) built around
++	  an ARM7TDMI core.
++
++	  Say Y if you want support for the ARM740T processor.
++	  Otherwise, say N.
++
++# ARM9TDMI
++config CPU_ARM9TDMI
++	bool "Support ARM9TDMI processor"
++	depends on !MMU
++	select CPU_32v4T
++	select CPU_ABRT_NOMMU
++	select CPU_CACHE_V4
++	help
++	  A 32-bit RISC microprocessor based on the ARM9 processor core
++	  which has no memory control unit and cache.
++
++	  Say Y if you want support for the ARM9TDMI processor.
++	  Otherwise, say N.
++
+ # ARM920T
+ config CPU_ARM920T
+ 	bool "Support ARM920T processor"
+@@ -68,6 +115,7 @@
+ 	select CPU_ABRT_EV4T
+ 	select CPU_CACHE_V4WT
+ 	select CPU_CACHE_VIVT
++	select CPU_CP15_MMU
+ 	select CPU_COPY_V4WB if MMU
+ 	select CPU_TLB_V4WBI if MMU
+ 	help
+@@ -89,6 +137,7 @@
+ 	select CPU_ABRT_EV4T
+ 	select CPU_CACHE_V4WT
+ 	select CPU_CACHE_VIVT
++	select CPU_CP15_MMU
+ 	select CPU_COPY_V4WB if MMU
+ 	select CPU_TLB_V4WBI if MMU
+ 	help
+@@ -108,6 +157,7 @@
+ 	select CPU_ABRT_EV4T
+ 	select CPU_CACHE_V4WT
+ 	select CPU_CACHE_VIVT
++	select CPU_CP15_MMU
+ 	select CPU_COPY_V4WB if MMU
+ 	select CPU_TLB_V4WBI if MMU
+  	help
+@@ -126,6 +176,7 @@
+ 	select CPU_32v5
+ 	select CPU_ABRT_EV5TJ
+ 	select CPU_CACHE_VIVT
++	select CPU_CP15_MMU
+ 	select CPU_COPY_V4WB if MMU
+ 	select CPU_TLB_V4WBI if MMU
+ 	help
+@@ -136,6 +187,39 @@
+ 	  Say Y if you want support for the ARM926T processor.
+ 	  Otherwise, say N.
+ 
++# ARM940T
++config CPU_ARM940T
++	bool "Support ARM940T processor" if ARCH_INTEGRATOR
++	depends on !MMU
++	select CPU_32v4T
++	select CPU_ABRT_NOMMU
++	select CPU_CACHE_VIVT
++	select CPU_CP15_MPU
++	help
++	  ARM940T is a member of the ARM9TDMI family of general-
++	  purpose microprocessors with MPU and seperate 4KB
++	  instruction and 4KB data cases, each with a 4-word line
++	  length.
++
++	  Say Y if you want support for the ARM940T processor.
++	  Otherwise, say N.
++
++# ARM946E-S
++config CPU_ARM946E
++	bool "Support ARM946E-S processor" if ARCH_INTEGRATOR
++	depends on !MMU
++	select CPU_32v5
++	select CPU_ABRT_NOMMU
++	select CPU_CACHE_VIVT
++	select CPU_CP15_MPU
++	help
++	  ARM946E-S is a member of the ARM9E-S family of high-
++	  performance, 32-bit system-on-chip processor solutions.
++	  The TCM and ARMv5TE 32-bit instruction set is supported.
++
++	  Say Y if you want support for the ARM946E-S processor.
++	  Otherwise, say N.
++
+ # ARM1020 - needs validating
+ config CPU_ARM1020
+ 	bool "Support ARM1020T (rev 0) processor"
+@@ -144,6 +228,7 @@
+ 	select CPU_ABRT_EV4T
+ 	select CPU_CACHE_V4WT
+ 	select CPU_CACHE_VIVT
++	select CPU_CP15_MMU
+ 	select CPU_COPY_V4WB if MMU
+ 	select CPU_TLB_V4WBI if MMU
+ 	help
+@@ -161,6 +246,7 @@
+ 	select CPU_ABRT_EV4T
+ 	select CPU_CACHE_V4WT
+ 	select CPU_CACHE_VIVT
++	select CPU_CP15_MMU
+ 	select CPU_COPY_V4WB if MMU
+ 	select CPU_TLB_V4WBI if MMU
+ 	depends on n
+@@ -172,6 +258,7 @@
+ 	select CPU_32v5
+ 	select CPU_ABRT_EV4T
+ 	select CPU_CACHE_VIVT
++	select CPU_CP15_MMU
+ 	select CPU_COPY_V4WB if MMU # can probably do better
+ 	select CPU_TLB_V4WBI if MMU
+ 	help
+@@ -189,6 +276,7 @@
+ 	select CPU_32v5
+ 	select CPU_ABRT_EV5T # But need Jazelle, but EV5TJ ignores bit 10
+ 	select CPU_CACHE_VIVT
++	select CPU_CP15_MMU
+ 	select CPU_COPY_V4WB if MMU # can probably do better
+ 	select CPU_TLB_V4WBI if MMU
+ 	help
+@@ -207,6 +295,7 @@
+ 	select CPU_ABRT_EV4
+ 	select CPU_CACHE_V4WB
+ 	select CPU_CACHE_VIVT
++	select CPU_CP15_MMU
+ 	select CPU_COPY_V4WB if MMU
+ 	select CPU_TLB_V4WB if MMU
+ 	help
+@@ -227,16 +316,18 @@
+ 	select CPU_ABRT_EV4
+ 	select CPU_CACHE_V4WB
+ 	select CPU_CACHE_VIVT
++	select CPU_CP15_MMU
+ 	select CPU_TLB_V4WB if MMU
+ 
+ # XScale
+ config CPU_XSCALE
+ 	bool
+-	depends on ARCH_IOP3XX || ARCH_PXA || ARCH_IXP4XX || ARCH_IXP2000
++	depends on ARCH_IOP32X || ARCH_IOP33X || ARCH_PXA || ARCH_IXP4XX || ARCH_IXP2000
+ 	default y
+ 	select CPU_32v5
+ 	select CPU_ABRT_EV5T
+ 	select CPU_CACHE_VIVT
++	select CPU_CP15_MMU
+ 	select CPU_TLB_V4WBI if MMU
+ 
+ # XScale Core Version 3
+@@ -247,6 +338,7 @@
+ 	select CPU_32v5
+ 	select CPU_ABRT_EV5T
+ 	select CPU_CACHE_VIVT
++	select CPU_CP15_MMU
+ 	select CPU_TLB_V4WBI if MMU
+ 	select IO_36
+ 
+@@ -258,6 +350,7 @@
+ 	select CPU_ABRT_EV6
+ 	select CPU_CACHE_V6
+ 	select CPU_CACHE_VIPT
++	select CPU_CP15_MMU
+ 	select CPU_COPY_V6 if MMU
+ 	select CPU_TLB_V6 if MMU
+ 
+@@ -299,6 +392,9 @@
+ 	bool
+ 
+ # The abort model
++config CPU_ABRT_NOMMU
++	bool
++
+ config CPU_ABRT_EV4
+ 	bool
+ 
+@@ -380,6 +476,23 @@
+ 
+ endif
+ 
++config CPU_CP15
++	bool
++	help
++	  Processor has the CP15 register.
++
++config CPU_CP15_MMU
++	bool
++	select CPU_CP15
++	help
++	  Processor has the CP15 register, which has MMU related registers.
++
++config CPU_CP15_MPU
++	bool
++	select CPU_CP15
++	help
++	  Processor has the CP15 register, which has MPU related registers.
++
+ #
+ # CPU supports 36-bit I/O
+ #
+@@ -390,7 +503,7 @@
+ 
+ config ARM_THUMB
+ 	bool "Support Thumb user binaries"
+-	depends on CPU_ARM720T || CPU_ARM920T || CPU_ARM922T || CPU_ARM925T || CPU_ARM926T || CPU_ARM1020 || CPU_ARM1020E || CPU_ARM1022 || CPU_ARM1026 || CPU_XSCALE || CPU_XSC3 || CPU_V6
++	depends on CPU_ARM720T || CPU_ARM740T || CPU_ARM920T || CPU_ARM922T || CPU_ARM925T || CPU_ARM926T || CPU_ARM940T || CPU_ARM946E || CPU_ARM1020 || CPU_ARM1020E || CPU_ARM1022 || CPU_ARM1026 || CPU_XSCALE || CPU_XSC3 || CPU_V6
+ 	default y
+ 	help
+ 	  Say Y if you want to include kernel support for running user space
+@@ -411,23 +524,48 @@
+ 	  port must properly enable any big-endian related features
+ 	  of your chipset/board/processor.
+ 
++config CPU_HIGH_VECTOR
++	depends !MMU && CPU_CP15 && !CPU_ARM740T
++	bool "Select the High exception vector"
++	default n
++	help
++	  Say Y here to select high exception vector(0xFFFF0000~).
++	  The exception vector can be vary depending on the platform
++	  design in nommu mode. If your platform needs to select
++	  high exception vector, say Y.
++	  Otherwise or if you are unsure, say N, and the low exception
++	  vector (0x00000000~) will be used.
++
+ config CPU_ICACHE_DISABLE
+-	bool "Disable I-Cache"
+-	depends on CPU_ARM920T || CPU_ARM922T || CPU_ARM925T || CPU_ARM926T || CPU_ARM1020 || CPU_V6
++	bool "Disable I-Cache (I-bit)"
++	depends on CPU_CP15 && !(CPU_ARM610 || CPU_ARM710 || CPU_ARM720T || CPU_ARM740T || CPU_XSCALE || CPU_XSC3)
+ 	help
+ 	  Say Y here to disable the processor instruction cache. Unless
+ 	  you have a reason not to or are unsure, say N.
+ 
+ config CPU_DCACHE_DISABLE
+-	bool "Disable D-Cache"
+-	depends on CPU_ARM920T || CPU_ARM922T || CPU_ARM925T || CPU_ARM926T || CPU_ARM1020 || CPU_V6
++	bool "Disable D-Cache (C-bit)"
++	depends on CPU_CP15
+ 	help
+ 	  Say Y here to disable the processor data cache. Unless
+ 	  you have a reason not to or are unsure, say N.
+ 
++config CPU_DCACHE_SIZE
++	hex
++	depends on CPU_ARM740T || CPU_ARM946E
++	default 0x00001000 if CPU_ARM740T
++	default 0x00002000 # default size for ARM946E-S
++	help
++	  Some cores are synthesizable to have various sized cache. For
++	  ARM946E-S case, it can vary from 0KB to 1MB.
++	  To support such cache operations, it is efficient to know the size
++	  before compile time.
++	  If your SoC is configured to have a different size, define the value
++	  here with proper conditions.
++
+ config CPU_DCACHE_WRITETHROUGH
+ 	bool "Force write through D-cache"
+-	depends on (CPU_ARM920T || CPU_ARM922T || CPU_ARM925T || CPU_ARM926T || CPU_ARM1020 || CPU_V6) && !CPU_DCACHE_DISABLE
++	depends on (CPU_ARM740T || CPU_ARM920T || CPU_ARM922T || CPU_ARM925T || CPU_ARM926T || CPU_ARM940T || CPU_ARM946E || CPU_ARM1020 || CPU_V6) && !CPU_DCACHE_DISABLE
+ 	default y if CPU_ARM925T
+ 	help
+ 	  Say Y here to use the data cache in writethrough mode. Unless you
+@@ -435,7 +573,7 @@
+ 
+ config CPU_CACHE_ROUND_ROBIN
+ 	bool "Round robin I and D cache replacement algorithm"
+-	depends on (CPU_ARM926T || CPU_ARM1020) && (!CPU_ICACHE_DISABLE || !CPU_DCACHE_DISABLE)
++	depends on (CPU_ARM926T || CPU_ARM946E || CPU_ARM1020) && (!CPU_ICACHE_DISABLE || !CPU_DCACHE_DISABLE)
+ 	help
+ 	  Say Y here to use the predictable round-robin cache replacement
+ 	  policy.  Unless you specifically require this or are unsure, say N.
+diff -urNP old/arch/arm/mm/Makefile new/arch/arm/mm/Makefile
+--- old/arch/arm/mm/Makefile	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/Makefile	2006-11-29 22:57:37.000000000 +0100
+@@ -6,7 +6,7 @@
+ 				   iomap.o
+ 
+ obj-$(CONFIG_MMU)		+= fault-armv.o flush.o ioremap.o mmap.o \
+-				   mm-armv.o
++				   pgd.o mmu.o
+ 
+ ifneq ($(CONFIG_MMU),y)
+ obj-y				+= nommu.o
+@@ -17,6 +17,7 @@
+ obj-$(CONFIG_ALIGNMENT_TRAP)	+= alignment.o
+ obj-$(CONFIG_DISCONTIGMEM)	+= discontig.o
+ 
++obj-$(CONFIG_CPU_ABRT_NOMMU)	+= abort-nommu.o
+ obj-$(CONFIG_CPU_ABRT_EV4)	+= abort-ev4.o
+ obj-$(CONFIG_CPU_ABRT_EV4T)	+= abort-ev4t.o
+ obj-$(CONFIG_CPU_ABRT_LV4T)	+= abort-lv4t.o
+@@ -33,7 +34,7 @@
+ obj-$(CONFIG_CPU_COPY_V3)	+= copypage-v3.o
+ obj-$(CONFIG_CPU_COPY_V4WT)	+= copypage-v4wt.o
+ obj-$(CONFIG_CPU_COPY_V4WB)	+= copypage-v4wb.o
+-obj-$(CONFIG_CPU_COPY_V6)	+= copypage-v6.o mmu.o
++obj-$(CONFIG_CPU_COPY_V6)	+= copypage-v6.o context.o
+ obj-$(CONFIG_CPU_SA1100)	+= copypage-v4mc.o
+ obj-$(CONFIG_CPU_XSCALE)	+= copypage-xscale.o
+ obj-$(CONFIG_CPU_XSC3)		+= copypage-xsc3.o
+@@ -46,11 +47,16 @@
+ 
+ obj-$(CONFIG_CPU_ARM610)	+= proc-arm6_7.o
+ obj-$(CONFIG_CPU_ARM710)	+= proc-arm6_7.o
++obj-$(CONFIG_CPU_ARM7TDMI)	+= proc-arm7tdmi.o
+ obj-$(CONFIG_CPU_ARM720T)	+= proc-arm720.o
++obj-$(CONFIG_CPU_ARM740T)	+= proc-arm740.o
++obj-$(CONFIG_CPU_ARM9TDMI)	+= proc-arm9tdmi.o
+ obj-$(CONFIG_CPU_ARM920T)	+= proc-arm920.o
+ obj-$(CONFIG_CPU_ARM922T)	+= proc-arm922.o
+ obj-$(CONFIG_CPU_ARM925T)	+= proc-arm925.o
+ obj-$(CONFIG_CPU_ARM926T)	+= proc-arm926.o
++obj-$(CONFIG_CPU_ARM940T)	+= proc-arm940.o
++obj-$(CONFIG_CPU_ARM946E)	+= proc-arm946.o
+ obj-$(CONFIG_CPU_ARM1020)	+= proc-arm1020.o
+ obj-$(CONFIG_CPU_ARM1020E)	+= proc-arm1020e.o
+ obj-$(CONFIG_CPU_ARM1022)	+= proc-arm1022.o
+diff -urNP old/arch/arm/mm/abort-lv4t.S new/arch/arm/mm/abort-lv4t.S
+--- old/arch/arm/mm/abort-lv4t.S	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/abort-lv4t.S	2006-11-29 22:57:37.000000000 +0100
+@@ -19,11 +19,16 @@
+  */
+ ENTRY(v4t_late_abort)
+ 	tst	r3, #PSR_T_BIT			@ check for thumb mode
++#ifdef CONFIG_CPU_CP15_MMU
+ 	mrc	p15, 0, r1, c5, c0, 0		@ get FSR
+ 	mrc	p15, 0, r0, c6, c0, 0		@ get FAR
++	bic	r1, r1, #1 << 11 | 1 << 10	@ clear bits 11 and 10 of FSR
++#else
++	mov	r0, #0				@ clear r0, r1 (no FSR/FAR)
++	mov	r1, #0
++#endif
+ 	bne	.data_thumb_abort
+ 	ldr	r8, [r2]			@ read arm instruction
+-	bic	r1, r1, #1 << 11 | 1 << 10	@ clear bits 11 and 10 of FSR
+ 	tst	r8, #1 << 20			@ L = 1 -> write?
+ 	orreq	r1, r1, #1 << 11		@ yes.
+ 	and	r7, r8, #15 << 24
+diff -urNP old/arch/arm/mm/abort-nommu.S new/arch/arm/mm/abort-nommu.S
+--- old/arch/arm/mm/abort-nommu.S	1970-01-01 01:00:00.000000000 +0100
++++ new/arch/arm/mm/abort-nommu.S	2006-11-29 22:57:37.000000000 +0100
+@@ -0,0 +1,19 @@
++#include <linux/linkage.h>
++#include <asm/assembler.h>
++/*
++ * Function: nommu_early_abort
++ *
++ * Params  : r2 = address of aborted instruction
++ *         : r3 = saved SPSR
++ *
++ * Returns : r0 = 0 (abort address)
++ *	   : r1 = 0 (FSR)
++ *
++ * Note: There is no FSR/FAR on !CPU_CP15_MMU cores.
++ *       Just fill zero into the registers.
++ */
++	.align	5
++ENTRY(nommu_early_abort)
++	mov	r0, #0				@ clear r0, r1 (no FSR/FAR)
++	mov	r1, #0
++	mov	pc, lr
+diff -urNP old/arch/arm/mm/alignment.c new/arch/arm/mm/alignment.c
+--- old/arch/arm/mm/alignment.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/alignment.c	2006-11-29 22:57:37.000000000 +0100
+@@ -735,7 +735,7 @@
+ 	/*
+ 	 * We got a fault - fix it up, or die.
+ 	 */
+-	do_bad_area(current, current->mm, addr, fsr, regs);
++	do_bad_area(addr, fsr, regs);
+ 	return 0;
+ 
+  swp:
+diff -urNP old/arch/arm/mm/cache-v4.S new/arch/arm/mm/cache-v4.S
+--- old/arch/arm/mm/cache-v4.S	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/cache-v4.S	2006-11-29 22:57:37.000000000 +0100
+@@ -29,9 +29,13 @@
+  *	Clean and invalidate the entire cache.
+  */
+ ENTRY(v4_flush_kern_cache_all)
++#ifdef CPU_CP15
+ 	mov	r0, #0
+ 	mcr	p15, 0, r0, c7, c7, 0		@ flush ID cache
+ 	mov	pc, lr
++#else
++	/* FALLTHROUGH */
++#endif
+ 
+ /*
+  *	flush_user_cache_range(start, end, flags)
+@@ -44,9 +48,13 @@
+  *	- flags	- vma_area_struct flags describing address space
+  */
+ ENTRY(v4_flush_user_cache_range)
++#ifdef CPU_CP15
+ 	mov	ip, #0
+ 	mcreq	p15, 0, ip, c7, c7, 0		@ flush ID cache
+ 	mov	pc, lr
++#else
++	/* FALLTHROUGH */
++#endif
+ 
+ /*
+  *	coherent_kern_range(start, end)
+@@ -108,8 +116,10 @@
+  *	- end	 - virtual end address
+  */
+ ENTRY(v4_dma_flush_range)
++#ifdef CPU_CP15
+ 	mov	r0, #0
+ 	mcr	p15, 0, r0, c7, c7, 0		@ flush ID cache
++#endif
+ 	/* FALLTHROUGH */
+ 
+ /*
+diff -urNP old/arch/arm/mm/consistent.c new/arch/arm/mm/consistent.c
+--- old/arch/arm/mm/consistent.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/consistent.c	2006-11-29 22:57:37.000000000 +0100
+@@ -476,6 +476,9 @@
+ 
+ /*
+  * Make an area consistent for devices.
++ * Note: Drivers should NOT use this function directly, as it will break
++ * platforms with CONFIG_DMABOUNCE.
++ * Use the driver DMA support - see dma-mapping.h (dma_sync_*)
+  */
+ void consistent_sync(void *vaddr, size_t size, int direction)
+ {
+diff -urNP old/arch/arm/mm/context.c new/arch/arm/mm/context.c
+--- old/arch/arm/mm/context.c	1970-01-01 01:00:00.000000000 +0100
++++ new/arch/arm/mm/context.c	2006-11-29 22:57:37.000000000 +0100
+@@ -0,0 +1,45 @@
++/*
++ *  linux/arch/arm/mm/context.c
++ *
++ *  Copyright (C) 2002-2003 Deep Blue Solutions Ltd, all rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++#include <linux/init.h>
++#include <linux/sched.h>
++#include <linux/mm.h>
++
++#include <asm/mmu_context.h>
++#include <asm/tlbflush.h>
++
++unsigned int cpu_last_asid = { 1 << ASID_BITS };
++
++/*
++ * We fork()ed a process, and we need a new context for the child
++ * to run in.  We reserve version 0 for initial tasks so we will
++ * always allocate an ASID.
++ */
++void __init_new_context(struct task_struct *tsk, struct mm_struct *mm)
++{
++	mm->context.id = 0;
++}
++
++void __new_context(struct mm_struct *mm)
++{
++	unsigned int asid;
++
++	asid = ++cpu_last_asid;
++	if (asid == 0)
++		asid = cpu_last_asid = 1 << ASID_BITS;
++
++	/*
++	 * If we've used up all our ASIDs, we need
++	 * to start a new version and flush the TLB.
++	 */
++	if ((asid & ~ASID_MASK) == 0)
++		flush_tlb_all();
++
++	mm->context.id = asid;
++}
+diff -urNP old/arch/arm/mm/copypage-v4mc.c new/arch/arm/mm/copypage-v4mc.c
+--- old/arch/arm/mm/copypage-v4mc.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/copypage-v4mc.c	2006-11-29 22:57:37.000000000 +0100
+@@ -20,6 +20,8 @@
+ #include <asm/pgtable.h>
+ #include <asm/tlbflush.h>
+ 
++#include "mm.h"
++
+ /*
+  * 0xffff8000 to 0xffffffff is reserved for any ARM architecture
+  * specific hacks for copying pages efficiently.
+@@ -27,8 +29,6 @@
+ #define minicache_pgprot __pgprot(L_PTE_PRESENT | L_PTE_YOUNG | \
+ 				  L_PTE_CACHEABLE)
+ 
+-#define TOP_PTE(x)	pte_offset_kernel(top_pmd, x)
+-
+ static DEFINE_SPINLOCK(minicache_lock);
+ 
+ /*
+diff -urNP old/arch/arm/mm/copypage-v6.c new/arch/arm/mm/copypage-v6.c
+--- old/arch/arm/mm/copypage-v6.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/copypage-v6.c	2006-11-29 22:57:37.000000000 +0100
+@@ -17,6 +17,8 @@
+ #include <asm/tlbflush.h>
+ #include <asm/cacheflush.h>
+ 
++#include "mm.h"
++
+ #if SHMLBA > 16384
+ #error FIX ME
+ #endif
+@@ -24,8 +26,6 @@
+ #define from_address	(0xffff8000)
+ #define to_address	(0xffffc000)
+ 
+-#define TOP_PTE(x)	pte_offset_kernel(top_pmd, x)
+-
+ static DEFINE_SPINLOCK(v6_lock);
+ 
+ /*
+diff -urNP old/arch/arm/mm/copypage-xscale.c new/arch/arm/mm/copypage-xscale.c
+--- old/arch/arm/mm/copypage-xscale.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/copypage-xscale.c	2006-11-29 22:57:37.000000000 +0100
+@@ -20,6 +20,8 @@
+ #include <asm/pgtable.h>
+ #include <asm/tlbflush.h>
+ 
++#include "mm.h"
++
+ /*
+  * 0xffff8000 to 0xffffffff is reserved for any ARM architecture
+  * specific hacks for copying pages efficiently.
+@@ -29,8 +31,6 @@
+ #define minicache_pgprot __pgprot(L_PTE_PRESENT | L_PTE_YOUNG | \
+ 				  L_PTE_CACHEABLE)
+ 
+-#define TOP_PTE(x)	pte_offset_kernel(top_pmd, x)
+-
+ static DEFINE_SPINLOCK(minicache_lock);
+ 
+ /*
+diff -urNP old/arch/arm/mm/fault.c new/arch/arm/mm/fault.c
+--- old/arch/arm/mm/fault.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/fault.c	2010-07-03 14:49:05.000000000 +0200
+@@ -131,10 +131,11 @@
+ 	force_sig_info(sig, &si, tsk);
+ }
+ 
+-void
+-do_bad_area(struct task_struct *tsk, struct mm_struct *mm, unsigned long addr,
+-	    unsigned int fsr, struct pt_regs *regs)
++void do_bad_area(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
+ {
++	struct task_struct *tsk = current;
++	struct mm_struct *mm = tsk->active_mm;
++
+ 	/*
+ 	 * If we are in kernel mode at this point, we
+ 	 * have no context to handle this fault with.
+@@ -170,7 +171,7 @@
+ 	if (fsr & (1 << 11)) /* write? */
+ 		mask = VM_WRITE;
+ 	else
+-		mask = VM_READ|VM_EXEC;
++		mask = VM_READ|VM_EXEC|VM_WRITE;
+ 
+ 	fault = VM_FAULT_BADACCESS;
+ 	if (!(vma->vm_flags & mask))
+@@ -319,7 +320,6 @@
+ do_translation_fault(unsigned long addr, unsigned int fsr,
+ 		     struct pt_regs *regs)
+ {
+-	struct task_struct *tsk;
+ 	unsigned int index;
+ 	pgd_t *pgd, *pgd_k;
+ 	pmd_t *pmd, *pmd_k;
+@@ -351,9 +351,7 @@
+ 	return 0;
+ 
+ bad_area:
+-	tsk = current;
+-
+-	do_bad_area(tsk, tsk->active_mm, addr, fsr, regs);
++	do_bad_area(addr, fsr, regs);
+ 	return 0;
+ }
+ 
+@@ -364,8 +362,7 @@
+ static int
+ do_sect_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
+ {
+-	struct task_struct *tsk = current;
+-	do_bad_area(tsk, tsk->active_mm, addr, fsr, regs);
++	do_bad_area(addr, fsr, regs);
+ 	return 0;
+ }
+ 
+diff -urNP old/arch/arm/mm/fault.h new/arch/arm/mm/fault.h
+--- old/arch/arm/mm/fault.h	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/fault.h	2006-11-29 22:57:37.000000000 +0100
+@@ -1,6 +1,3 @@
+-void do_bad_area(struct task_struct *tsk, struct mm_struct *mm,
+-		 unsigned long addr, unsigned int fsr, struct pt_regs *regs);
+-
+-void show_pte(struct mm_struct *mm, unsigned long addr);
++void do_bad_area(unsigned long addr, unsigned int fsr, struct pt_regs *regs);
+ 
+ unsigned long search_exception_table(unsigned long addr);
+diff -urNP old/arch/arm/mm/flush.c new/arch/arm/mm/flush.c
+--- old/arch/arm/mm/flush.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/flush.c	2006-11-29 22:57:37.000000000 +0100
+@@ -15,12 +15,12 @@
+ #include <asm/system.h>
+ #include <asm/tlbflush.h>
+ 
++#include "mm.h"
++
+ #ifdef CONFIG_CPU_CACHE_VIPT
+ 
+ #define ALIAS_FLUSH_START	0xffff4000
+ 
+-#define TOP_PTE(x)	pte_offset_kernel(top_pmd, x)
+-
+ static void flush_pfn_alias(unsigned long pfn, unsigned long vaddr)
+ {
+ 	unsigned long to = ALIAS_FLUSH_START + (CACHE_COLOUR(vaddr) << PAGE_SHIFT);
+@@ -107,7 +107,7 @@
+ 
+ 	/* VIPT non-aliasing cache */
+ 	if (cpu_isset(smp_processor_id(), vma->vm_mm->cpu_vm_mask) &&
+-	    vma->vm_flags | VM_EXEC) {
++	    vma->vm_flags & VM_EXEC) {
+ 		unsigned long addr = (unsigned long)kaddr;
+ 		/* only flushing the kernel mapping on non-aliasing VIPT */
+ 		__cpuc_coherent_kern_range(addr, addr + len);
+diff -urNP old/arch/arm/mm/init.c new/arch/arm/mm/init.c
+--- old/arch/arm/mm/init.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/init.c	2006-11-29 22:57:37.000000000 +0100
+@@ -25,54 +25,58 @@
+ #include <asm/mach/arch.h>
+ #include <asm/mach/map.h>
+ 
+-DEFINE_PER_CPU(struct mmu_gather, mmu_gathers);
++#include "mm.h"
+ 
+-extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
+-extern void _stext, _text, _etext, __data_start, _end, __init_begin, __init_end;
++extern void _text, _etext, __data_start, _end, __init_begin, __init_end;
+ extern unsigned long phys_initrd_start;
+ extern unsigned long phys_initrd_size;
+ 
+ /*
+- * The sole use of this is to pass memory configuration
+- * data from paging_init to mem_init.
++ * This is used to pass memory configuration data from paging_init
++ * to mem_init, and by show_mem() to skip holes in the memory map.
+  */
+-static struct meminfo meminfo __initdata = { 0, };
++static struct meminfo meminfo = { 0, };
+ 
+-/*
+- * empty_zero_page is a special page that is used for
+- * zero-initialized data and COW.
+- */
+-struct page *empty_zero_page;
++#define for_each_nodebank(iter,mi,no)			\
++	for (iter = 0; iter < mi->nr_banks; iter++)	\
++		if (mi->bank[iter].node == no)
+ 
+ void show_mem(void)
+ {
+ 	int free = 0, total = 0, reserved = 0;
+-	int shared = 0, cached = 0, slab = 0, node;
++	int shared = 0, cached = 0, slab = 0, node, i;
++	struct meminfo * mi = &meminfo;
+ 
+ 	printk("Mem-info:\n");
+ 	show_free_areas();
+ 	printk("Free swap:       %6ldkB\n", nr_swap_pages<<(PAGE_SHIFT-10));
+ 
+ 	for_each_online_node(node) {
+-		struct page *page, *end;
+-
+-		page = NODE_MEM_MAP(node);
+-		end  = page + NODE_DATA(node)->node_spanned_pages;
+-
+-		do {
+-			total++;
+-			if (PageReserved(page))
+-				reserved++;
+-			else if (PageSwapCache(page))
+-				cached++;
+-			else if (PageSlab(page))
+-				slab++;
+-			else if (!page_count(page))
+-				free++;
+-			else
+-				shared += page_count(page) - 1;
+-			page++;
+-		} while (page < end);
++		for_each_nodebank (i,mi,node) {
++			unsigned int pfn1, pfn2;
++			struct page *page, *end;
++
++			pfn1 = mi->bank[i].start >> PAGE_SHIFT;
++			pfn2 = (mi->bank[i].size + mi->bank[i].start) >> PAGE_SHIFT;
++
++			page = NODE_MEM_MAP(node) + pfn1;
++			end  = NODE_MEM_MAP(node) + pfn2;
++
++			do {
++				total++;
++				if (PageReserved(page))
++					reserved++;
++				else if (PageSwapCache(page))
++					cached++;
++				else if (PageSlab(page))
++					slab++;
++				else if (!page_count(page))
++					free++;
++				else
++					shared += page_count(page) - 1;
++				page++;
++			} while (page < end);
++		}
+ 	}
+ 
+ 	printk("%d pages of RAM\n", total);
+@@ -83,20 +87,6 @@
+ 	printk("%d pages swap cached\n", cached);
+ }
+ 
+-static inline pmd_t *pmd_off(pgd_t *pgd, unsigned long virt)
+-{
+-	return pmd_offset(pgd, virt);
+-}
+-
+-static inline pmd_t *pmd_off_k(unsigned long virt)
+-{
+-	return pmd_off(pgd_offset_k(virt), virt);
+-}
+-
+-#define for_each_nodebank(iter,mi,no)			\
+-	for (iter = 0; iter < mi->nr_banks; iter++)	\
+-		if (mi->bank[iter].node == no)
+-
+ /*
+  * FIXME: We really want to avoid allocating the bootmap bitmap
+  * over the top of the initrd.  Hopefully, this is located towards
+@@ -176,62 +166,20 @@
+ 	return initrd_node;
+ }
+ 
+-/*
+- * Reserve the various regions of node 0
+- */
+-static __init void reserve_node_zero(pg_data_t *pgdat)
++static inline void map_memory_bank(struct membank *bank)
+ {
+-	unsigned long res_size = 0;
+-
+-	/*
+-	 * Register the kernel text and data with bootmem.
+-	 * Note that this can only be in node 0.
+-	 */
+-#ifdef CONFIG_XIP_KERNEL
+-	reserve_bootmem_node(pgdat, __pa(&__data_start), &_end - &__data_start);
+-#else
+-	reserve_bootmem_node(pgdat, __pa(&_stext), &_end - &_stext);
+-#endif
+-
+-	/*
+-	 * Reserve the page tables.  These are already in use,
+-	 * and can only be in node 0.
+-	 */
+-	reserve_bootmem_node(pgdat, __pa(swapper_pg_dir),
+-			     PTRS_PER_PGD * sizeof(pgd_t));
+-
+-	/*
+-	 * Hmm... This should go elsewhere, but we really really need to
+-	 * stop things allocating the low memory; ideally we need a better
+-	 * implementation of GFP_DMA which does not assume that DMA-able
+-	 * memory starts at zero.
+-	 */
+-	if (machine_is_integrator() || machine_is_cintegrator())
+-		res_size = __pa(swapper_pg_dir) - PHYS_OFFSET;
++#ifdef CONFIG_MMU
++	struct map_desc map;
+ 
+-	/*
+-	 * These should likewise go elsewhere.  They pre-reserve the
+-	 * screen memory region at the start of main system memory.
+-	 */
+-	if (machine_is_edb7211())
+-		res_size = 0x00020000;
+-	if (machine_is_p720t())
+-		res_size = 0x00014000;
++	map.pfn = __phys_to_pfn(bank->start);
++	map.virtual = __phys_to_virt(bank->start);
++	map.length = bank->size;
++	map.type = MT_MEMORY;
+ 
+-#ifdef CONFIG_SA1111
+-	/*
+-	 * Because of the SA1111 DMA bug, we want to preserve our
+-	 * precious DMA-able memory...
+-	 */
+-	res_size = __pa(swapper_pg_dir) - PHYS_OFFSET;
++	create_mapping(&map);
+ #endif
+-	if (res_size)
+-		reserve_bootmem_node(pgdat, PHYS_OFFSET, res_size);
+ }
+ 
+-void __init build_mem_type_table(void);
+-void __init create_mapping(struct map_desc *md);
+-
+ static unsigned long __init
+ bootmem_init_node(int node, int initrd_node, struct meminfo *mi)
+ {
+@@ -248,23 +196,18 @@
+ 	 * Calculate the pfn range, and map the memory banks for this node.
+ 	 */
+ 	for_each_nodebank(i, mi, node) {
++		struct membank *bank = &mi->bank[i];
+ 		unsigned long start, end;
+-		struct map_desc map;
+ 
+-		start = mi->bank[i].start >> PAGE_SHIFT;
+-		end = (mi->bank[i].start + mi->bank[i].size) >> PAGE_SHIFT;
++		start = bank->start >> PAGE_SHIFT;
++		end = (bank->start + bank->size) >> PAGE_SHIFT;
+ 
+ 		if (start_pfn > start)
+ 			start_pfn = start;
+ 		if (end_pfn < end)
+ 			end_pfn = end;
+ 
+-		map.pfn = __phys_to_pfn(mi->bank[i].start);
+-		map.virtual = __phys_to_virt(mi->bank[i].start);
+-		map.length = mi->bank[i].size;
+-		map.type = MT_MEMORY;
+-
+-		create_mapping(&map);
++		map_memory_bank(bank);
+ 	}
+ 
+ 	/*
+@@ -346,9 +289,9 @@
+ 	return end_pfn;
+ }
+ 
+-static void __init bootmem_init(struct meminfo *mi)
++void __init bootmem_init(struct meminfo *mi)
+ {
+-	unsigned long addr, memend_pfn = 0;
++	unsigned long memend_pfn = 0;
+ 	int node, initrd_node, i;
+ 
+ 	/*
+@@ -361,26 +304,6 @@
+ 	memcpy(&meminfo, mi, sizeof(meminfo));
+ 
+ 	/*
+-	 * Clear out all the mappings below the kernel image.
+-	 */
+-	for (addr = 0; addr < MODULE_START; addr += PGDIR_SIZE)
+-		pmd_clear(pmd_off_k(addr));
+-#ifdef CONFIG_XIP_KERNEL
+-	/* The XIP kernel is mapped in the module area -- skip over it */
+-	addr = ((unsigned long)&_etext + PGDIR_SIZE - 1) & PGDIR_MASK;
+-#endif
+-	for ( ; addr < PAGE_OFFSET; addr += PGDIR_SIZE)
+-		pmd_clear(pmd_off_k(addr));
+-
+-	/*
+-	 * Clear out all the kernel space mappings, except for the first
+-	 * memory bank, up to the end of the vmalloc region.
+-	 */
+-	for (addr = __phys_to_virt(mi->bank[0].start + mi->bank[0].size);
+-	     addr < VMALLOC_END; addr += PGDIR_SIZE)
+-		pmd_clear(pmd_off_k(addr));
+-
+-	/*
+ 	 * Locate which node contains the ramdisk image, if any.
+ 	 */
+ 	initrd_node = check_initrd(mi);
+@@ -413,114 +336,6 @@
+ 	max_pfn = max_low_pfn = memend_pfn - PHYS_PFN_OFFSET;
+ }
+ 
+-/*
+- * Set up device the mappings.  Since we clear out the page tables for all
+- * mappings above VMALLOC_END, we will remove any debug device mappings.
+- * This means you have to be careful how you debug this function, or any
+- * called function.  This means you can't use any function or debugging
+- * method which may touch any device, otherwise the kernel _will_ crash.
+- */
+-static void __init devicemaps_init(struct machine_desc *mdesc)
+-{
+-	struct map_desc map;
+-	unsigned long addr;
+-	void *vectors;
+-
+-	/*
+-	 * Allocate the vector page early.
+-	 */
+-	vectors = alloc_bootmem_low_pages(PAGE_SIZE);
+-	BUG_ON(!vectors);
+-
+-	for (addr = VMALLOC_END; addr; addr += PGDIR_SIZE)
+-		pmd_clear(pmd_off_k(addr));
+-
+-	/*
+-	 * Map the kernel if it is XIP.
+-	 * It is always first in the modulearea.
+-	 */
+-#ifdef CONFIG_XIP_KERNEL
+-	map.pfn = __phys_to_pfn(CONFIG_XIP_PHYS_ADDR & PGDIR_MASK);
+-	map.virtual = MODULE_START;
+-	map.length = ((unsigned long)&_etext - map.virtual + ~PGDIR_MASK) & PGDIR_MASK;
+-	map.type = MT_ROM;
+-	create_mapping(&map);
+-#endif
+-
+-	/*
+-	 * Map the cache flushing regions.
+-	 */
+-#ifdef FLUSH_BASE
+-	map.pfn = __phys_to_pfn(FLUSH_BASE_PHYS);
+-	map.virtual = FLUSH_BASE;
+-	map.length = SZ_1M;
+-	map.type = MT_CACHECLEAN;
+-	create_mapping(&map);
+-#endif
+-#ifdef FLUSH_BASE_MINICACHE
+-	map.pfn = __phys_to_pfn(FLUSH_BASE_PHYS + SZ_1M);
+-	map.virtual = FLUSH_BASE_MINICACHE;
+-	map.length = SZ_1M;
+-	map.type = MT_MINICLEAN;
+-	create_mapping(&map);
+-#endif
+-
+-	/*
+-	 * Create a mapping for the machine vectors at the high-vectors
+-	 * location (0xffff0000).  If we aren't using high-vectors, also
+-	 * create a mapping at the low-vectors virtual address.
+-	 */
+-	map.pfn = __phys_to_pfn(virt_to_phys(vectors));
+-	map.virtual = 0xffff0000;
+-	map.length = PAGE_SIZE;
+-	map.type = MT_HIGH_VECTORS;
+-	create_mapping(&map);
+-
+-	if (!vectors_high()) {
+-		map.virtual = 0;
+-		map.type = MT_LOW_VECTORS;
+-		create_mapping(&map);
+-	}
+-
+-	/*
+-	 * Ask the machine support to map in the statically mapped devices.
+-	 */
+-	if (mdesc->map_io)
+-		mdesc->map_io();
+-
+-	/*
+-	 * Finally flush the caches and tlb to ensure that we're in a
+-	 * consistent state wrt the writebuffer.  This also ensures that
+-	 * any write-allocated cache lines in the vector page are written
+-	 * back.  After this point, we can start to touch devices again.
+-	 */
+-	local_flush_tlb_all();
+-	flush_cache_all();
+-}
+-
+-/*
+- * paging_init() sets up the page tables, initialises the zone memory
+- * maps, and sets up the zero page, bad page and bad page tables.
+- */
+-void __init paging_init(struct meminfo *mi, struct machine_desc *mdesc)
+-{
+-	void *zero_page;
+-
+-	build_mem_type_table();
+-	bootmem_init(mi);
+-	devicemaps_init(mdesc);
+-
+-	top_pmd = pmd_off_k(0xffff0000);
+-
+-	/*
+-	 * allocate the zero page.  Note that we count on this going ok.
+-	 */
+-	zero_page = alloc_bootmem_low_pages(PAGE_SIZE);
+-	memzero(zero_page, PAGE_SIZE);
+-	empty_zero_page = virt_to_page(zero_page);
+-	flush_dcache_page(empty_zero_page);
+-}
+-
+ static inline void free_area(unsigned long addr, unsigned long end, char *s)
+ {
+ 	unsigned int size = (end - addr) >> 10;
+diff -urNP old/arch/arm/mm/ioremap.c new/arch/arm/mm/ioremap.c
+--- old/arch/arm/mm/ioremap.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/ioremap.c	2010-07-03 17:16:41.000000000 +0200
+@@ -361,14 +361,14 @@
+ }
+ EXPORT_SYMBOL(__ioremap);
+ 
+-void __iounmap(void __iomem *addr)
++void __iounmap(volatile void __iomem *addr)
+ {
+ #ifndef CONFIG_SMP
+ 	struct vm_struct **p, *tmp;
+ #endif
+ 	unsigned int section_mapping = 0;
+ 
+-	addr = (void __iomem *)(PAGE_MASK & (unsigned long)addr);
++	addr = (volatile void __iomem *)(PAGE_MASK & (unsigned long)addr);
+ 
+ #ifndef CONFIG_SMP
+ 	/*
+@@ -395,6 +395,6 @@
+ #endif
+ 
+ 	if (!section_mapping)
+-		vunmap(addr);
++		vunmap((void __force *)addr);
+ }
+ EXPORT_SYMBOL(__iounmap);
+diff -urNP old/arch/arm/mm/mm-armv.c new/arch/arm/mm/mm-armv.c
+--- old/arch/arm/mm/mm-armv.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/mm-armv.c	1970-01-01 01:00:00.000000000 +0100
+@@ -1,663 +0,0 @@
+-/*
+- *  linux/arch/arm/mm/mm-armv.c
+- *
+- *  Copyright (C) 1998-2005 Russell King
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- *
+- *  Page table sludge for ARM v3 and v4 processor architectures.
+- */
+-#include <linux/module.h>
+-#include <linux/mm.h>
+-#include <linux/init.h>
+-#include <linux/bootmem.h>
+-#include <linux/highmem.h>
+-#include <linux/nodemask.h>
+-
+-#include <asm/pgalloc.h>
+-#include <asm/page.h>
+-#include <asm/setup.h>
+-#include <asm/tlbflush.h>
+-
+-#include <asm/mach/map.h>
+-
+-#define CPOLICY_UNCACHED	0
+-#define CPOLICY_BUFFERED	1
+-#define CPOLICY_WRITETHROUGH	2
+-#define CPOLICY_WRITEBACK	3
+-#define CPOLICY_WRITEALLOC	4
+-
+-static unsigned int cachepolicy __initdata = CPOLICY_WRITEBACK;
+-static unsigned int ecc_mask __initdata = 0;
+-pgprot_t pgprot_kernel;
+-
+-EXPORT_SYMBOL(pgprot_kernel);
+-
+-pmd_t *top_pmd;
+-
+-struct cachepolicy {
+-	const char	policy[16];
+-	unsigned int	cr_mask;
+-	unsigned int	pmd;
+-	unsigned int	pte;
+-};
+-
+-static struct cachepolicy cache_policies[] __initdata = {
+-	{
+-		.policy		= "uncached",
+-		.cr_mask	= CR_W|CR_C,
+-		.pmd		= PMD_SECT_UNCACHED,
+-		.pte		= 0,
+-	}, {
+-		.policy		= "buffered",
+-		.cr_mask	= CR_C,
+-		.pmd		= PMD_SECT_BUFFERED,
+-		.pte		= PTE_BUFFERABLE,
+-	}, {
+-		.policy		= "writethrough",
+-		.cr_mask	= 0,
+-		.pmd		= PMD_SECT_WT,
+-		.pte		= PTE_CACHEABLE,
+-	}, {
+-		.policy		= "writeback",
+-		.cr_mask	= 0,
+-		.pmd		= PMD_SECT_WB,
+-		.pte		= PTE_BUFFERABLE|PTE_CACHEABLE,
+-	}, {
+-		.policy		= "writealloc",
+-		.cr_mask	= 0,
+-		.pmd		= PMD_SECT_WBWA,
+-		.pte		= PTE_BUFFERABLE|PTE_CACHEABLE,
+-	}
+-};
+-
+-/*
+- * These are useful for identifing cache coherency
+- * problems by allowing the cache or the cache and
+- * writebuffer to be turned off.  (Note: the write
+- * buffer should not be on and the cache off).
+- */
+-static void __init early_cachepolicy(char **p)
+-{
+-	int i;
+-
+-	for (i = 0; i < ARRAY_SIZE(cache_policies); i++) {
+-		int len = strlen(cache_policies[i].policy);
+-
+-		if (memcmp(*p, cache_policies[i].policy, len) == 0) {
+-			cachepolicy = i;
+-			cr_alignment &= ~cache_policies[i].cr_mask;
+-			cr_no_alignment &= ~cache_policies[i].cr_mask;
+-			*p += len;
+-			break;
+-		}
+-	}
+-	if (i == ARRAY_SIZE(cache_policies))
+-		printk(KERN_ERR "ERROR: unknown or unsupported cache policy\n");
+-	flush_cache_all();
+-	set_cr(cr_alignment);
+-}
+-
+-static void __init early_nocache(char **__unused)
+-{
+-	char *p = "buffered";
+-	printk(KERN_WARNING "nocache is deprecated; use cachepolicy=%s\n", p);
+-	early_cachepolicy(&p);
+-}
+-
+-static void __init early_nowrite(char **__unused)
+-{
+-	char *p = "uncached";
+-	printk(KERN_WARNING "nowb is deprecated; use cachepolicy=%s\n", p);
+-	early_cachepolicy(&p);
+-}
+-
+-static void __init early_ecc(char **p)
+-{
+-	if (memcmp(*p, "on", 2) == 0) {
+-		ecc_mask = PMD_PROTECTION;
+-		*p += 2;
+-	} else if (memcmp(*p, "off", 3) == 0) {
+-		ecc_mask = 0;
+-		*p += 3;
+-	}
+-}
+-
+-__early_param("nocache", early_nocache);
+-__early_param("nowb", early_nowrite);
+-__early_param("cachepolicy=", early_cachepolicy);
+-__early_param("ecc=", early_ecc);
+-
+-static int __init noalign_setup(char *__unused)
+-{
+-	cr_alignment &= ~CR_A;
+-	cr_no_alignment &= ~CR_A;
+-	set_cr(cr_alignment);
+-	return 1;
+-}
+-
+-__setup("noalign", noalign_setup);
+-
+-#define FIRST_KERNEL_PGD_NR	(FIRST_USER_PGD_NR + USER_PTRS_PER_PGD)
+-
+-static inline pmd_t *pmd_off(pgd_t *pgd, unsigned long virt)
+-{
+-	return pmd_offset(pgd, virt);
+-}
+-
+-static inline pmd_t *pmd_off_k(unsigned long virt)
+-{
+-	return pmd_off(pgd_offset_k(virt), virt);
+-}
+-
+-/*
+- * need to get a 16k page for level 1
+- */
+-pgd_t *get_pgd_slow(struct mm_struct *mm)
+-{
+-	pgd_t *new_pgd, *init_pgd;
+-	pmd_t *new_pmd, *init_pmd;
+-	pte_t *new_pte, *init_pte;
+-
+-	new_pgd = (pgd_t *)__get_free_pages(GFP_KERNEL, 2);
+-	if (!new_pgd)
+-		goto no_pgd;
+-
+-	memzero(new_pgd, FIRST_KERNEL_PGD_NR * sizeof(pgd_t));
+-
+-	/*
+-	 * Copy over the kernel and IO PGD entries
+-	 */
+-	init_pgd = pgd_offset_k(0);
+-	memcpy(new_pgd + FIRST_KERNEL_PGD_NR, init_pgd + FIRST_KERNEL_PGD_NR,
+-		       (PTRS_PER_PGD - FIRST_KERNEL_PGD_NR) * sizeof(pgd_t));
+-
+-	clean_dcache_area(new_pgd, PTRS_PER_PGD * sizeof(pgd_t));
+-
+-	if (!vectors_high()) {
+-		/*
+-		 * On ARM, first page must always be allocated since it
+-		 * contains the machine vectors.
+-		 */
+-		new_pmd = pmd_alloc(mm, new_pgd, 0);
+-		if (!new_pmd)
+-			goto no_pmd;
+-
+-		new_pte = pte_alloc_map(mm, new_pmd, 0);
+-		if (!new_pte)
+-			goto no_pte;
+-
+-		init_pmd = pmd_offset(init_pgd, 0);
+-		init_pte = pte_offset_map_nested(init_pmd, 0);
+-		set_pte(new_pte, *init_pte);
+-		pte_unmap_nested(init_pte);
+-		pte_unmap(new_pte);
+-	}
+-
+-	return new_pgd;
+-
+-no_pte:
+-	pmd_free(new_pmd);
+-no_pmd:
+-	free_pages((unsigned long)new_pgd, 2);
+-no_pgd:
+-	return NULL;
+-}
+-
+-void free_pgd_slow(pgd_t *pgd)
+-{
+-	pmd_t *pmd;
+-	struct page *pte;
+-
+-	if (!pgd)
+-		return;
+-
+-	/* pgd is always present and good */
+-	pmd = pmd_off(pgd, 0);
+-	if (pmd_none(*pmd))
+-		goto free;
+-	if (pmd_bad(*pmd)) {
+-		pmd_ERROR(*pmd);
+-		pmd_clear(pmd);
+-		goto free;
+-	}
+-
+-	pte = pmd_page(*pmd);
+-	pmd_clear(pmd);
+-	dec_zone_page_state(virt_to_page((unsigned long *)pgd), NR_PAGETABLE);
+-	pte_lock_deinit(pte);
+-	pte_free(pte);
+-	pmd_free(pmd);
+-free:
+-	free_pages((unsigned long) pgd, 2);
+-}
+-
+-/*
+- * Create a SECTION PGD between VIRT and PHYS in domain
+- * DOMAIN with protection PROT.  This operates on half-
+- * pgdir entry increments.
+- */
+-static inline void
+-alloc_init_section(unsigned long virt, unsigned long phys, int prot)
+-{
+-	pmd_t *pmdp = pmd_off_k(virt);
+-
+-	if (virt & (1 << 20))
+-		pmdp++;
+-
+-	*pmdp = __pmd(phys | prot);
+-	flush_pmd_entry(pmdp);
+-}
+-
+-/*
+- * Create a SUPER SECTION PGD between VIRT and PHYS with protection PROT
+- */
+-static inline void
+-alloc_init_supersection(unsigned long virt, unsigned long phys, int prot)
+-{
+-	int i;
+-
+-	for (i = 0; i < 16; i += 1) {
+-		alloc_init_section(virt, phys, prot | PMD_SECT_SUPER);
+-
+-		virt += (PGDIR_SIZE / 2);
+-	}
+-}
+-
+-/*
+- * Add a PAGE mapping between VIRT and PHYS in domain
+- * DOMAIN with protection PROT.  Note that due to the
+- * way we map the PTEs, we must allocate two PTE_SIZE'd
+- * blocks - one for the Linux pte table, and one for
+- * the hardware pte table.
+- */
+-static inline void
+-alloc_init_page(unsigned long virt, unsigned long phys, unsigned int prot_l1, pgprot_t prot)
+-{
+-	pmd_t *pmdp = pmd_off_k(virt);
+-	pte_t *ptep;
+-
+-	if (pmd_none(*pmdp)) {
+-		ptep = alloc_bootmem_low_pages(2 * PTRS_PER_PTE *
+-					       sizeof(pte_t));
+-
+-		__pmd_populate(pmdp, __pa(ptep) | prot_l1);
+-	}
+-	ptep = pte_offset_kernel(pmdp, virt);
+-
+-	set_pte(ptep, pfn_pte(phys >> PAGE_SHIFT, prot));
+-}
+-
+-struct mem_types {
+-	unsigned int	prot_pte;
+-	unsigned int	prot_l1;
+-	unsigned int	prot_sect;
+-	unsigned int	domain;
+-};
+-
+-static struct mem_types mem_types[] __initdata = {
+-	[MT_DEVICE] = {
+-		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
+-				L_PTE_WRITE,
+-		.prot_l1   = PMD_TYPE_TABLE,
+-		.prot_sect = PMD_TYPE_SECT | PMD_BIT4 | PMD_SECT_UNCACHED |
+-				PMD_SECT_AP_WRITE,
+-		.domain    = DOMAIN_IO,
+-	},
+-	[MT_CACHECLEAN] = {
+-		.prot_sect = PMD_TYPE_SECT | PMD_BIT4,
+-		.domain    = DOMAIN_KERNEL,
+-	},
+-	[MT_MINICLEAN] = {
+-		.prot_sect = PMD_TYPE_SECT | PMD_BIT4 | PMD_SECT_MINICACHE,
+-		.domain    = DOMAIN_KERNEL,
+-	},
+-	[MT_LOW_VECTORS] = {
+-		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
+-				L_PTE_EXEC,
+-		.prot_l1   = PMD_TYPE_TABLE,
+-		.domain    = DOMAIN_USER,
+-	},
+-	[MT_HIGH_VECTORS] = {
+-		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
+-				L_PTE_USER | L_PTE_EXEC,
+-		.prot_l1   = PMD_TYPE_TABLE,
+-		.domain    = DOMAIN_USER,
+-	},
+-	[MT_MEMORY] = {
+-		.prot_sect = PMD_TYPE_SECT | PMD_BIT4 | PMD_SECT_AP_WRITE,
+-		.domain    = DOMAIN_KERNEL,
+-	},
+-	[MT_ROM] = {
+-		.prot_sect = PMD_TYPE_SECT | PMD_BIT4,
+-		.domain    = DOMAIN_KERNEL,
+-	},
+-	[MT_IXP2000_DEVICE] = { /* IXP2400 requires XCB=101 for on-chip I/O */
+-		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
+-				L_PTE_WRITE,
+-		.prot_l1   = PMD_TYPE_TABLE,
+-		.prot_sect = PMD_TYPE_SECT | PMD_BIT4 | PMD_SECT_UNCACHED |
+-				PMD_SECT_AP_WRITE | PMD_SECT_BUFFERABLE |
+-				PMD_SECT_TEX(1),
+-		.domain    = DOMAIN_IO,
+-	},
+-	[MT_NONSHARED_DEVICE] = {
+-		.prot_l1   = PMD_TYPE_TABLE,
+-		.prot_sect = PMD_TYPE_SECT | PMD_BIT4 | PMD_SECT_NONSHARED_DEV |
+-				PMD_SECT_AP_WRITE,
+-		.domain    = DOMAIN_IO,
+-	}
+-};
+-
+-/*
+- * Adjust the PMD section entries according to the CPU in use.
+- */
+-void __init build_mem_type_table(void)
+-{
+-	struct cachepolicy *cp;
+-	unsigned int cr = get_cr();
+-	unsigned int user_pgprot, kern_pgprot;
+-	int cpu_arch = cpu_architecture();
+-	int i;
+-
+-#if defined(CONFIG_CPU_DCACHE_DISABLE)
+-	if (cachepolicy > CPOLICY_BUFFERED)
+-		cachepolicy = CPOLICY_BUFFERED;
+-#elif defined(CONFIG_CPU_DCACHE_WRITETHROUGH)
+-	if (cachepolicy > CPOLICY_WRITETHROUGH)
+-		cachepolicy = CPOLICY_WRITETHROUGH;
+-#endif
+-	if (cpu_arch < CPU_ARCH_ARMv5) {
+-		if (cachepolicy >= CPOLICY_WRITEALLOC)
+-			cachepolicy = CPOLICY_WRITEBACK;
+-		ecc_mask = 0;
+-	}
+-
+-	/*
+-	 * Xscale must not have PMD bit 4 set for section mappings.
+-	 */
+-	if (cpu_is_xscale())
+-		for (i = 0; i < ARRAY_SIZE(mem_types); i++)
+-			mem_types[i].prot_sect &= ~PMD_BIT4;
+-
+-	/*
+-	 * ARMv5 and lower, excluding Xscale, bit 4 must be set for
+-	 * page tables.
+-	 */
+-	if (cpu_arch < CPU_ARCH_ARMv6 && !cpu_is_xscale())
+-		for (i = 0; i < ARRAY_SIZE(mem_types); i++)
+-			if (mem_types[i].prot_l1)
+-				mem_types[i].prot_l1 |= PMD_BIT4;
+-
+-	cp = &cache_policies[cachepolicy];
+-	kern_pgprot = user_pgprot = cp->pte;
+-
+-	/*
+-	 * Enable CPU-specific coherency if supported.
+-	 * (Only available on XSC3 at the moment.)
+-	 */
+-	if (arch_is_coherent()) {
+-		if (cpu_is_xsc3()) {
+-			mem_types[MT_MEMORY].prot_sect |= PMD_SECT_S;
+-			mem_types[MT_MEMORY].prot_pte |= L_PTE_COHERENT;
+-		}
+-	}
+-
+-	/*
+-	 * ARMv6 and above have extended page tables.
+-	 */
+-	if (cpu_arch >= CPU_ARCH_ARMv6 && (cr & CR_XP)) {
+-		/*
+-		 * bit 4 becomes XN which we must clear for the
+-		 * kernel memory mapping.
+-		 */
+-		mem_types[MT_MEMORY].prot_sect &= ~PMD_SECT_XN;
+-		mem_types[MT_ROM].prot_sect &= ~PMD_SECT_XN;
+-
+-		/*
+-		 * Mark cache clean areas and XIP ROM read only
+-		 * from SVC mode and no access from userspace.
+-		 */
+-		mem_types[MT_ROM].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
+-		mem_types[MT_MINICLEAN].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
+-		mem_types[MT_CACHECLEAN].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
+-
+-		/*
+-		 * Mark the device area as "shared device"
+-		 */
+-		mem_types[MT_DEVICE].prot_pte |= L_PTE_BUFFERABLE;
+-		mem_types[MT_DEVICE].prot_sect |= PMD_SECT_BUFFERED;
+-
+-		/*
+-		 * User pages need to be mapped with the ASID
+-		 * (iow, non-global)
+-		 */
+-		user_pgprot |= L_PTE_ASID;
+-
+-#ifdef CONFIG_SMP
+-		/*
+-		 * Mark memory with the "shared" attribute for SMP systems
+-		 */
+-		user_pgprot |= L_PTE_SHARED;
+-		kern_pgprot |= L_PTE_SHARED;
+-		mem_types[MT_MEMORY].prot_sect |= PMD_SECT_S;
+-#endif
+-	}
+-
+-	for (i = 0; i < 16; i++) {
+-		unsigned long v = pgprot_val(protection_map[i]);
+-		v = (v & ~(L_PTE_BUFFERABLE|L_PTE_CACHEABLE)) | user_pgprot;
+-		protection_map[i] = __pgprot(v);
+-	}
+-
+-	mem_types[MT_LOW_VECTORS].prot_pte |= kern_pgprot;
+-	mem_types[MT_HIGH_VECTORS].prot_pte |= kern_pgprot;
+-
+-	if (cpu_arch >= CPU_ARCH_ARMv5) {
+-#ifndef CONFIG_SMP
+-		/*
+-		 * Only use write-through for non-SMP systems
+-		 */
+-		mem_types[MT_LOW_VECTORS].prot_pte &= ~L_PTE_BUFFERABLE;
+-		mem_types[MT_HIGH_VECTORS].prot_pte &= ~L_PTE_BUFFERABLE;
+-#endif
+-	} else {
+-		mem_types[MT_MINICLEAN].prot_sect &= ~PMD_SECT_TEX(1);
+-	}
+-
+-	pgprot_kernel = __pgprot(L_PTE_PRESENT | L_PTE_YOUNG |
+-				 L_PTE_DIRTY | L_PTE_WRITE |
+-				 L_PTE_EXEC | kern_pgprot);
+-
+-	mem_types[MT_LOW_VECTORS].prot_l1 |= ecc_mask;
+-	mem_types[MT_HIGH_VECTORS].prot_l1 |= ecc_mask;
+-	mem_types[MT_MEMORY].prot_sect |= ecc_mask | cp->pmd;
+-	mem_types[MT_ROM].prot_sect |= cp->pmd;
+-
+-	switch (cp->pmd) {
+-	case PMD_SECT_WT:
+-		mem_types[MT_CACHECLEAN].prot_sect |= PMD_SECT_WT;
+-		break;
+-	case PMD_SECT_WB:
+-	case PMD_SECT_WBWA:
+-		mem_types[MT_CACHECLEAN].prot_sect |= PMD_SECT_WB;
+-		break;
+-	}
+-	printk("Memory policy: ECC %sabled, Data cache %s\n",
+-		ecc_mask ? "en" : "dis", cp->policy);
+-}
+-
+-#define vectors_base()	(vectors_high() ? 0xffff0000 : 0)
+-
+-/*
+- * Create the page directory entries and any necessary
+- * page tables for the mapping specified by `md'.  We
+- * are able to cope here with varying sizes and address
+- * offsets, and we take full advantage of sections and
+- * supersections.
+- */
+-void __init create_mapping(struct map_desc *md)
+-{
+-	unsigned long virt, length;
+-	int prot_sect, prot_l1, domain;
+-	pgprot_t prot_pte;
+-	unsigned long off = (u32)__pfn_to_phys(md->pfn);
+-
+-	if (md->virtual != vectors_base() && md->virtual < TASK_SIZE) {
+-		printk(KERN_WARNING "BUG: not creating mapping for "
+-		       "0x%08llx at 0x%08lx in user region\n",
+-		       __pfn_to_phys((u64)md->pfn), md->virtual);
+-		return;
+-	}
+-
+-	if ((md->type == MT_DEVICE || md->type == MT_ROM) &&
+-	    md->virtual >= PAGE_OFFSET && md->virtual < VMALLOC_END) {
+-		printk(KERN_WARNING "BUG: mapping for 0x%08llx at 0x%08lx "
+-		       "overlaps vmalloc space\n",
+-		       __pfn_to_phys((u64)md->pfn), md->virtual);
+-	}
+-
+-	domain	  = mem_types[md->type].domain;
+-	prot_pte  = __pgprot(mem_types[md->type].prot_pte);
+-	prot_l1   = mem_types[md->type].prot_l1 | PMD_DOMAIN(domain);
+-	prot_sect = mem_types[md->type].prot_sect | PMD_DOMAIN(domain);
+-
+-	/*
+-	 * Catch 36-bit addresses
+-	 */
+-	if(md->pfn >= 0x100000) {
+-		if(domain) {
+-			printk(KERN_ERR "MM: invalid domain in supersection "
+-				"mapping for 0x%08llx at 0x%08lx\n",
+-				__pfn_to_phys((u64)md->pfn), md->virtual);
+-			return;
+-		}
+-		if((md->virtual | md->length | __pfn_to_phys(md->pfn))
+-			& ~SUPERSECTION_MASK) {
+-			printk(KERN_ERR "MM: cannot create mapping for "
+-				"0x%08llx at 0x%08lx invalid alignment\n",
+-				__pfn_to_phys((u64)md->pfn), md->virtual);
+-			return;
+-		}
+-
+-		/*
+-		 * Shift bits [35:32] of address into bits [23:20] of PMD
+-		 * (See ARMv6 spec).
+-		 */
+-		off |= (((md->pfn >> (32 - PAGE_SHIFT)) & 0xF) << 20);
+-	}
+-
+-	virt   = md->virtual;
+-	off   -= virt;
+-	length = md->length;
+-
+-	if (mem_types[md->type].prot_l1 == 0 &&
+-	    (virt & 0xfffff || (virt + off) & 0xfffff || (virt + length) & 0xfffff)) {
+-		printk(KERN_WARNING "BUG: map for 0x%08lx at 0x%08lx can not "
+-		       "be mapped using pages, ignoring.\n",
+-		       __pfn_to_phys(md->pfn), md->virtual);
+-		return;
+-	}
+-
+-	while ((virt & 0xfffff || (virt + off) & 0xfffff) && length >= PAGE_SIZE) {
+-		alloc_init_page(virt, virt + off, prot_l1, prot_pte);
+-
+-		virt   += PAGE_SIZE;
+-		length -= PAGE_SIZE;
+-	}
+-
+-	/* N.B.	ARMv6 supersections are only defined to work with domain 0.
+-	 *	Since domain assignments can in fact be arbitrary, the
+-	 *	'domain == 0' check below is required to insure that ARMv6
+-	 *	supersections are only allocated for domain 0 regardless
+-	 *	of the actual domain assignments in use.
+-	 */
+-	if ((cpu_architecture() >= CPU_ARCH_ARMv6 || cpu_is_xsc3())
+-		&& domain == 0) {
+-		/*
+-		 * Align to supersection boundary if !high pages.
+-		 * High pages have already been checked for proper
+-		 * alignment above and they will fail the SUPSERSECTION_MASK
+-		 * check because of the way the address is encoded into
+-		 * offset.
+-		 */
+-		if (md->pfn <= 0x100000) {
+-			while ((virt & ~SUPERSECTION_MASK ||
+-			        (virt + off) & ~SUPERSECTION_MASK) &&
+-				length >= (PGDIR_SIZE / 2)) {
+-				alloc_init_section(virt, virt + off, prot_sect);
+-
+-				virt   += (PGDIR_SIZE / 2);
+-				length -= (PGDIR_SIZE / 2);
+-			}
+-		}
+-
+-		while (length >= SUPERSECTION_SIZE) {
+-			alloc_init_supersection(virt, virt + off, prot_sect);
+-
+-			virt   += SUPERSECTION_SIZE;
+-			length -= SUPERSECTION_SIZE;
+-		}
+-	}
+-
+-	/*
+-	 * A section mapping covers half a "pgdir" entry.
+-	 */
+-	while (length >= (PGDIR_SIZE / 2)) {
+-		alloc_init_section(virt, virt + off, prot_sect);
+-
+-		virt   += (PGDIR_SIZE / 2);
+-		length -= (PGDIR_SIZE / 2);
+-	}
+-
+-	while (length >= PAGE_SIZE) {
+-		alloc_init_page(virt, virt + off, prot_l1, prot_pte);
+-
+-		virt   += PAGE_SIZE;
+-		length -= PAGE_SIZE;
+-	}
+-}
+-
+-/*
+- * In order to soft-boot, we need to insert a 1:1 mapping in place of
+- * the user-mode pages.  This will then ensure that we have predictable
+- * results when turning the mmu off
+- */
+-void setup_mm_for_reboot(char mode)
+-{
+-	unsigned long base_pmdval;
+-	pgd_t *pgd;
+-	int i;
+-
+-	if (current->mm && current->mm->pgd)
+-		pgd = current->mm->pgd;
+-	else
+-		pgd = init_mm.pgd;
+-
+-	base_pmdval = PMD_SECT_AP_WRITE | PMD_SECT_AP_READ | PMD_TYPE_SECT;
+-	if (cpu_architecture() <= CPU_ARCH_ARMv5TEJ && !cpu_is_xscale())
+-		base_pmdval |= PMD_BIT4;
+-
+-	for (i = 0; i < FIRST_USER_PGD_NR + USER_PTRS_PER_PGD; i++, pgd++) {
+-		unsigned long pmdval = (i << PGDIR_SHIFT) | base_pmdval;
+-		pmd_t *pmd;
+-
+-		pmd = pmd_off(pgd, i << PGDIR_SHIFT);
+-		pmd[0] = __pmd(pmdval);
+-		pmd[1] = __pmd(pmdval + (1 << (PGDIR_SHIFT - 1)));
+-		flush_pmd_entry(pmd);
+-	}
+-}
+-
+-/*
+- * Create the architecture specific mappings
+- */
+-void __init iotable_init(struct map_desc *io_desc, int nr)
+-{
+-	int i;
+-
+-	for (i = 0; i < nr; i++)
+-		create_mapping(io_desc + i);
+-}
+diff -urNP old/arch/arm/mm/mm.h new/arch/arm/mm/mm.h
+--- old/arch/arm/mm/mm.h	1970-01-01 01:00:00.000000000 +0100
++++ new/arch/arm/mm/mm.h	2006-11-29 22:57:37.000000000 +0100
+@@ -0,0 +1,22 @@
++/* the upper-most page table pointer */
++extern pmd_t *top_pmd;
++
++#define TOP_PTE(x)	pte_offset_kernel(top_pmd, x)
++
++static inline pmd_t *pmd_off(pgd_t *pgd, unsigned long virt)
++{
++	return pmd_offset(pgd, virt);
++}
++
++static inline pmd_t *pmd_off_k(unsigned long virt)
++{
++	return pmd_off(pgd_offset_k(virt), virt);
++}
++
++struct map_desc;
++struct meminfo;
++struct pglist_data;
++
++void __init create_mapping(struct map_desc *md);
++void __init bootmem_init(struct meminfo *mi);
++void reserve_node_zero(struct pglist_data *pgdat);
+diff -urNP old/arch/arm/mm/mmap.c new/arch/arm/mm/mmap.c
+--- old/arch/arm/mm/mmap.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/mmap.c	2006-11-29 22:57:37.000000000 +0100
+@@ -114,3 +114,25 @@
+ 	}
+ }
+ 
++
++/*
++ * You really shouldn't be using read() or write() on /dev/mem.  This
++ * might go away in the future.
++ */
++int valid_phys_addr_range(unsigned long addr, size_t size)
++{
++	if (addr + size > __pa(high_memory))
++		return 0;
++
++	return 1;
++}
++
++/*
++ * We don't use supersection mappings for mmap() on /dev/mem, which
++ * means that we can't map the memory area above the 4G barrier into
++ * userspace.
++ */
++int valid_mmap_phys_addr_range(unsigned long pfn, size_t size)
++{
++	return !(pfn + (size >> PAGE_SHIFT) > 0x00100000);
++}
+diff -urNP old/arch/arm/mm/mmu.c new/arch/arm/mm/mmu.c
+--- old/arch/arm/mm/mmu.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/mmu.c	2010-07-04 08:03:53.000000000 +0200
+@@ -1,45 +1,771 @@
+ /*
+  *  linux/arch/arm/mm/mmu.c
+  *
+- *  Copyright (C) 2002-2003 Deep Blue Solutions Ltd, all rights reserved.
++ *  Copyright (C) 1995-2005 Russell King
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/errno.h>
+ #include <linux/init.h>
+-#include <linux/sched.h>
+-#include <linux/mm.h>
++#include <linux/bootmem.h>
++#include <linux/mman.h>
++#include <linux/nodemask.h>
+ 
+-#include <asm/mmu_context.h>
+-#include <asm/tlbflush.h>
++#include <asm/mach-types.h>
++#include <asm/setup.h>
++#include <asm/sizes.h>
++#include <asm/tlb.h>
+ 
+-unsigned int cpu_last_asid = { 1 << ASID_BITS };
++#include <asm/mach/arch.h>
++#include <asm/mach/map.h>
++
++#include "mm.h"
++
++DEFINE_PER_CPU(struct mmu_gather, mmu_gathers);
++
++extern void _stext, _etext, __data_start, _end;
++extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
++
++/*
++ * empty_zero_page is a special page that is used for
++ * zero-initialized data and COW.
++ */
++struct page *empty_zero_page;
+ 
+ /*
+- * We fork()ed a process, and we need a new context for the child
+- * to run in.  We reserve version 0 for initial tasks so we will
+- * always allocate an ASID.
++ * The pmd table for the upper-most set of pages.
+  */
+-void __init_new_context(struct task_struct *tsk, struct mm_struct *mm)
++pmd_t *top_pmd;
++
++#define CPOLICY_UNCACHED	0
++#define CPOLICY_BUFFERED	1
++#define CPOLICY_WRITETHROUGH	2
++#define CPOLICY_WRITEBACK	3
++#define CPOLICY_WRITEALLOC	4
++
++static unsigned int cachepolicy __initdata = CPOLICY_WRITEBACK;
++static unsigned int ecc_mask __initdata = 0;
++pgprot_t pgprot_kernel;
++
++EXPORT_SYMBOL(pgprot_kernel);
++
++struct cachepolicy {
++	const char	policy[16];
++	unsigned int	cr_mask;
++	unsigned int	pmd;
++	unsigned int	pte;
++};
++
++static struct cachepolicy cache_policies[] __initdata = {
++	{
++		.policy		= "uncached",
++		.cr_mask	= CR_W|CR_C,
++		.pmd		= PMD_SECT_UNCACHED,
++		.pte		= 0,
++	}, {
++		.policy		= "buffered",
++		.cr_mask	= CR_C,
++		.pmd		= PMD_SECT_BUFFERED,
++		.pte		= PTE_BUFFERABLE,
++	}, {
++		.policy		= "writethrough",
++		.cr_mask	= 0,
++		.pmd		= PMD_SECT_WT,
++		.pte		= PTE_CACHEABLE,
++	}, {
++		.policy		= "writeback",
++		.cr_mask	= 0,
++		.pmd		= PMD_SECT_WB,
++		.pte		= PTE_BUFFERABLE|PTE_CACHEABLE,
++	}, {
++		.policy		= "writealloc",
++		.cr_mask	= 0,
++		.pmd		= PMD_SECT_WBWA,
++		.pte		= PTE_BUFFERABLE|PTE_CACHEABLE,
++	}
++};
++
++/*
++ * These are useful for identifing cache coherency
++ * problems by allowing the cache or the cache and
++ * writebuffer to be turned off.  (Note: the write
++ * buffer should not be on and the cache off).
++ */
++static void __init early_cachepolicy(char **p)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(cache_policies); i++) {
++		int len = strlen(cache_policies[i].policy);
++
++		if (memcmp(*p, cache_policies[i].policy, len) == 0) {
++			cachepolicy = i;
++			cr_alignment &= ~cache_policies[i].cr_mask;
++			cr_no_alignment &= ~cache_policies[i].cr_mask;
++			*p += len;
++			break;
++		}
++	}
++	if (i == ARRAY_SIZE(cache_policies))
++		printk(KERN_ERR "ERROR: unknown or unsupported cache policy\n");
++	flush_cache_all();
++	set_cr(cr_alignment);
++}
++__early_param("cachepolicy=", early_cachepolicy);
++
++static void __init early_nocache(char **__unused)
++{
++	char *p = "buffered";
++	printk(KERN_WARNING "nocache is deprecated; use cachepolicy=%s\n", p);
++	early_cachepolicy(&p);
++}
++__early_param("nocache", early_nocache);
++
++static void __init early_nowrite(char **__unused)
++{
++	char *p = "uncached";
++	printk(KERN_WARNING "nowb is deprecated; use cachepolicy=%s\n", p);
++	early_cachepolicy(&p);
++}
++__early_param("nowb", early_nowrite);
++
++static void __init early_ecc(char **p)
++{
++	if (memcmp(*p, "on", 2) == 0) {
++		ecc_mask = PMD_PROTECTION;
++		*p += 2;
++	} else if (memcmp(*p, "off", 3) == 0) {
++		ecc_mask = 0;
++		*p += 3;
++	}
++}
++__early_param("ecc=", early_ecc);
++
++static int __init noalign_setup(char *__unused)
+ {
+-	mm->context.id = 0;
++	cr_alignment &= ~CR_A;
++	cr_no_alignment &= ~CR_A;
++	set_cr(cr_alignment);
++	return 1;
+ }
++__setup("noalign", noalign_setup);
++
++struct mem_types {
++	unsigned int	prot_pte;
++	unsigned int	prot_l1;
++	unsigned int	prot_sect;
++	unsigned int	domain;
++};
+ 
+-void __new_context(struct mm_struct *mm)
++static struct mem_types mem_types[] __initdata = {
++	[MT_DEVICE] = {
++		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
++				L_PTE_WRITE,
++		.prot_l1   = PMD_TYPE_TABLE,
++		.prot_sect = PMD_TYPE_SECT | PMD_BIT4 | PMD_SECT_UNCACHED |
++				PMD_SECT_AP_WRITE,
++		.domain    = DOMAIN_IO,
++	},
++	[MT_CACHECLEAN] = {
++		.prot_sect = PMD_TYPE_SECT | PMD_BIT4,
++		.domain    = DOMAIN_KERNEL,
++	},
++	[MT_MINICLEAN] = {
++		.prot_sect = PMD_TYPE_SECT | PMD_BIT4 | PMD_SECT_MINICACHE,
++		.domain    = DOMAIN_KERNEL,
++	},
++	[MT_LOW_VECTORS] = {
++		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
++				L_PTE_EXEC,
++		.prot_l1   = PMD_TYPE_TABLE,
++		.domain    = DOMAIN_USER,
++	},
++	[MT_HIGH_VECTORS] = {
++		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
++				L_PTE_USER | L_PTE_EXEC,
++		.prot_l1   = PMD_TYPE_TABLE,
++		.domain    = DOMAIN_USER,
++	},
++	[MT_MEMORY] = {
++		.prot_sect = PMD_TYPE_SECT | PMD_BIT4 | PMD_SECT_AP_WRITE,
++		.domain    = DOMAIN_KERNEL,
++	},
++	[MT_ROM] = {
++		.prot_sect = PMD_TYPE_SECT | PMD_BIT4,
++		.domain    = DOMAIN_KERNEL,
++	},
++	[MT_IXP2000_DEVICE] = { /* IXP2400 requires XCB=101 for on-chip I/O */
++		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
++				L_PTE_WRITE,
++		.prot_l1   = PMD_TYPE_TABLE,
++		.prot_sect = PMD_TYPE_SECT | PMD_BIT4 | PMD_SECT_UNCACHED |
++				PMD_SECT_AP_WRITE | PMD_SECT_BUFFERABLE |
++				PMD_SECT_TEX(1),
++		.domain    = DOMAIN_IO,
++	},
++	[MT_NONSHARED_DEVICE] = {
++		.prot_l1   = PMD_TYPE_TABLE,
++		.prot_sect = PMD_TYPE_SECT | PMD_BIT4 | PMD_SECT_NONSHARED_DEV |
++				PMD_SECT_AP_WRITE,
++		.domain    = DOMAIN_IO,
++	}
++};
++
++/*
++ * Adjust the PMD section entries according to the CPU in use.
++ */
++static void __init build_mem_type_table(void)
+ {
+-	unsigned int asid;
++	struct cachepolicy *cp;
++	unsigned int cr = get_cr();
++	unsigned int user_pgprot, kern_pgprot;
++	int cpu_arch = cpu_architecture();
++	int i;
+ 
+-	asid = ++cpu_last_asid;
+-	if (asid == 0)
+-		asid = cpu_last_asid = 1 << ASID_BITS;
++#if defined(CONFIG_CPU_DCACHE_DISABLE)
++	if (cachepolicy > CPOLICY_BUFFERED)
++		cachepolicy = CPOLICY_BUFFERED;
++#elif defined(CONFIG_CPU_DCACHE_WRITETHROUGH)
++	if (cachepolicy > CPOLICY_WRITETHROUGH)
++		cachepolicy = CPOLICY_WRITETHROUGH;
++#endif
++	if (cpu_arch < CPU_ARCH_ARMv5) {
++		if (cachepolicy >= CPOLICY_WRITEALLOC)
++			cachepolicy = CPOLICY_WRITEBACK;
++		ecc_mask = 0;
++	}
++
++	/*
++	 * Xscale must not have PMD bit 4 set for section mappings.
++	 */
++	if (cpu_is_xscale())
++		for (i = 0; i < ARRAY_SIZE(mem_types); i++)
++			mem_types[i].prot_sect &= ~PMD_BIT4;
+ 
+ 	/*
+-	 * If we've used up all our ASIDs, we need
+-	 * to start a new version and flush the TLB.
++	 * ARMv5 and lower, excluding Xscale, bit 4 must be set for
++	 * page tables.
+ 	 */
+-	if ((asid & ~ASID_MASK) == 0)
+-		flush_tlb_all();
++	if (cpu_arch < CPU_ARCH_ARMv6 && !cpu_is_xscale())
++		for (i = 0; i < ARRAY_SIZE(mem_types); i++)
++			if (mem_types[i].prot_l1)
++				mem_types[i].prot_l1 |= PMD_BIT4;
++
++	cp = &cache_policies[cachepolicy];
++	kern_pgprot = user_pgprot = cp->pte;
++
++	/*
++	 * Enable CPU-specific coherency if supported.
++	 * (Only available on XSC3 at the moment.)
++	 */
++	if (arch_is_coherent()) {
++		if (cpu_is_xsc3()) {
++			mem_types[MT_MEMORY].prot_sect |= PMD_SECT_S;
++			mem_types[MT_MEMORY].prot_pte |= L_PTE_COHERENT;
++		}
++	}
++
++	/*
++	 * ARMv6 and above have extended page tables.
++	 */
++	if (cpu_arch >= CPU_ARCH_ARMv6 && (cr & CR_XP)) {
++		/*
++		 * bit 4 becomes XN which we must clear for the
++		 * kernel memory mapping.
++		 */
++		mem_types[MT_MEMORY].prot_sect &= ~PMD_SECT_XN;
++		mem_types[MT_ROM].prot_sect &= ~PMD_SECT_XN;
++
++		/*
++		 * Mark cache clean areas and XIP ROM read only
++		 * from SVC mode and no access from userspace.
++		 */
++		mem_types[MT_ROM].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
++		mem_types[MT_MINICLEAN].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
++		mem_types[MT_CACHECLEAN].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
++
++		/*
++		 * Mark the device area as "shared device"
++		 */
++		mem_types[MT_DEVICE].prot_pte |= L_PTE_BUFFERABLE;
++		mem_types[MT_DEVICE].prot_sect |= PMD_SECT_BUFFERED;
++
++		/*
++		 * User pages need to be mapped with the ASID
++		 * (iow, non-global)
++		 */
++		user_pgprot |= L_PTE_ASID;
++
++#ifdef CONFIG_SMP
++		/*
++		 * Mark memory with the "shared" attribute for SMP systems
++		 */
++		user_pgprot |= L_PTE_SHARED;
++		kern_pgprot |= L_PTE_SHARED;
++		mem_types[MT_MEMORY].prot_sect |= PMD_SECT_S;
++#endif
++	}
++
++	for (i = 0; i < 16; i++) {
++		unsigned long v = pgprot_val(protection_map[i]);
++		v = (v & ~(L_PTE_BUFFERABLE|L_PTE_CACHEABLE)) | user_pgprot;
++		protection_map[i] = __pgprot(v);
++	}
++
++	mem_types[MT_LOW_VECTORS].prot_pte |= kern_pgprot;
++	mem_types[MT_HIGH_VECTORS].prot_pte |= kern_pgprot;
++
++	if (cpu_arch >= CPU_ARCH_ARMv5) {
++#ifndef CONFIG_SMP
++		/*
++		 * Only use write-through for non-SMP systems
++		 */
++		mem_types[MT_LOW_VECTORS].prot_pte &= ~L_PTE_BUFFERABLE;
++		mem_types[MT_HIGH_VECTORS].prot_pte &= ~L_PTE_BUFFERABLE;
++#endif
++	} else {
++		mem_types[MT_MINICLEAN].prot_sect &= ~PMD_SECT_TEX(1);
++	}
++
++	pgprot_kernel = __pgprot(L_PTE_PRESENT | L_PTE_YOUNG |
++				 L_PTE_DIRTY | L_PTE_WRITE |
++				 L_PTE_EXEC | kern_pgprot);
++
++	mem_types[MT_LOW_VECTORS].prot_l1 |= ecc_mask;
++	mem_types[MT_HIGH_VECTORS].prot_l1 |= ecc_mask;
++	mem_types[MT_MEMORY].prot_sect |= ecc_mask | cp->pmd;
++	mem_types[MT_ROM].prot_sect |= cp->pmd;
++
++	switch (cp->pmd) {
++	case PMD_SECT_WT:
++		mem_types[MT_CACHECLEAN].prot_sect |= PMD_SECT_WT;
++		break;
++	case PMD_SECT_WB:
++	case PMD_SECT_WBWA:
++		mem_types[MT_CACHECLEAN].prot_sect |= PMD_SECT_WB;
++		break;
++	}
++	printk("Memory policy: ECC %sabled, Data cache %s\n",
++		ecc_mask ? "en" : "dis", cp->policy);
++}
++
++#define vectors_base()	(vectors_high() ? 0xffff0000 : 0)
++
++/*
++ * Create a SECTION PGD between VIRT and PHYS in domain
++ * DOMAIN with protection PROT.  This operates on half-
++ * pgdir entry increments.
++ */
++static inline void
++alloc_init_section(unsigned long virt, unsigned long phys, int prot)
++{
++	pmd_t *pmdp = pmd_off_k(virt);
++
++	if (virt & (1 << 20))
++		pmdp++;
++
++	*pmdp = __pmd(phys | prot);
++	flush_pmd_entry(pmdp);
++}
++
++/*
++ * Create a SUPER SECTION PGD between VIRT and PHYS with protection PROT
++ */
++static inline void
++alloc_init_supersection(unsigned long virt, unsigned long phys, int prot)
++{
++	int i;
++
++	for (i = 0; i < 16; i += 1) {
++		alloc_init_section(virt, phys, prot | PMD_SECT_SUPER);
++
++		virt += (PGDIR_SIZE / 2);
++	}
++}
++
++/*
++ * Add a PAGE mapping between VIRT and PHYS in domain
++ * DOMAIN with protection PROT.  Note that due to the
++ * way we map the PTEs, we must allocate two PTE_SIZE'd
++ * blocks - one for the Linux pte table, and one for
++ * the hardware pte table.
++ */
++static inline void
++alloc_init_page(unsigned long virt, unsigned long phys, unsigned int prot_l1, pgprot_t prot)
++{
++	pmd_t *pmdp = pmd_off_k(virt);
++	pte_t *ptep;
++
++	if (pmd_none(*pmdp)) {
++		ptep = alloc_bootmem_low_pages(2 * PTRS_PER_PTE *
++					       sizeof(pte_t));
++
++		__pmd_populate(pmdp, __pa(ptep) | prot_l1);
++	}
++	ptep = pte_offset_kernel(pmdp, virt);
++
++	set_pte(ptep, pfn_pte(phys >> PAGE_SHIFT, prot));
++}
++
++/*
++ * Create the page directory entries and any necessary
++ * page tables for the mapping specified by `md'.  We
++ * are able to cope here with varying sizes and address
++ * offsets, and we take full advantage of sections and
++ * supersections.
++ */
++void __init create_mapping(struct map_desc *md)
++{
++	unsigned long virt, length;
++	int prot_sect, prot_l1, domain;
++	pgprot_t prot_pte;
++	unsigned long off = (u32)__pfn_to_phys(md->pfn);
++
++	if (md->virtual != vectors_base() && md->virtual < TASK_SIZE) {
++		printk(KERN_WARNING "BUG: not creating mapping for "
++		       "0x%08llx at 0x%08lx in user region\n",
++		       __pfn_to_phys((u64)md->pfn), md->virtual);
++		return;
++	}
++
++	if ((md->type == MT_DEVICE || md->type == MT_ROM) &&
++	    md->virtual >= PAGE_OFFSET && md->virtual < VMALLOC_END) {
++		printk(KERN_WARNING "BUG: mapping for 0x%08llx at 0x%08lx "
++		       "overlaps vmalloc space\n",
++		       __pfn_to_phys((u64)md->pfn), md->virtual);
++	}
++
++	domain	  = mem_types[md->type].domain;
++	prot_pte  = __pgprot(mem_types[md->type].prot_pte);
++	prot_l1   = mem_types[md->type].prot_l1 | PMD_DOMAIN(domain);
++	prot_sect = mem_types[md->type].prot_sect | PMD_DOMAIN(domain);
++
++	/*
++	 * Catch 36-bit addresses
++	 */
++	if(md->pfn >= 0x100000) {
++		if(domain) {
++			printk(KERN_ERR "MM: invalid domain in supersection "
++				"mapping for 0x%08llx at 0x%08lx\n",
++				__pfn_to_phys((u64)md->pfn), md->virtual);
++			return;
++		}
++		if((md->virtual | md->length | __pfn_to_phys(md->pfn))
++			& ~SUPERSECTION_MASK) {
++			printk(KERN_ERR "MM: cannot create mapping for "
++				"0x%08llx at 0x%08lx invalid alignment\n",
++				__pfn_to_phys((u64)md->pfn), md->virtual);
++			return;
++		}
++
++		/*
++		 * Shift bits [35:32] of address into bits [23:20] of PMD
++		 * (See ARMv6 spec).
++		 */
++		off |= (((md->pfn >> (32 - PAGE_SHIFT)) & 0xF) << 20);
++	}
++
++	virt   = md->virtual;
++	off   -= virt;
++	length = md->length;
++
++	if (mem_types[md->type].prot_l1 == 0 &&
++	    (virt & 0xfffff || (virt + off) & 0xfffff || (virt + length) & 0xfffff)) {
++		printk(KERN_WARNING "BUG: map for 0x%08lx at 0x%08lx can not "
++		       "be mapped using pages, ignoring.\n",
++		       __pfn_to_phys(md->pfn), md->virtual);
++		return;
++	}
++
++	while ((virt & 0xfffff || (virt + off) & 0xfffff) && length >= PAGE_SIZE) {
++		alloc_init_page(virt, virt + off, prot_l1, prot_pte);
++
++		virt   += PAGE_SIZE;
++		length -= PAGE_SIZE;
++	}
++
++	/* N.B.	ARMv6 supersections are only defined to work with domain 0.
++	 *	Since domain assignments can in fact be arbitrary, the
++	 *	'domain == 0' check below is required to insure that ARMv6
++	 *	supersections are only allocated for domain 0 regardless
++	 *	of the actual domain assignments in use.
++	 */
++	if ((cpu_architecture() >= CPU_ARCH_ARMv6 || cpu_is_xsc3())
++		&& domain == 0) {
++		/*
++		 * Align to supersection boundary if !high pages.
++		 * High pages have already been checked for proper
++		 * alignment above and they will fail the SUPSERSECTION_MASK
++		 * check because of the way the address is encoded into
++		 * offset.
++		 */
++		if (md->pfn <= 0x100000) {
++			while ((virt & ~SUPERSECTION_MASK ||
++			        (virt + off) & ~SUPERSECTION_MASK) &&
++				length >= (PGDIR_SIZE / 2)) {
++				alloc_init_section(virt, virt + off, prot_sect);
++
++				virt   += (PGDIR_SIZE / 2);
++				length -= (PGDIR_SIZE / 2);
++			}
++		}
++
++		while (length >= SUPERSECTION_SIZE) {
++			alloc_init_supersection(virt, virt + off, prot_sect);
++
++			virt   += SUPERSECTION_SIZE;
++			length -= SUPERSECTION_SIZE;
++		}
++	}
++
++	/*
++	 * A section mapping covers half a "pgdir" entry.
++	 */
++	while (length >= (PGDIR_SIZE / 2)) {
++		alloc_init_section(virt, virt + off, prot_sect);
++
++		virt   += (PGDIR_SIZE / 2);
++		length -= (PGDIR_SIZE / 2);
++	}
++
++	while (length >= PAGE_SIZE) {
++		alloc_init_page(virt, virt + off, prot_l1, prot_pte);
++
++		virt   += PAGE_SIZE;
++		length -= PAGE_SIZE;
++	}
++}
++
++/*
++ * Create the architecture specific mappings
++ */
++void __init iotable_init(struct map_desc *io_desc, int nr)
++{
++	int i;
++
++	for (i = 0; i < nr; i++)
++		create_mapping(io_desc + i);
++}
++
++static inline void prepare_page_table(struct meminfo *mi)
++{
++	unsigned long addr;
++
++	/*
++	 * Clear out all the mappings below the kernel image.
++	 */
++	for (addr = 0; addr < MODULE_START; addr += PGDIR_SIZE)
++		pmd_clear(pmd_off_k(addr));
++
++#ifdef CONFIG_XIP_KERNEL
++	/* The XIP kernel is mapped in the module area -- skip over it */
++	addr = ((unsigned long)&_etext + PGDIR_SIZE - 1) & PGDIR_MASK;
++#endif
++	for ( ; addr < PAGE_OFFSET; addr += PGDIR_SIZE)
++		pmd_clear(pmd_off_k(addr));
++
++	/*
++	 * Clear out all the kernel space mappings, except for the first
++	 * memory bank, up to the end of the vmalloc region.
++	 */
++	for (addr = __phys_to_virt(mi->bank[0].start + mi->bank[0].size);
++	     addr < VMALLOC_END; addr += PGDIR_SIZE)
++		pmd_clear(pmd_off_k(addr));
++}
++
++/*
++ * Reserve the various regions of node 0
++ */
++void __init reserve_node_zero(pg_data_t *pgdat)
++{
++	unsigned long res_size = 0;
++
++	/*
++	 * Register the kernel text and data with bootmem.
++	 * Note that this can only be in node 0.
++	 */
++#ifdef CONFIG_XIP_KERNEL
++	reserve_bootmem_node(pgdat, __pa(&__data_start), &_end - &__data_start);
++#else
++	reserve_bootmem_node(pgdat, __pa(&_stext), &_end - &_stext);
++#endif
++
++	/*
++	 * Reserve the page tables.  These are already in use,
++	 * and can only be in node 0.
++	 */
++	reserve_bootmem_node(pgdat, __pa(swapper_pg_dir),
++			     PTRS_PER_PGD * sizeof(pgd_t));
++
++	/*
++	 * Hmm... This should go elsewhere, but we really really need to
++	 * stop things allocating the low memory; ideally we need a better
++	 * implementation of GFP_DMA which does not assume that DMA-able
++	 * memory starts at zero.
++	 */
++	if (machine_is_integrator() || machine_is_cintegrator())
++		res_size = __pa(swapper_pg_dir) - PHYS_OFFSET;
++
++	/*
++	 * These should likewise go elsewhere.  They pre-reserve the
++	 * screen memory region at the start of main system memory.
++	 */
++	if (machine_is_edb7211())
++		res_size = 0x00020000;
++	if (machine_is_p720t())
++		res_size = 0x00014000;
++
++#ifdef CONFIG_SA1111
++	/*
++	 * Because of the SA1111 DMA bug, we want to preserve our
++	 * precious DMA-able memory...
++	 */
++	res_size = __pa(swapper_pg_dir) - PHYS_OFFSET;
++#endif
++	if (res_size)
++		reserve_bootmem_node(pgdat, PHYS_OFFSET, res_size);
++}
++
++/*
++ * Set up device the mappings.  Since we clear out the page tables for all
++ * mappings above VMALLOC_END, we will remove any debug device mappings.
++ * This means you have to be careful how you debug this function, or any
++ * called function.  This means you can't use any function or debugging
++ * method which may touch any device, otherwise the kernel _will_ crash.
++ */
++static void __init devicemaps_init(struct machine_desc *mdesc)
++{
++	struct map_desc map;
++	unsigned long addr;
++	void *vectors;
++
++	/*
++	 * Allocate the vector page early.
++	 */
++	vectors = alloc_bootmem_low_pages(PAGE_SIZE);
++	BUG_ON(!vectors);
++
++	for (addr = VMALLOC_END; addr; addr += PGDIR_SIZE)
++		pmd_clear(pmd_off_k(addr));
++
++	/*
++	 * Map the kernel if it is XIP.
++	 * It is always first in the modulearea.
++	 */
++#ifdef CONFIG_XIP_KERNEL
++	map.pfn = __phys_to_pfn(CONFIG_XIP_PHYS_ADDR & SECTION_MASK);
++	map.virtual = MODULE_START;
++	map.length = ((unsigned long)&_etext - map.virtual + ~SECTION_MASK) & SECTION_MASK;
++	map.type = MT_ROM;
++	create_mapping(&map);
++#endif
++
++	/*
++	 * Map the cache flushing regions.
++	 */
++#ifdef FLUSH_BASE
++	map.pfn = __phys_to_pfn(FLUSH_BASE_PHYS);
++	map.virtual = FLUSH_BASE;
++	map.length = SZ_1M;
++	map.type = MT_CACHECLEAN;
++	create_mapping(&map);
++#endif
++#ifdef FLUSH_BASE_MINICACHE
++	map.pfn = __phys_to_pfn(FLUSH_BASE_PHYS + SZ_1M);
++	map.virtual = FLUSH_BASE_MINICACHE;
++	map.length = SZ_1M;
++	map.type = MT_MINICLEAN;
++	create_mapping(&map);
++#endif
++
++	/*
++	 * Create a mapping for the machine vectors at the high-vectors
++	 * location (0xffff0000).  If we aren't using high-vectors, also
++	 * create a mapping at the low-vectors virtual address.
++	 */
++	map.pfn = __phys_to_pfn(virt_to_phys(vectors));
++	map.virtual = 0xffff0000;
++	map.length = PAGE_SIZE;
++	map.type = MT_HIGH_VECTORS;
++	create_mapping(&map);
++
++	if (!vectors_high()) {
++		map.virtual = 0;
++		map.type = MT_LOW_VECTORS;
++		create_mapping(&map);
++	}
++
++	/*
++	 * Ask the machine support to map in the statically mapped devices.
++	 */
++	if (mdesc->map_io)
++		mdesc->map_io();
++
++	/*
++	 * Finally flush the caches and tlb to ensure that we're in a
++	 * consistent state wrt the writebuffer.  This also ensures that
++	 * any write-allocated cache lines in the vector page are written
++	 * back.  After this point, we can start to touch devices again.
++	 */
++	local_flush_tlb_all();
++	flush_cache_all();
++}
++
++/*
++ * paging_init() sets up the page tables, initialises the zone memory
++ * maps, and sets up the zero page, bad page and bad page tables.
++ */
++void __init paging_init(struct meminfo *mi, struct machine_desc *mdesc)
++{
++	void *zero_page;
++
++	build_mem_type_table();
++	prepare_page_table(mi);
++	bootmem_init(mi);
++	devicemaps_init(mdesc);
++
++	top_pmd = pmd_off_k(0xffff0000);
++
++	/*
++	 * allocate the zero page.  Note that we count on this going ok.
++	 */
++	zero_page = alloc_bootmem_low_pages(PAGE_SIZE);
++	memzero(zero_page, PAGE_SIZE);
++	empty_zero_page = virt_to_page(zero_page);
++	flush_dcache_page(empty_zero_page);
++}
++
++/*
++ * In order to soft-boot, we need to insert a 1:1 mapping in place of
++ * the user-mode pages.  This will then ensure that we have predictable
++ * results when turning the mmu off
++ */
++void setup_mm_for_reboot(char mode)
++{
++	unsigned long base_pmdval;
++	pgd_t *pgd;
++	int i;
++
++	if (current->mm && current->mm->pgd)
++		pgd = current->mm->pgd;
++	else
++		pgd = init_mm.pgd;
++
++	base_pmdval = PMD_SECT_AP_WRITE | PMD_SECT_AP_READ | PMD_TYPE_SECT;
++	if (cpu_architecture() <= CPU_ARCH_ARMv5TEJ && !cpu_is_xscale())
++		base_pmdval |= PMD_BIT4;
++
++	for (i = 0; i < FIRST_USER_PGD_NR + USER_PTRS_PER_PGD; i++, pgd++) {
++		unsigned long pmdval = (i << PGDIR_SHIFT) | base_pmdval;
++		pmd_t *pmd;
+ 
+-	mm->context.id = asid;
++		pmd = pmd_off(pgd, i << PGDIR_SHIFT);
++		pmd[0] = __pmd(pmdval);
++		pmd[1] = __pmd(pmdval + (1 << (PGDIR_SHIFT - 1)));
++		flush_pmd_entry(pmd);
++	}
+ }
+diff -urNP old/arch/arm/mm/nommu.c new/arch/arm/mm/nommu.c
+--- old/arch/arm/mm/nommu.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/nommu.c	2006-11-29 22:57:37.000000000 +0100
+@@ -11,6 +11,49 @@
+ #include <asm/io.h>
+ #include <asm/page.h>
+ 
++#include "mm.h"
++
++extern void _stext, __data_start, _end;
++
++/*
++ * Reserve the various regions of node 0
++ */
++void __init reserve_node_zero(pg_data_t *pgdat)
++{
++	/*
++	 * Register the kernel text and data with bootmem.
++	 * Note that this can only be in node 0.
++	 */
++#ifdef CONFIG_XIP_KERNEL
++	reserve_bootmem_node(pgdat, __pa(&__data_start), &_end - &__data_start);
++#else
++	reserve_bootmem_node(pgdat, __pa(&_stext), &_end - &_stext);
++#endif
++
++	/*
++	 * Register the exception vector page.
++	 * some architectures which the DRAM is the exception vector to trap,
++	 * alloc_page breaks with error, although it is not NULL, but "0."
++	 */
++	reserve_bootmem_node(pgdat, CONFIG_VECTORS_BASE, PAGE_SIZE);
++}
++
++/*
++ * paging_init() sets up the page tables, initialises the zone memory
++ * maps, and sets up the zero page, bad page and bad page tables.
++ */
++void __init paging_init(struct meminfo *mi, struct machine_desc *mdesc)
++{
++	bootmem_init(mi);
++}
++
++/*
++ * We don't need to do anything here for nommu machines.
++ */
++void setup_mm_for_reboot(char mode)
++{
++}
++
+ void flush_dcache_page(struct page *page)
+ {
+ 	__cpuc_flush_dcache_page(page_address(page));
+diff -urNP old/arch/arm/mm/pgd.c new/arch/arm/mm/pgd.c
+--- old/arch/arm/mm/pgd.c	1970-01-01 01:00:00.000000000 +0100
++++ new/arch/arm/mm/pgd.c	2006-11-29 22:57:37.000000000 +0100
+@@ -0,0 +1,101 @@
++/*
++ *  linux/arch/arm/mm/pgd.c
++ *
++ *  Copyright (C) 1998-2005 Russell King
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++#include <linux/mm.h>
++#include <linux/highmem.h>
++
++#include <asm/pgalloc.h>
++#include <asm/page.h>
++#include <asm/tlbflush.h>
++
++#include "mm.h"
++
++#define FIRST_KERNEL_PGD_NR	(FIRST_USER_PGD_NR + USER_PTRS_PER_PGD)
++
++/*
++ * need to get a 16k page for level 1
++ */
++pgd_t *get_pgd_slow(struct mm_struct *mm)
++{
++	pgd_t *new_pgd, *init_pgd;
++	pmd_t *new_pmd, *init_pmd;
++	pte_t *new_pte, *init_pte;
++
++	new_pgd = (pgd_t *)__get_free_pages(GFP_KERNEL, 2);
++	if (!new_pgd)
++		goto no_pgd;
++
++	memzero(new_pgd, FIRST_KERNEL_PGD_NR * sizeof(pgd_t));
++
++	/*
++	 * Copy over the kernel and IO PGD entries
++	 */
++	init_pgd = pgd_offset_k(0);
++	memcpy(new_pgd + FIRST_KERNEL_PGD_NR, init_pgd + FIRST_KERNEL_PGD_NR,
++		       (PTRS_PER_PGD - FIRST_KERNEL_PGD_NR) * sizeof(pgd_t));
++
++	clean_dcache_area(new_pgd, PTRS_PER_PGD * sizeof(pgd_t));
++
++	if (!vectors_high()) {
++		/*
++		 * On ARM, first page must always be allocated since it
++		 * contains the machine vectors.
++		 */
++		new_pmd = pmd_alloc(mm, new_pgd, 0);
++		if (!new_pmd)
++			goto no_pmd;
++
++		new_pte = pte_alloc_map(mm, new_pmd, 0);
++		if (!new_pte)
++			goto no_pte;
++
++		init_pmd = pmd_offset(init_pgd, 0);
++		init_pte = pte_offset_map_nested(init_pmd, 0);
++		set_pte(new_pte, *init_pte);
++		pte_unmap_nested(init_pte);
++		pte_unmap(new_pte);
++	}
++
++	return new_pgd;
++
++no_pte:
++	pmd_free(new_pmd);
++no_pmd:
++	free_pages((unsigned long)new_pgd, 2);
++no_pgd:
++	return NULL;
++}
++
++void free_pgd_slow(pgd_t *pgd)
++{
++	pmd_t *pmd;
++	struct page *pte;
++
++	if (!pgd)
++		return;
++
++	/* pgd is always present and good */
++	pmd = pmd_off(pgd, 0);
++	if (pmd_none(*pmd))
++		goto free;
++	if (pmd_bad(*pmd)) {
++		pmd_ERROR(*pmd);
++		pmd_clear(pmd);
++		goto free;
++	}
++
++	pte = pmd_page(*pmd);
++	pmd_clear(pmd);
++	dec_zone_page_state(virt_to_page((unsigned long *)pgd), NR_PAGETABLE);
++	pte_lock_deinit(pte);
++	pte_free(pte);
++	pmd_free(pmd);
++free:
++	free_pages((unsigned long) pgd, 2);
++}
+diff -urNP old/arch/arm/mm/proc-arm740.S new/arch/arm/mm/proc-arm740.S
+--- old/arch/arm/mm/proc-arm740.S	1970-01-01 01:00:00.000000000 +0100
++++ new/arch/arm/mm/proc-arm740.S	2006-11-29 22:57:37.000000000 +0100
+@@ -0,0 +1,174 @@
++/*
++ *  linux/arch/arm/mm/arm740.S: utility functions for ARM740
++ *
++ *  Copyright (C) 2004-2006 Hyok S. Choi (hyok.choi@samsung.com)
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++#include <linux/linkage.h>
++#include <linux/init.h>
++#include <asm/assembler.h>
++#include <asm/asm-offsets.h>
++#include <asm/pgtable-hwdef.h>
++#include <asm/pgtable.h>
++#include <asm/procinfo.h>
++#include <asm/ptrace.h>
++
++	.text
++/*
++ * cpu_arm740_proc_init()
++ * cpu_arm740_do_idle()
++ * cpu_arm740_dcache_clean_area()
++ * cpu_arm740_switch_mm()
++ *
++ * These are not required.
++ */
++ENTRY(cpu_arm740_proc_init)
++ENTRY(cpu_arm740_do_idle)
++ENTRY(cpu_arm740_dcache_clean_area)
++ENTRY(cpu_arm740_switch_mm)
++	mov	pc, lr
++
++/*
++ * cpu_arm740_proc_fin()
++ */
++ENTRY(cpu_arm740_proc_fin)
++	stmfd	sp!, {lr}
++	mov	ip, #PSR_F_BIT | PSR_I_BIT | SVC_MODE
++	msr	cpsr_c, ip
++	mrc	p15, 0, r0, c1, c0, 0
++	bic	r0, r0, #0x3f000000		@ bank/f/lock/s
++	bic	r0, r0, #0x0000000c		@ w-buffer/cache
++	mcr	p15, 0, r0, c1, c0, 0		@ disable caches
++	mcr	p15, 0, r0, c7, c0, 0		@ invalidate cache
++	ldmfd	sp!, {pc}
++
++/*
++ * cpu_arm740_reset(loc)
++ * Params  : r0 = address to jump to
++ * Notes   : This sets up everything for a reset
++ */
++ENTRY(cpu_arm740_reset)
++	mov	ip, #0
++	mcr	p15, 0, ip, c7, c0, 0		@ invalidate cache
++	mrc	p15, 0, ip, c1, c0, 0		@ get ctrl register
++	bic	ip, ip, #0x0000000c		@ ............wc..
++	mcr	p15, 0, ip, c1, c0, 0		@ ctrl register
++	mov	pc, r0
++
++	__INIT
++
++	.type	__arm740_setup, #function
++__arm740_setup:
++	mov	r0, #0
++	mcr	p15, 0, r0, c7, c0, 0		@ invalidate caches
++
++	mcr	p15, 0, r0, c6, c3		@ disable area 3~7
++	mcr	p15, 0, r0, c6, c4
++	mcr	p15, 0, r0, c6, c5
++	mcr	p15, 0, r0, c6, c6
++	mcr	p15, 0, r0, c6, c7
++
++	mov	r0, #0x0000003F			@ base = 0, size = 4GB
++	mcr	p15, 0, r0, c6,	c0		@ set area 0, default
++
++	ldr	r0, =(CONFIG_DRAM_BASE & 0xFFFFF000) @ base[31:12] of RAM
++	ldr	r1, =(CONFIG_DRAM_SIZE >> 12)	@ size of RAM (must be >= 4KB)
++	mov	r2, #10				@ 11 is the minimum (4KB)
++1:	add	r2, r2, #1			@ area size *= 2
++	mov	r1, r1, lsr #1
++	bne	1b				@ count not zero r-shift
++	orr	r0, r0, r2, lsl #1		@ the area register value
++	orr	r0, r0, #1			@ set enable bit
++	mcr	p15, 0, r0, c6,	c1		@ set area 1, RAM
++
++	ldr	r0, =(CONFIG_FLASH_MEM_BASE & 0xFFFFF000) @ base[31:12] of FLASH
++	ldr	r1, =(CONFIG_FLASH_SIZE >> 12)	@ size of FLASH (must be >= 4KB)
++	mov	r2, #10				@ 11 is the minimum (4KB)
++1:	add	r2, r2, #1			@ area size *= 2
++	mov	r1, r1, lsr #1
++	bne	1b				@ count not zero r-shift
++	orr	r0, r0, r2, lsl #1		@ the area register value
++	orr	r0, r0, #1			@ set enable bit
++	mcr	p15, 0, r0, c6,	c2		@ set area 2, ROM/FLASH
++
++	mov	r0, #0x06
++	mcr	p15, 0, r0, c2, c0		@ Region 1&2 cacheable
++#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
++	mov	r0, #0x00			@ disable whole write buffer
++#else
++	mov	r0, #0x02			@ Region 1 write bufferred
++#endif
++	mcr	p15, 0, r0, c3, c0
++
++	mov	r0, #0x10000
++	sub	r0, r0, #1			@ r0 = 0xffff
++	mcr	p15, 0, r0, c5, c0		@ all read/write access
++
++	mrc	p15, 0, r0, c1, c0		@ get control register
++	bic	r0, r0, #0x3F000000		@ set to standard caching mode
++						@ need some benchmark
++	orr	r0, r0, #0x0000000d		@ MPU/Cache/WB
++
++	mov	pc, lr
++
++	.size	__arm740_setup, . - __arm740_setup
++
++	__INITDATA
++
++/*
++ * Purpose : Function pointers used to access above functions - all calls
++ *	     come through these
++ */
++	.type	arm740_processor_functions, #object
++ENTRY(arm740_processor_functions)
++	.word	v4t_late_abort
++	.word	cpu_arm740_proc_init
++	.word	cpu_arm740_proc_fin
++	.word	cpu_arm740_reset
++	.word   cpu_arm740_do_idle
++	.word	cpu_arm740_dcache_clean_area
++	.word	cpu_arm740_switch_mm
++	.word	0			@ cpu_*_set_pte
++	.size	arm740_processor_functions, . - arm740_processor_functions
++
++	.section ".rodata"
++
++	.type	cpu_arch_name, #object
++cpu_arch_name:
++	.asciz	"armv4"
++	.size	cpu_arch_name, . - cpu_arch_name
++
++	.type	cpu_elf_name, #object
++cpu_elf_name:
++	.asciz	"v4"
++	.size	cpu_elf_name, . - cpu_elf_name
++
++	.type	cpu_arm740_name, #object
++cpu_arm740_name:
++	.ascii	"ARM740T"
++	.size	cpu_arm740_name, . - cpu_arm740_name
++
++	.align
++
++	.section ".proc.info.init", #alloc, #execinstr
++	.type	__arm740_proc_info,#object
++__arm740_proc_info:
++	.long	0x41807400
++	.long	0xfffffff0
++	.long	0
++	b	__arm740_setup
++	.long	cpu_arch_name
++	.long	cpu_elf_name
++	.long	HWCAP_SWP | HWCAP_HALF | HWCAP_26BIT
++	.long	cpu_arm740_name
++	.long	arm740_processor_functions
++	.long	0
++	.long	0
++	.long	v3_cache_fns			@ cache model
++	.size	__arm740_proc_info, . - __arm740_proc_info
++
++
+diff -urNP old/arch/arm/mm/proc-arm7tdmi.S new/arch/arm/mm/proc-arm7tdmi.S
+--- old/arch/arm/mm/proc-arm7tdmi.S	1970-01-01 01:00:00.000000000 +0100
++++ new/arch/arm/mm/proc-arm7tdmi.S	2006-11-29 22:57:37.000000000 +0100
+@@ -0,0 +1,249 @@
++/*
++ *  linux/arch/arm/mm/proc-arm7tdmi.S: utility functions for ARM7TDMI
++ *
++ *  Copyright (C) 2003-2006 Hyok S. Choi <hyok.choi@samsung.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++#include <linux/linkage.h>
++#include <linux/init.h>
++#include <asm/assembler.h>
++#include <asm/asm-offsets.h>
++#include <asm/pgtable-hwdef.h>
++#include <asm/pgtable.h>
++#include <asm/procinfo.h>
++#include <asm/ptrace.h>
++
++	.text
++/*
++ * cpu_arm7tdmi_proc_init()
++ * cpu_arm7tdmi_do_idle()
++ * cpu_arm7tdmi_dcache_clean_area()
++ * cpu_arm7tdmi_switch_mm()
++ *
++ * These are not required.
++ */
++ENTRY(cpu_arm7tdmi_proc_init)
++ENTRY(cpu_arm7tdmi_do_idle)
++ENTRY(cpu_arm7tdmi_dcache_clean_area)
++ENTRY(cpu_arm7tdmi_switch_mm)
++		mov	pc, lr
++
++/*
++ * cpu_arm7tdmi_proc_fin()
++ */
++ENTRY(cpu_arm7tdmi_proc_fin)
++		mov	r0, #PSR_F_BIT | PSR_I_BIT | SVC_MODE
++		msr	cpsr_c, r0
++		mov	pc, lr
++
++/*
++ * Function: cpu_arm7tdmi_reset(loc)
++ * Params  : loc(r0)	address to jump to
++ * Purpose : Sets up everything for a reset and jump to the location for soft reset.
++ */
++ENTRY(cpu_arm7tdmi_reset)
++		mov	pc, r0
++
++		__INIT
++
++		.type	__arm7tdmi_setup, #function
++__arm7tdmi_setup:
++		mov	pc, lr
++		.size	__arm7tdmi_setup, . - __arm7tdmi_setup
++
++		__INITDATA
++
++/*
++ * Purpose : Function pointers used to access above functions - all calls
++ *	     come through these
++ */
++		.type	arm7tdmi_processor_functions, #object
++ENTRY(arm7tdmi_processor_functions)
++		.word	v4t_late_abort
++		.word	cpu_arm7tdmi_proc_init
++		.word	cpu_arm7tdmi_proc_fin
++		.word	cpu_arm7tdmi_reset
++		.word	cpu_arm7tdmi_do_idle
++		.word	cpu_arm7tdmi_dcache_clean_area
++		.word	cpu_arm7tdmi_switch_mm
++		.word	0		@ cpu_*_set_pte
++		.size	arm7tdmi_processor_functions, . - arm7tdmi_processor_functions
++
++		.section ".rodata"
++
++		.type	cpu_arch_name, #object
++cpu_arch_name:
++		.asciz	"armv4t"
++		.size	cpu_arch_name, . - cpu_arch_name
++
++		.type	cpu_elf_name, #object
++cpu_elf_name:
++		.asciz	"v4"
++		.size	cpu_elf_name, . - cpu_elf_name
++
++		.type	cpu_arm7tdmi_name, #object
++cpu_arm7tdmi_name:
++		.asciz	"ARM7TDMI"
++		.size	cpu_arm7tdmi_name, . - cpu_arm7tdmi_name
++
++		.type	cpu_triscenda7_name, #object
++cpu_triscenda7_name:
++		.asciz	"Triscend-A7x"
++		.size	cpu_triscenda7_name, . - cpu_triscenda7_name
++
++		.type	cpu_at91_name, #object
++cpu_at91_name:
++		.asciz	"Atmel-AT91M40xxx"
++		.size	cpu_at91_name, . - cpu_at91_name
++
++		.type	cpu_s3c3410_name, #object
++cpu_s3c3410_name:
++		.asciz	"Samsung-S3C3410"
++		.size	cpu_s3c3410_name, . - cpu_s3c3410_name
++
++		.type	cpu_s3c44b0x_name, #object
++cpu_s3c44b0x_name:
++		.asciz	"Samsung-S3C44B0x"
++		.size	cpu_s3c44b0x_name, . - cpu_s3c44b0x_name
++
++		.type	cpu_s3c4510b, #object
++cpu_s3c4510b_name:
++		.asciz	"Samsung-S3C4510B"
++		.size	cpu_s3c4510b_name, . - cpu_s3c4510b_name
++
++		.type	cpu_s3c4530_name, #object
++cpu_s3c4530_name:
++		.asciz	"Samsung-S3C4530"
++		.size	cpu_s3c4530_name, . - cpu_s3c4530_name
++
++		.type	cpu_netarm_name, #object
++cpu_netarm_name:
++		.asciz	"NETARM"
++		.size	cpu_netarm_name, . - cpu_netarm_name
++
++		.align
++
++		.section ".proc.info.init", #alloc, #execinstr
++
++		.type	__arm7tdmi_proc_info, #object
++__arm7tdmi_proc_info:
++		.long	0x41007700
++		.long	0xfff8ff00
++		.long	0
++		.long	0
++		b	__arm7tdmi_setup
++		.long	cpu_arch_name
++		.long	cpu_elf_name
++		.long	HWCAP_SWP | HWCAP_26BIT
++		.long	cpu_arm7tdmi_name
++		.long	arm7tdmi_processor_functions
++		.long	0
++		.long	0
++		.long	v4_cache_fns
++		.size	__arm7tdmi_proc_info, . - __arm7dmi_proc_info
++
++		.type	__triscenda7_proc_info, #object
++__triscenda7_proc_info:
++		.long	0x0001d2ff
++		.long	0x0001ffff
++		.long	0
++		.long	0
++		b	__arm7tdmi_setup
++		.long	cpu_arch_name
++		.long	cpu_elf_name
++		.long	HWCAP_SWP | HWCAP_THUMB | HWCAP_26BIT
++		.long	cpu_triscenda7_name
++		.long	arm7tdmi_processor_functions
++		.long	0
++		.long	0
++		.long	v4_cache_fns
++		.size	__triscenda7_proc_info, . - __triscenda7_proc_info
++
++		.type	__at91_proc_info, #object
++__at91_proc_info:
++		.long	0x14000040
++		.long	0xfff000e0
++		.long	0
++		.long	0
++		b	__arm7tdmi_setup
++		.long	cpu_arch_name
++		.long	cpu_elf_name
++		.long	HWCAP_SWP | HWCAP_THUMB | HWCAP_26BIT
++		.long	cpu_at91_name
++		.long	arm7tdmi_processor_functions
++		.long	0
++		.long	0
++		.long	v4_cache_fns
++		.size	__at91_proc_info, . - __at91_proc_info
++
++		.type	__s3c4510b_proc_info, #object
++__s3c4510b_proc_info:
++		.long	0x36365000
++		.long	0xfffff000
++		.long	0
++		.long	0
++		b	__arm7tdmi_setup
++		.long	cpu_arch_name
++		.long	cpu_elf_name
++		.long	HWCAP_SWP | HWCAP_THUMB | HWCAP_26BIT
++		.long	cpu_s3c4510b_name
++		.long	arm7tdmi_processor_functions
++		.long	0
++		.long	0
++		.long	v4_cache_fns
++		.size	__s3c4510b_proc_info, . - __s3c4510b_proc_info
++
++		.type	__s3c4530_proc_info, #object
++__s3c4530_proc_info:
++		.long	0x4c000000
++		.long	0xfff000e0
++		.long	0
++		.long	0
++		b	__arm7tdmi_setup
++		.long	cpu_arch_name
++		.long	cpu_elf_name
++		.long	HWCAP_SWP | HWCAP_THUMB | HWCAP_26BIT
++		.long	cpu_s3c4530_name
++		.long	arm7tdmi_processor_functions
++		.long	0
++		.long	0
++		.long	v4_cache_fns
++		.size	__s3c4530_proc_info, . - __s3c4530_proc_info
++
++		.type	__s3c3410_proc_info, #object
++__s3c3410_proc_info:
++		.long	0x34100000
++		.long	0xffff0000
++		.long	0
++		.long	0
++		b	__arm7tdmi_setup
++		.long	cpu_arch_name
++		.long	cpu_elf_name
++		.long	HWCAP_SWP | HWCAP_THUMB | HWCAP_26BIT
++		.long	cpu_s3c3410_name
++		.long	arm7tdmi_processor_functions
++		.long	0
++		.long	0
++		.long	v4_cache_fns
++		.size	__s3c3410_proc_info, . - __s3c3410_proc_info
++
++		.type	__s3c44b0x_proc_info, #object
++__s3c44b0x_proc_info:
++		.long	0x44b00000
++		.long	0xffff0000
++		.long	0
++		.long	0
++		b	__arm7tdmi_setup
++		.long	cpu_arch_name
++		.long	cpu_elf_name
++		.long	HWCAP_SWP | HWCAP_THUMB | HWCAP_26BIT
++		.long	cpu_s3c44b0x_name
++		.long	arm7tdmi_processor_functions
++		.long	0
++		.long	0
++		.long	v4_cache_fns
++		.size	__s3c44b0x_proc_info, . - __s3c44b0x_proc_info
+diff -urNP old/arch/arm/mm/proc-arm940.S new/arch/arm/mm/proc-arm940.S
+--- old/arch/arm/mm/proc-arm940.S	1970-01-01 01:00:00.000000000 +0100
++++ new/arch/arm/mm/proc-arm940.S	2006-11-29 22:57:37.000000000 +0100
+@@ -0,0 +1,369 @@
++/*
++ *  linux/arch/arm/mm/arm940.S: utility functions for ARM940T
++ *
++ *  Copyright (C) 2004-2006 Hyok S. Choi (hyok.choi@samsung.com)
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++#include <linux/linkage.h>
++#include <linux/init.h>
++#include <asm/assembler.h>
++#include <asm/pgtable-hwdef.h>
++#include <asm/pgtable.h>
++#include <asm/procinfo.h>
++#include <asm/ptrace.h>
++
++/* ARM940T has a 4KB DCache comprising 256 lines of 4 words */
++#define CACHE_DLINESIZE	16
++#define CACHE_DSEGMENTS	4
++#define CACHE_DENTRIES	64
++
++	.text
++/*
++ * cpu_arm940_proc_init()
++ * cpu_arm940_switch_mm()
++ *
++ * These are not required.
++ */
++ENTRY(cpu_arm940_proc_init)
++ENTRY(cpu_arm940_switch_mm)
++	mov	pc, lr
++
++/*
++ * cpu_arm940_proc_fin()
++ */
++ENTRY(cpu_arm940_proc_fin)
++	stmfd	sp!, {lr}
++	mov	ip, #PSR_F_BIT | PSR_I_BIT | SVC_MODE
++	msr	cpsr_c, ip
++	bl	arm940_flush_kern_cache_all
++	mrc	p15, 0, r0, c1, c0, 0		@ ctrl register
++	bic	r0, r0, #0x00001000		@ i-cache
++	bic	r0, r0, #0x00000004		@ d-cache
++	mcr	p15, 0, r0, c1, c0, 0		@ disable caches
++	ldmfd	sp!, {pc}
++
++/*
++ * cpu_arm940_reset(loc)
++ * Params  : r0 = address to jump to
++ * Notes   : This sets up everything for a reset
++ */
++ENTRY(cpu_arm940_reset)
++	mov	ip, #0
++	mcr	p15, 0, ip, c7, c5, 0		@ flush I cache
++	mcr	p15, 0, ip, c7, c6, 0		@ flush D cache
++	mcr	p15, 0, ip, c7, c10, 4		@ drain WB
++	mrc	p15, 0, ip, c1, c0, 0		@ ctrl register
++	bic	ip, ip, #0x00000005		@ .............c.p
++	bic	ip, ip, #0x00001000		@ i-cache
++	mcr	p15, 0, ip, c1, c0, 0		@ ctrl register
++	mov	pc, r0
++
++/*
++ * cpu_arm940_do_idle()
++ */
++	.align	5
++ENTRY(cpu_arm940_do_idle)
++	mcr	p15, 0, r0, c7, c0, 4		@ Wait for interrupt
++	mov	pc, lr
++
++/*
++ *	flush_user_cache_all()
++ */
++ENTRY(arm940_flush_user_cache_all)
++	/* FALLTHROUGH */
++
++/*
++ *	flush_kern_cache_all()
++ *
++ *	Clean and invalidate the entire cache.
++ */
++ENTRY(arm940_flush_kern_cache_all)
++	mov	r2, #VM_EXEC
++	/* FALLTHROUGH */
++
++/*
++ *	flush_user_cache_range(start, end, flags)
++ *
++ *	There is no efficient way to flush a range of cache entries
++ *	in the specified address range. Thus, flushes all.
++ *
++ *	- start	- start address (inclusive)
++ *	- end	- end address (exclusive)
++ *	- flags	- vm_flags describing address space
++ */
++ENTRY(arm940_flush_user_cache_range)
++	mov	ip, #0
++#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
++	mcr	p15, 0, ip, c7, c6, 0		@ flush D cache
++#else
++	mov	r1, #(CACHE_DSEGMENTS - 1) << 4	@ 4 segments
++1:	orr	r3, r1, #(CACHE_DENTRIES - 1) << 26 @ 64 entries
++2:	mcr	p15, 0, r3, c7, c14, 2		@ clean/flush D index
++	subs	r3, r3, #1 << 26
++	bcs	2b				@ entries 63 to 0
++	subs	r1, r1, #1 << 4
++	bcs	1b				@ segments 3 to 0
++#endif
++	tst	r2, #VM_EXEC
++	mcrne	p15, 0, ip, c7, c5, 0		@ invalidate I cache
++	mcrne	p15, 0, ip, c7, c10, 4		@ drain WB
++	mov	pc, lr
++
++/*
++ *	coherent_kern_range(start, end)
++ *
++ *	Ensure coherency between the Icache and the Dcache in the
++ *	region described by start, end.  If you have non-snooping
++ *	Harvard caches, you need to implement this function.
++ *
++ *	- start	- virtual start address
++ *	- end	- virtual end address
++ */
++ENTRY(arm940_coherent_kern_range)
++	/* FALLTHROUGH */
++
++/*
++ *	coherent_user_range(start, end)
++ *
++ *	Ensure coherency between the Icache and the Dcache in the
++ *	region described by start, end.  If you have non-snooping
++ *	Harvard caches, you need to implement this function.
++ *
++ *	- start	- virtual start address
++ *	- end	- virtual end address
++ */
++ENTRY(arm940_coherent_user_range)
++	/* FALLTHROUGH */
++
++/*
++ *	flush_kern_dcache_page(void *page)
++ *
++ *	Ensure no D cache aliasing occurs, either with itself or
++ *	the I cache
++ *
++ *	- addr	- page aligned address
++ */
++ENTRY(arm940_flush_kern_dcache_page)
++	mov	ip, #0
++	mov	r1, #(CACHE_DSEGMENTS - 1) << 4	@ 4 segments
++1:	orr	r3, r1, #(CACHE_DENTRIES - 1) << 26 @ 64 entries
++2:	mcr	p15, 0, r3, c7, c14, 2		@ clean/flush D index
++	subs	r3, r3, #1 << 26
++	bcs	2b				@ entries 63 to 0
++	subs	r1, r1, #1 << 4
++	bcs	1b				@ segments 7 to 0
++	mcr	p15, 0, ip, c7, c5, 0		@ invalidate I cache
++	mcr	p15, 0, ip, c7, c10, 4		@ drain WB
++	mov	pc, lr
++
++/*
++ *	dma_inv_range(start, end)
++ *
++ *	There is no efficient way to invalidate a specifid virtual
++ *	address range. Thus, invalidates all.
++ *
++ *	- start	- virtual start address
++ *	- end	- virtual end address
++ */
++ENTRY(arm940_dma_inv_range)
++	mov	ip, #0
++	mov	r1, #(CACHE_DSEGMENTS - 1) << 4	@ 4 segments
++1:	orr	r3, r1, #(CACHE_DENTRIES - 1) << 26 @ 64 entries
++2:	mcr	p15, 0, r3, c7, c6, 2		@ flush D entry
++	subs	r3, r3, #1 << 26
++	bcs	2b				@ entries 63 to 0
++	subs	r1, r1, #1 << 4
++	bcs	1b				@ segments 7 to 0
++	mcr	p15, 0, ip, c7, c10, 4		@ drain WB
++	mov	pc, lr
++
++/*
++ *	dma_clean_range(start, end)
++ *
++ *	There is no efficient way to clean a specifid virtual
++ *	address range. Thus, cleans all.
++ *
++ *	- start	- virtual start address
++ *	- end	- virtual end address
++ */
++ENTRY(arm940_dma_clean_range)
++ENTRY(cpu_arm940_dcache_clean_area)
++	mov	ip, #0
++#ifndef CONFIG_CPU_DCACHE_WRITETHROUGH
++	mov	r1, #(CACHE_DSEGMENTS - 1) << 4	@ 4 segments
++1:	orr	r3, r1, #(CACHE_DENTRIES - 1) << 26 @ 64 entries
++2:	mcr	p15, 0, r3, c7, c10, 2		@ clean D entry
++	subs	r3, r3, #1 << 26
++	bcs	2b				@ entries 63 to 0
++	subs	r1, r1, #1 << 4
++	bcs	1b				@ segments 7 to 0
++#endif
++	mcr	p15, 0, ip, c7, c10, 4		@ drain WB
++	mov	pc, lr
++
++/*
++ *	dma_flush_range(start, end)
++ *
++ *	There is no efficient way to clean and invalidate a specifid
++ *	virtual address range.
++ *
++ *	- start	- virtual start address
++ *	- end	- virtual end address
++ */
++ENTRY(arm940_dma_flush_range)
++	mov	ip, #0
++	mov	r1, #(CACHE_DSEGMENTS - 1) << 4	@ 4 segments
++1:	orr	r3, r1, #(CACHE_DENTRIES - 1) << 26 @ 64 entries
++2:
++#ifndef CONFIG_CPU_DCACHE_WRITETHROUGH
++	mcr	p15, 0, r3, c7, c14, 2		@ clean/flush D entry
++#else
++	mcr	p15, 0, r3, c7, c10, 2		@ clean D entry
++#endif
++	subs	r3, r3, #1 << 26
++	bcs	2b				@ entries 63 to 0
++	subs	r1, r1, #1 << 4
++	bcs	1b				@ segments 7 to 0
++	mcr	p15, 0, ip, c7, c10, 4		@ drain WB
++	mov	pc, lr
++
++ENTRY(arm940_cache_fns)
++	.long	arm940_flush_kern_cache_all
++	.long	arm940_flush_user_cache_all
++	.long	arm940_flush_user_cache_range
++	.long	arm940_coherent_kern_range
++	.long	arm940_coherent_user_range
++	.long	arm940_flush_kern_dcache_page
++	.long	arm940_dma_inv_range
++	.long	arm940_dma_clean_range
++	.long	arm940_dma_flush_range
++
++	__INIT
++
++	.type	__arm940_setup, #function
++__arm940_setup:
++	mov	r0, #0
++	mcr	p15, 0, r0, c7, c5, 0		@ invalidate I cache
++	mcr	p15, 0, r0, c7, c6, 0		@ invalidate D cache
++	mcr	p15, 0, r0, c7, c10, 4		@ drain WB
++
++	mcr	p15, 0, r0, c6, c3, 0		@ disable data area 3~7
++	mcr	p15, 0, r0, c6, c4, 0
++	mcr	p15, 0, r0, c6, c5, 0
++	mcr	p15, 0, r0, c6, c6, 0
++	mcr	p15, 0, r0, c6, c7, 0
++
++	mcr	p15, 0, r0, c6, c3, 1		@ disable instruction area 3~7
++	mcr	p15, 0, r0, c6, c4, 1
++	mcr	p15, 0, r0, c6, c5, 1
++	mcr	p15, 0, r0, c6, c6, 1
++	mcr	p15, 0, r0, c6, c7, 1
++
++	mov	r0, #0x0000003F			@ base = 0, size = 4GB
++	mcr	p15, 0, r0, c6,	c0, 0		@ set area 0, default
++	mcr	p15, 0, r0, c6,	c0, 1
++
++	ldr	r0, =(CONFIG_DRAM_BASE & 0xFFFFF000) @ base[31:12] of RAM
++	ldr	r1, =(CONFIG_DRAM_SIZE >> 12)	@ size of RAM (must be >= 4KB)
++	mov	r2, #10				@ 11 is the minimum (4KB)
++1:	add	r2, r2, #1			@ area size *= 2
++	mov	r1, r1, lsr #1
++	bne	1b				@ count not zero r-shift
++	orr	r0, r0, r2, lsl #1		@ the area register value
++	orr	r0, r0, #1			@ set enable bit
++	mcr	p15, 0, r0, c6,	c1, 0		@ set area 1, RAM
++	mcr	p15, 0, r0, c6,	c1, 1
++
++	ldr	r0, =(CONFIG_FLASH_MEM_BASE & 0xFFFFF000) @ base[31:12] of FLASH
++	ldr	r1, =(CONFIG_FLASH_SIZE >> 12)	@ size of FLASH (must be >= 4KB)
++	mov	r2, #10				@ 11 is the minimum (4KB)
++1:	add	r2, r2, #1			@ area size *= 2
++	mov	r1, r1, lsr #1
++	bne	1b				@ count not zero r-shift
++	orr	r0, r0, r2, lsl #1		@ the area register value
++	orr	r0, r0, #1			@ set enable bit
++	mcr	p15, 0, r0, c6,	c2, 0		@ set area 2, ROM/FLASH
++	mcr	p15, 0, r0, c6,	c2, 1
++
++	mov	r0, #0x06
++	mcr	p15, 0, r0, c2, c0, 0		@ Region 1&2 cacheable
++	mcr	p15, 0, r0, c2, c0, 1
++#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
++	mov	r0, #0x00			@ disable whole write buffer
++#else
++	mov	r0, #0x02			@ Region 1 write bufferred
++#endif
++	mcr	p15, 0, r0, c3, c0, 0
++
++	mov	r0, #0x10000
++	sub	r0, r0, #1			@ r0 = 0xffff
++	mcr	p15, 0, r0, c5, c0, 0		@ all read/write access
++	mcr	p15, 0, r0, c5, c0, 1
++
++	mrc	p15, 0, r0, c1, c0		@ get control register
++	orr	r0, r0, #0x00001000		@ I-cache
++	orr	r0, r0, #0x00000005		@ MPU/D-cache
++
++	mov	pc, lr
++
++	.size	__arm940_setup, . - __arm940_setup
++
++	__INITDATA
++
++/*
++ * Purpose : Function pointers used to access above functions - all calls
++ *	     come through these
++ */
++	.type	arm940_processor_functions, #object
++ENTRY(arm940_processor_functions)
++	.word	nommu_early_abort
++	.word	cpu_arm940_proc_init
++	.word	cpu_arm940_proc_fin
++	.word	cpu_arm940_reset
++	.word   cpu_arm940_do_idle
++	.word	cpu_arm940_dcache_clean_area
++	.word	cpu_arm940_switch_mm
++	.word	0		@ cpu_*_set_pte
++	.size	arm940_processor_functions, . - arm940_processor_functions
++
++	.section ".rodata"
++
++.type	cpu_arch_name, #object
++cpu_arch_name:
++	.asciz	"armv4t"
++	.size	cpu_arch_name, . - cpu_arch_name
++
++	.type	cpu_elf_name, #object
++cpu_elf_name:
++	.asciz	"v4"
++	.size	cpu_elf_name, . - cpu_elf_name
++
++	.type	cpu_arm940_name, #object
++cpu_arm940_name:
++	.ascii	"ARM940T"
++	.size	cpu_arm940_name, . - cpu_arm940_name
++
++	.align
++
++	.section ".proc.info.init", #alloc, #execinstr
++
++	.type	__arm940_proc_info,#object
++__arm940_proc_info:
++	.long	0x41009400
++	.long	0xff00fff0
++	.long	0
++	b	__arm940_setup
++	.long	cpu_arch_name
++	.long	cpu_elf_name
++	.long	HWCAP_SWP | HWCAP_HALF | HWCAP_THUMB
++	.long	cpu_arm940_name
++	.long	arm940_processor_functions
++	.long	0
++	.long	0
++	.long	arm940_cache_fns
++	.size	__arm940_proc_info, . - __arm940_proc_info
++
+diff -urNP old/arch/arm/mm/proc-arm946.S new/arch/arm/mm/proc-arm946.S
+--- old/arch/arm/mm/proc-arm946.S	1970-01-01 01:00:00.000000000 +0100
++++ new/arch/arm/mm/proc-arm946.S	2006-11-29 22:57:37.000000000 +0100
+@@ -0,0 +1,424 @@
++/*
++ *  linux/arch/arm/mm/arm946.S: utility functions for ARM946E-S
++ *
++ *  Copyright (C) 2004-2006 Hyok S. Choi (hyok.choi@samsung.com)
++ *
++ *  (Many of cache codes are from proc-arm926.S)
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++#include <linux/linkage.h>
++#include <linux/init.h>
++#include <asm/assembler.h>
++#include <asm/pgtable-hwdef.h>
++#include <asm/pgtable.h>
++#include <asm/procinfo.h>
++#include <asm/ptrace.h>
++
++/*
++ * ARM946E-S is synthesizable to have 0KB to 1MB sized D-Cache,
++ * comprising 256 lines of 32 bytes (8 words).
++ */
++#define CACHE_DSIZE	(CONFIG_CPU_DCACHE_SIZE) /* typically 8KB. */
++#define CACHE_DLINESIZE	32			/* fixed */
++#define CACHE_DSEGMENTS	4			/* fixed */
++#define CACHE_DENTRIES	(CACHE_DSIZE / CACHE_DSEGMENTS / CACHE_DLINESIZE)
++#define CACHE_DLIMIT	(CACHE_DSIZE * 4)	/* benchmark needed */
++
++	.text
++/*
++ * cpu_arm946_proc_init()
++ * cpu_arm946_switch_mm()
++ *
++ * These are not required.
++ */
++ENTRY(cpu_arm946_proc_init)
++ENTRY(cpu_arm946_switch_mm)
++	mov	pc, lr
++
++/*
++ * cpu_arm946_proc_fin()
++ */
++ENTRY(cpu_arm946_proc_fin)
++	stmfd	sp!, {lr}
++	mov	ip, #PSR_F_BIT | PSR_I_BIT | SVC_MODE
++	msr	cpsr_c, ip
++	bl	arm946_flush_kern_cache_all
++	mrc	p15, 0, r0, c1, c0, 0		@ ctrl register
++	bic	r0, r0, #0x00001000		@ i-cache
++	bic	r0, r0, #0x00000004		@ d-cache
++	mcr	p15, 0, r0, c1, c0, 0		@ disable caches
++	ldmfd	sp!, {pc}
++
++/*
++ * cpu_arm946_reset(loc)
++ * Params  : r0 = address to jump to
++ * Notes   : This sets up everything for a reset
++ */
++ENTRY(cpu_arm946_reset)
++	mov	ip, #0
++	mcr	p15, 0, ip, c7, c5, 0		@ flush I cache
++	mcr	p15, 0, ip, c7, c6, 0		@ flush D cache
++	mcr	p15, 0, ip, c7, c10, 4		@ drain WB
++	mrc	p15, 0, ip, c1, c0, 0		@ ctrl register
++	bic	ip, ip, #0x00000005		@ .............c.p
++	bic	ip, ip, #0x00001000		@ i-cache
++	mcr	p15, 0, ip, c1, c0, 0		@ ctrl register
++	mov	pc, r0
++
++/*
++ * cpu_arm946_do_idle()
++ */
++	.align	5
++ENTRY(cpu_arm946_do_idle)
++	mcr	p15, 0, r0, c7, c0, 4		@ Wait for interrupt
++	mov	pc, lr
++
++/*
++ *	flush_user_cache_all()
++ */
++ENTRY(arm946_flush_user_cache_all)
++	/* FALLTHROUGH */
++
++/*
++ *	flush_kern_cache_all()
++ *
++ *	Clean and invalidate the entire cache.
++ */
++ENTRY(arm946_flush_kern_cache_all)
++	mov	r2, #VM_EXEC
++	mov	ip, #0
++__flush_whole_cache:
++#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
++	mcr	p15, 0, ip, c7, c6, 0		@ flush D cache
++#else
++	mov	r1, #(CACHE_DSEGMENTS - 1) << 29 @ 4 segments
++1:	orr	r3, r1, #(CACHE_DENTRIES - 1) << 4 @ n entries
++2:	mcr	p15, 0, r3, c7, c14, 2		@ clean/flush D index
++	subs	r3, r3, #1 << 4
++	bcs	2b				@ entries n to 0
++	subs	r1, r1, #1 << 29
++	bcs	1b				@ segments 3 to 0
++#endif
++	tst	r2, #VM_EXEC
++	mcrne	p15, 0, ip, c7, c5, 0		@ flush I cache
++	mcrne	p15, 0, ip, c7, c10, 4		@ drain WB
++	mov	pc, lr
++
++/*
++ *	flush_user_cache_range(start, end, flags)
++ *
++ *	Clean and invalidate a range of cache entries in the
++ *	specified address range.
++ *
++ *	- start	- start address (inclusive)
++ *	- end	- end address (exclusive)
++ *	- flags	- vm_flags describing address space
++ * (same as arm926)
++ */
++ENTRY(arm946_flush_user_cache_range)
++	mov	ip, #0
++	sub	r3, r1, r0			@ calculate total size
++	cmp	r3, #CACHE_DLIMIT
++	bhs	__flush_whole_cache
++
++1:	tst	r2, #VM_EXEC
++#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
++	mcr	p15, 0, r0, c7, c6, 1		@ invalidate D entry
++	mcrne	p15, 0, r0, c7, c5, 1		@ invalidate I entry
++	add	r0, r0, #CACHE_DLINESIZE
++	mcr	p15, 0, r0, c7, c6, 1		@ invalidate D entry
++	mcrne	p15, 0, r0, c7, c5, 1		@ invalidate I entry
++	add	r0, r0, #CACHE_DLINESIZE
++#else
++	mcr	p15, 0, r0, c7, c14, 1		@ clean and invalidate D entry
++	mcrne	p15, 0, r0, c7, c5, 1		@ invalidate I entry
++	add	r0, r0, #CACHE_DLINESIZE
++	mcr	p15, 0, r0, c7, c14, 1		@ clean and invalidate D entry
++	mcrne	p15, 0, r0, c7, c5, 1		@ invalidate I entry
++	add	r0, r0, #CACHE_DLINESIZE
++#endif
++	cmp	r0, r1
++	blo	1b
++	tst	r2, #VM_EXEC
++	mcrne	p15, 0, ip, c7, c10, 4		@ drain WB
++	mov	pc, lr
++
++/*
++ *	coherent_kern_range(start, end)
++ *
++ *	Ensure coherency between the Icache and the Dcache in the
++ *	region described by start, end.  If you have non-snooping
++ *	Harvard caches, you need to implement this function.
++ *
++ *	- start	- virtual start address
++ *	- end	- virtual end address
++ */
++ENTRY(arm946_coherent_kern_range)
++	/* FALLTHROUGH */
++
++/*
++ *	coherent_user_range(start, end)
++ *
++ *	Ensure coherency between the Icache and the Dcache in the
++ *	region described by start, end.  If you have non-snooping
++ *	Harvard caches, you need to implement this function.
++ *
++ *	- start	- virtual start address
++ *	- end	- virtual end address
++ * (same as arm926)
++ */
++ENTRY(arm946_coherent_user_range)
++	bic	r0, r0, #CACHE_DLINESIZE - 1
++1:	mcr	p15, 0, r0, c7, c10, 1		@ clean D entry
++	mcr	p15, 0, r0, c7, c5, 1		@ invalidate I entry
++	add	r0, r0, #CACHE_DLINESIZE
++	cmp	r0, r1
++	blo	1b
++	mcr	p15, 0, r0, c7, c10, 4		@ drain WB
++	mov	pc, lr
++
++/*
++ *	flush_kern_dcache_page(void *page)
++ *
++ *	Ensure no D cache aliasing occurs, either with itself or
++ *	the I cache
++ *
++ *	- addr	- page aligned address
++ * (same as arm926)
++ */
++ENTRY(arm946_flush_kern_dcache_page)
++	add	r1, r0, #PAGE_SZ
++1:	mcr	p15, 0, r0, c7, c14, 1		@ clean+invalidate D entry
++	add	r0, r0, #CACHE_DLINESIZE
++	cmp	r0, r1
++	blo	1b
++	mov	r0, #0
++	mcr	p15, 0, r0, c7, c5, 0		@ invalidate I cache
++	mcr	p15, 0, r0, c7, c10, 4		@ drain WB
++	mov	pc, lr
++
++/*
++ *	dma_inv_range(start, end)
++ *
++ *	Invalidate (discard) the specified virtual address range.
++ *	May not write back any entries.  If 'start' or 'end'
++ *	are not cache line aligned, those lines must be written
++ *	back.
++ *
++ *	- start	- virtual start address
++ *	- end	- virtual end address
++ * (same as arm926)
++ */
++ENTRY(arm946_dma_inv_range)
++#ifndef CONFIG_CPU_DCACHE_WRITETHROUGH
++	tst	r0, #CACHE_DLINESIZE - 1
++	mcrne	p15, 0, r0, c7, c10, 1		@ clean D entry
++	tst	r1, #CACHE_DLINESIZE - 1
++	mcrne	p15, 0, r1, c7, c10, 1		@ clean D entry
++#endif
++	bic	r0, r0, #CACHE_DLINESIZE - 1
++1:	mcr	p15, 0, r0, c7, c6, 1		@ invalidate D entry
++	add	r0, r0, #CACHE_DLINESIZE
++	cmp	r0, r1
++	blo	1b
++	mcr	p15, 0, r0, c7, c10, 4		@ drain WB
++	mov	pc, lr
++
++/*
++ *	dma_clean_range(start, end)
++ *
++ *	Clean the specified virtual address range.
++ *
++ *	- start	- virtual start address
++ *	- end	- virtual end address
++ *
++ * (same as arm926)
++ */
++ENTRY(arm946_dma_clean_range)
++#ifndef CONFIG_CPU_DCACHE_WRITETHROUGH
++	bic	r0, r0, #CACHE_DLINESIZE - 1
++1:	mcr	p15, 0, r0, c7, c10, 1		@ clean D entry
++	add	r0, r0, #CACHE_DLINESIZE
++	cmp	r0, r1
++	blo	1b
++#endif
++	mcr	p15, 0, r0, c7, c10, 4		@ drain WB
++	mov	pc, lr
++
++/*
++ *	dma_flush_range(start, end)
++ *
++ *	Clean and invalidate the specified virtual address range.
++ *
++ *	- start	- virtual start address
++ *	- end	- virtual end address
++ *
++ * (same as arm926)
++ */
++ENTRY(arm946_dma_flush_range)
++	bic	r0, r0, #CACHE_DLINESIZE - 1
++1:
++#ifndef CONFIG_CPU_DCACHE_WRITETHROUGH
++	mcr	p15, 0, r0, c7, c14, 1		@ clean+invalidate D entry
++#else
++	mcr	p15, 0, r0, c7, c10, 1		@ clean D entry
++#endif
++	add	r0, r0, #CACHE_DLINESIZE
++	cmp	r0, r1
++	blo	1b
++	mcr	p15, 0, r0, c7, c10, 4		@ drain WB
++	mov	pc, lr
++
++ENTRY(arm946_cache_fns)
++	.long	arm946_flush_kern_cache_all
++	.long	arm946_flush_user_cache_all
++	.long	arm946_flush_user_cache_range
++	.long	arm946_coherent_kern_range
++	.long	arm946_coherent_user_range
++	.long	arm946_flush_kern_dcache_page
++	.long	arm946_dma_inv_range
++	.long	arm946_dma_clean_range
++	.long	arm946_dma_flush_range
++
++
++ENTRY(cpu_arm946_dcache_clean_area)
++#ifndef CONFIG_CPU_DCACHE_WRITETHROUGH
++1:	mcr	p15, 0, r0, c7, c10, 1		@ clean D entry
++	add	r0, r0, #CACHE_DLINESIZE
++	subs	r1, r1, #CACHE_DLINESIZE
++	bhi	1b
++#endif
++	mcr	p15, 0, r0, c7, c10, 4		@ drain WB
++	mov	pc, lr
++
++	__INIT
++
++	.type	__arm946_setup, #function
++__arm946_setup:
++	mov	r0, #0
++	mcr	p15, 0, r0, c7, c5, 0		@ invalidate I cache
++	mcr	p15, 0, r0, c7, c6, 0		@ invalidate D cache
++	mcr	p15, 0, r0, c7, c10, 4		@ drain WB
++
++	mcr	p15, 0, r0, c6, c3, 0		@ disable memory region 3~7
++	mcr	p15, 0, r0, c6, c4, 0
++	mcr	p15, 0, r0, c6, c5, 0
++	mcr	p15, 0, r0, c6, c6, 0
++	mcr	p15, 0, r0, c6, c7, 0
++
++	mov	r0, #0x0000003F			@ base = 0, size = 4GB
++	mcr	p15, 0, r0, c6,	c0, 0		@ set region 0, default
++
++	ldr	r0, =(CONFIG_DRAM_BASE & 0xFFFFF000) @ base[31:12] of RAM
++	ldr	r1, =(CONFIG_DRAM_SIZE >> 12)	@ size of RAM (must be >= 4KB)
++	mov	r2, #10				@ 11 is the minimum (4KB)
++1:	add	r2, r2, #1			@ area size *= 2
++	mov	r1, r1, lsr #1
++	bne	1b				@ count not zero r-shift
++	orr	r0, r0, r2, lsl #1		@ the region register value
++	orr	r0, r0, #1			@ set enable bit
++	mcr	p15, 0, r0, c6,	c1, 0		@ set region 1, RAM
++
++	ldr	r0, =(CONFIG_FLASH_MEM_BASE & 0xFFFFF000) @ base[31:12] of FLASH
++	ldr	r1, =(CONFIG_FLASH_SIZE >> 12)	@ size of FLASH (must be >= 4KB)
++	mov	r2, #10				@ 11 is the minimum (4KB)
++1:	add	r2, r2, #1			@ area size *= 2
++	mov	r1, r1, lsr #1
++	bne	1b				@ count not zero r-shift
++	orr	r0, r0, r2, lsl #1		@ the region register value
++	orr	r0, r0, #1			@ set enable bit
++	mcr	p15, 0, r0, c6,	c2, 0		@ set region 2, ROM/FLASH
++
++	mov	r0, #0x06
++	mcr	p15, 0, r0, c2, c0, 0		@ region 1,2 d-cacheable
++	mcr	p15, 0, r0, c2, c0, 1		@ region 1,2 i-cacheable
++#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
++	mov	r0, #0x00			@ disable whole write buffer
++#else
++	mov	r0, #0x02			@ region 1 write bufferred
++#endif
++	mcr	p15, 0, r0, c3, c0, 0
++
++/*
++ *  Access Permission Settings for future permission control by PU.
++ *
++ *				priv.	user
++ * 	region 0 (whole)	rw	--	: b0001
++ * 	region 1 (RAM)		rw	rw	: b0011
++ * 	region 2 (FLASH)	rw	r-	: b0010
++ *	region 3~7 (none)	--	--	: b0000
++ */
++	mov	r0, #0x00000031
++	orr	r0, r0, #0x00000200
++	mcr	p15, 0, r0, c5, c0, 2		@ set data access permission
++	mcr	p15, 0, r0, c5, c0, 3		@ set inst. access permission
++
++	mrc	p15, 0, r0, c1, c0		@ get control register
++	orr	r0, r0, #0x00001000		@ I-cache
++	orr	r0, r0, #0x00000005		@ MPU/D-cache
++#ifdef CONFIG_CPU_CACHE_ROUND_ROBIN
++	orr	r0, r0, #0x00004000		@ .1.. .... .... ....
++#endif
++	mov	pc, lr
++
++	.size	__arm946_setup, . - __arm946_setup
++
++	__INITDATA
++
++/*
++ * Purpose : Function pointers used to access above functions - all calls
++ *	     come through these
++ */
++	.type	arm946_processor_functions, #object
++ENTRY(arm946_processor_functions)
++	.word	nommu_early_abort
++	.word	cpu_arm946_proc_init
++	.word	cpu_arm946_proc_fin
++	.word	cpu_arm946_reset
++	.word   cpu_arm946_do_idle
++
++	.word	cpu_arm946_dcache_clean_area
++	.word	cpu_arm946_switch_mm
++	.word	0		@ cpu_*_set_pte
++	.size	arm946_processor_functions, . - arm946_processor_functions
++
++	.section ".rodata"
++
++	.type	cpu_arch_name, #object
++cpu_arch_name:
++	.asciz	"armv5te"
++	.size	cpu_arch_name, . - cpu_arch_name
++
++	.type	cpu_elf_name, #object
++cpu_elf_name:
++	.asciz	"v5t"
++	.size	cpu_elf_name, . - cpu_elf_name
++
++	.type	cpu_arm946_name, #object
++cpu_arm946_name:
++	.ascii	"ARM946E-S"
++	.size	cpu_arm946_name, . - cpu_arm946_name
++
++	.align
++
++	.section ".proc.info.init", #alloc, #execinstr
++	.type	__arm946_proc_info,#object
++__arm946_proc_info:
++	.long	0x41009460
++	.long	0xff00fff0
++	.long	0
++	b	__arm946_setup
++	.long	cpu_arch_name
++	.long	cpu_elf_name
++	.long	HWCAP_SWP | HWCAP_HALF | HWCAP_THUMB
++	.long	cpu_arm946_name
++	.long	arm946_processor_functions
++	.long	0
++	.long	0
++	.long	arm940_cache_fns
++	.size	__arm946_proc_info, . - __arm946_proc_info
++
+diff -urNP old/arch/arm/mm/proc-arm9tdmi.S new/arch/arm/mm/proc-arm9tdmi.S
+--- old/arch/arm/mm/proc-arm9tdmi.S	1970-01-01 01:00:00.000000000 +0100
++++ new/arch/arm/mm/proc-arm9tdmi.S	2006-11-29 22:57:37.000000000 +0100
+@@ -0,0 +1,134 @@
++/*
++ *  linux/arch/arm/mm/proc-arm9tdmi.S: utility functions for ARM9TDMI
++ *
++ *  Copyright (C) 2003-2006 Hyok S. Choi <hyok.choi@samsung.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++#include <linux/linkage.h>
++#include <linux/init.h>
++#include <asm/assembler.h>
++#include <asm/asm-offsets.h>
++#include <asm/pgtable-hwdef.h>
++#include <asm/pgtable.h>
++#include <asm/procinfo.h>
++#include <asm/ptrace.h>
++
++	.text
++/*
++ * cpu_arm9tdmi_proc_init()
++ * cpu_arm9tdmi_do_idle()
++ * cpu_arm9tdmi_dcache_clean_area()
++ * cpu_arm9tdmi_switch_mm()
++ *
++ * These are not required.
++ */
++ENTRY(cpu_arm9tdmi_proc_init)
++ENTRY(cpu_arm9tdmi_do_idle)
++ENTRY(cpu_arm9tdmi_dcache_clean_area)
++ENTRY(cpu_arm9tdmi_switch_mm)
++		mov	pc, lr
++
++/*
++ * cpu_arm9tdmi_proc_fin()
++ */
++ENTRY(cpu_arm9tdmi_proc_fin)
++		mov	r0, #PSR_F_BIT | PSR_I_BIT | SVC_MODE
++		msr	cpsr_c, r0
++		mov	pc, lr
++
++/*
++ * Function: cpu_arm9tdmi_reset(loc)
++ * Params  : loc(r0)	address to jump to
++ * Purpose : Sets up everything for a reset and jump to the location for soft reset.
++ */
++ENTRY(cpu_arm9tdmi_reset)
++		mov	pc, r0
++
++		__INIT
++
++		.type	__arm9tdmi_setup, #function
++__arm9tdmi_setup:
++		mov	pc, lr
++		.size	__arm9tdmi_setup, . - __arm9tdmi_setup
++
++		__INITDATA
++
++/*
++ * Purpose : Function pointers used to access above functions - all calls
++ *	     come through these
++ */
++		.type	arm9tdmi_processor_functions, #object
++ENTRY(arm9tdmi_processor_functions)
++		.word	nommu_early_abort
++		.word	cpu_arm9tdmi_proc_init
++		.word	cpu_arm9tdmi_proc_fin
++		.word	cpu_arm9tdmi_reset
++		.word	cpu_arm9tdmi_do_idle
++		.word	cpu_arm9tdmi_dcache_clean_area
++		.word	cpu_arm9tdmi_switch_mm
++		.word	0		@ cpu_*_set_pte
++		.size	arm9tdmi_processor_functions, . - arm9tdmi_processor_functions
++
++		.section ".rodata"
++
++		.type	cpu_arch_name, #object
++cpu_arch_name:
++		.asciz	"armv4t"
++		.size	cpu_arch_name, . - cpu_arch_name
++
++		.type	cpu_elf_name, #object
++cpu_elf_name:
++		.asciz	"v4"
++		.size	cpu_elf_name, . - cpu_elf_name
++
++		.type	cpu_arm9tdmi_name, #object
++cpu_arm9tdmi_name:
++		.asciz	"ARM9TDMI"
++		.size	cpu_arm9tdmi_name, . - cpu_arm9tdmi_name
++
++		.type	cpu_p2001_name, #object
++cpu_p2001_name:
++		.asciz	"P2001"
++		.size	cpu_p2001_name, . - cpu_p2001_name
++
++		.align
++
++		.section ".proc.info.init", #alloc, #execinstr
++
++		.type	__arm9tdmi_proc_info, #object
++__arm9tdmi_proc_info:
++		.long	0x41009900
++		.long	0xfff8ff00
++		.long	0
++		.long	0
++		b	__arm9tdmi_setup
++		.long	cpu_arch_name
++		.long	cpu_elf_name
++		.long	HWCAP_SWP | HWCAP_THUMB | HWCAP_26BIT
++		.long	cpu_arm9tdmi_name
++		.long	arm9tdmi_processor_functions
++		.long	0
++		.long	0
++		.long	v4_cache_fns
++		.size	__arm9tdmi_proc_info, . - __arm9dmi_proc_info
++
++		.type	__p2001_proc_info, #object
++__p2001_proc_info:
++		.long	0x41029000
++		.long	0xffffffff
++		.long	0
++		.long	0
++		b	__arm9tdmi_setup
++		.long	cpu_arch_name
++		.long	cpu_elf_name
++		.long	HWCAP_SWP | HWCAP_THUMB | HWCAP_26BIT
++		.long	cpu_p2001_name
++		.long	arm9tdmi_processor_functions
++		.long	0
++		.long	0
++		.long	v4_cache_fns
++		.size	__p2001_proc_info, . - __p2001_proc_info
+diff -urNP old/arch/arm/mm/proc-xscale.S new/arch/arm/mm/proc-xscale.S
+--- old/arch/arm/mm/proc-xscale.S	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/proc-xscale.S	2006-11-29 22:57:37.000000000 +0100
+@@ -311,12 +311,6 @@
+  *	- end	 - virtual end address
+  */
+ ENTRY(xscale_dma_inv_range)
+-	mrc	p15, 0, r2, c0, c0, 0		@ read ID
+-	eor	r2, r2, #0x69000000
+-	eor	r2, r2, #0x00052000
+-	bics	r2, r2, #1
+-	beq	xscale_dma_flush_range
+-
+ 	tst	r0, #CACHELINESIZE - 1
+ 	bic	r0, r0, #CACHELINESIZE - 1
+ 	mcrne	p15, 0, r0, c7, c10, 1		@ clean D entry
+@@ -375,6 +369,30 @@
+ 	.long	xscale_dma_clean_range
+ 	.long	xscale_dma_flush_range
+ 
++/*
++ * On stepping A0/A1 of the 80200, invalidating D-cache by line doesn't
++ * clear the dirty bits, which means that if we invalidate a dirty line,
++ * the dirty data can still be written back to external memory later on.
++ *
++ * The recommended workaround is to always do a clean D-cache line before
++ * doing an invalidate D-cache line, so on the affected processors,
++ * dma_inv_range() is implemented as dma_flush_range().
++ *
++ * See erratum #25 of "Intel 80200 Processor Specification Update",
++ * revision January 22, 2003, available at:
++ *     http://www.intel.com/design/iio/specupdt/273415.htm
++ */
++ENTRY(xscale_80200_A0_A1_cache_fns)
++	.long	xscale_flush_kern_cache_all
++	.long	xscale_flush_user_cache_all
++	.long	xscale_flush_user_cache_range
++	.long	xscale_coherent_kern_range
++	.long	xscale_coherent_user_range
++	.long	xscale_flush_kern_dcache_page
++	.long	xscale_dma_flush_range
++	.long	xscale_dma_clean_range
++	.long	xscale_dma_flush_range
++
+ ENTRY(cpu_xscale_dcache_clean_area)
+ 1:	mcr	p15, 0, r0, c7, c10, 1		@ clean D entry
+ 	add	r0, r0, #CACHELINESIZE
+@@ -531,6 +549,11 @@
+ 	.asciz	"v5"
+ 	.size	cpu_elf_name, . - cpu_elf_name
+ 
++	.type	cpu_80200_A0_A1_name, #object
++cpu_80200_A0_A1_name:
++	.asciz	"XScale-80200 A0/A1"
++	.size	cpu_80200_A0_A1_name, . - cpu_80200_A0_A1_name
++
+ 	.type	cpu_80200_name, #object
+ cpu_80200_name:
+ 	.asciz	"XScale-80200"
+@@ -595,6 +618,29 @@
+ 
+ 	.section ".proc.info.init", #alloc, #execinstr
+ 
++	.type	__80200_A0_A1_proc_info,#object
++__80200_A0_A1_proc_info:
++	.long	0x69052000
++	.long	0xfffffffe
++	.long   PMD_TYPE_SECT | \
++		PMD_SECT_BUFFERABLE | \
++		PMD_SECT_CACHEABLE | \
++		PMD_SECT_AP_WRITE | \
++		PMD_SECT_AP_READ
++	.long   PMD_TYPE_SECT | \
++		PMD_SECT_AP_WRITE | \
++		PMD_SECT_AP_READ
++	b	__xscale_setup
++	.long	cpu_arch_name
++	.long	cpu_elf_name
++	.long	HWCAP_SWP|HWCAP_HALF|HWCAP_THUMB|HWCAP_FAST_MULT|HWCAP_EDSP
++	.long	cpu_80200_name
++	.long	xscale_processor_functions
++	.long	v4wbi_tlb_fns
++	.long	xscale_mc_user_fns
++	.long	xscale_80200_A0_A1_cache_fns
++	.size	__80200_A0_A1_proc_info, . - __80200_A0_A1_proc_info
++
+ 	.type	__80200_proc_info,#object
+ __80200_proc_info:
+ 	.long	0x69052000
+@@ -863,7 +909,7 @@
+ 	b	__xscale_setup
+ 	.long	cpu_arch_name
+ 	.long	cpu_elf_name
+-	.long	HWCAP_SWP|HWCAP_HALF|HWCAP_THUMB|HWCAP_FAST_MULT|HWCAP_EDSP
++	.long	HWCAP_SWP|HWCAP_HALF|HWCAP_THUMB|HWCAP_FAST_MULT|HWCAP_EDSP|HWCAP_IWMMXT
+ 	.long	cpu_pxa270_name
+ 	.long	xscale_processor_functions
+ 	.long	v4wbi_tlb_fns
+diff -urNP old/include/asm-arm/io.h new/include/asm-arm/io.h
+--- old/include/asm-arm/io.h	2007-02-24 00:52:30.000000000 +0100
++++ new/include/asm-arm/io.h	2010-07-04 06:36:15.000000000 +0200
+@@ -63,7 +63,7 @@
+  */
+ extern void __iomem * __ioremap_pfn(unsigned long, unsigned long, size_t, unsigned long);
+ extern void __iomem * __ioremap(unsigned long, size_t, unsigned long);
+-extern void __iounmap(void __iomem *addr);
++extern void __iounmap(volatile void __iomem *addr);
+ 
+ /*
+  * Bad read/write accesses...
+diff -urNP old/include/asm-arm/page.h new/include/asm-arm/page.h
+--- old/include/asm-arm/page.h	2007-02-24 00:52:30.000000000 +0100
++++ new/include/asm-arm/page.h	2010-07-04 07:04:23.000000000 +0200
+@@ -174,9 +174,6 @@
+ 
+ #endif /* STRICT_MM_TYPECHECKS */
+ 
+-/* the upper-most page table pointer */
+-extern pmd_t *top_pmd;
+-
+ #endif /* CONFIG_MMU */
+ 
+ #include <asm/memory.h>
+diff -urNP old/include/asm-arm/setup.h new/include/asm-arm/setup.h
+--- old/include/asm-arm/setup.h	2007-02-24 00:52:30.000000000 +0100
++++ new/include/asm-arm/setup.h	2010-07-04 07:39:30.000000000 +0200
+@@ -194,13 +194,15 @@
+ # define NR_BANKS 8
+ #endif
+ 
++struct membank {
++	unsigned long start;
++	unsigned long size;
++	int           node;
++};
++
+ struct meminfo {
+ 	int nr_banks;
+-	struct {
+-		unsigned long start;
+-		unsigned long size;
+-		int           node;
+-	} bank[NR_BANKS];
++	struct membank bank[NR_BANKS];
+ };
+ 
+ /*

@@ -1,0 +1,3191 @@
+diff -urNP org/Makefile new/Makefile
+--- org/Makefile	2006-11-02 15:15:01.000000000 +0100
++++ new/Makefile	2010-06-25 08:53:26.000000000 +0200
+@@ -1912,6 +1911,9 @@
+ VCMA9_config	:	unconfig
+ 	@$(MKCONFIG) $(@:_config=) arm arm920t vcma9 mpl s3c24x0
+ 
++ssdtv_config	:	unconfig
++	@$(MKCONFIG) $(@:_config=) arm arm1136 ssdtv ssdtv ssdtv
++
+ #========================================================================
+ # ARM supplied Versatile development boards
+ #========================================================================
+diff -urNP org/board/ssdtv/ssdtv/Makefile new/board/ssdtv/ssdtv/Makefile
+--- org/board/ssdtv/ssdtv/Makefile	1970-01-01 01:00:00.000000000 +0100
++++ new/board/ssdtv/ssdtv/Makefile	2010-06-04 11:28:31.000000000 +0200
+@@ -0,0 +1,51 @@
++#
++# (C) Copyright 2000-2006
++# Wolfgang Denk, DENX Software Engineering, wd@denx.de.
++#
++# See file CREDITS for list of people who contributed to this
++# project.
++#
++# This program is free software; you can redistribute it and/or
++# modify it under the terms of the GNU General Public License as
++# published by the Free Software Foundation; either version 2 of
++# the License, or (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program; if not, write to the Free Software
++# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++# MA 02111-1307 USA
++#
++
++include $(TOPDIR)/config.mk
++
++LIB	= $(obj)lib$(BOARD).a
++
++COBJS	:= $(BOARD).o
++SOBJS	:=
++
++SRCS	:= $(SOBJS:.o=.S) $(COBJS:.o=.c)
++OBJS	:= $(addprefix $(obj),$(COBJS))
++SOBJS	:= $(addprefix $(obj),$(SOBJS))
++
++$(LIB):	$(obj).depend $(OBJS) $(SOBJS)
++	$(AR) $(ARFLAGS) $@ $(OBJS) $(SOBJS)
++
++clean:
++	rm -f $(SOBJS) $(OBJS)
++
++distclean:	clean
++	rm -f $(LIB) core *.bak .depend
++
++#########################################################################
++
++# defines $(obj).depend target
++include $(SRCTREE)/rules.mk
++
++sinclude $(obj).depend
++
++#########################################################################
+diff -urNP org/board/ssdtv/ssdtv/config.mk new/board/ssdtv/ssdtv/config.mk
+--- org/board/ssdtv/ssdtv/config.mk	1970-01-01 01:00:00.000000000 +0100
++++ new/board/ssdtv/ssdtv/config.mk	2010-06-10 11:11:40.000000000 +0200
+@@ -0,0 +1,34 @@
++#
++# (C) Copyright 2001 - 2003
++# Wolfgang Denk, DENX Software Engineering, wd@denx.de.
++#
++# See file CREDITS for list of people who contributed to this
++# project.
++#
++########
++# SamyGO, http://samygo.sourceforge.net
++# Some parts of this file was copied from Samsung u-boot sources
++# released in 2009 with GPL v2 license.
++# Copyright (C) 2003-2009 Samsung Electronics
++# http://www.samsung.com/global/opensource/files/uboot_b650.tgz
++# Origin path: uboot/board/sdp/leonid/config.mk
++########
++#
++# This program is free software; you can redistribute it and/or
++# modify it under the terms of the GNU General Public License as
++# published by the Free Software Foundation; either version 2 of
++# the License, or (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program; if not, write to the Free Software
++# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++# MA 02111-1307 USA
++#
++
++# fixed address of uboot loaded by first main bootloader
++TEXT_BASE = 0x67c00000
+diff -urNP org/board/ssdtv/ssdtv/ssdtv.c new/board/ssdtv/ssdtv/ssdtv.c
+--- org/board/ssdtv/ssdtv/ssdtv.c	1970-01-01 01:00:00.000000000 +0100
++++ new/board/ssdtv/ssdtv/ssdtv.c	2010-06-25 08:52:53.000000000 +0200
+@@ -0,0 +1,76 @@
++/*
++ * (C) Copyright 2002
++ * Sysgo Real-Time Solutions, GmbH <www.elinos.com>
++ * Marius Groeger <mgroeger@sysgo.de>
++ *
++ * (C) Copyright 2002
++ * David Mueller, ELSOFT AG, <d.mueller@elsoft.ch>
++ *
++ * (C) Copyright 2005
++ * JinHua Luo, GuangDong Linux Center, <luo.jinhua@gd-linux.com>
++ *
++ * See file CREDITS for list of people who contributed to this
++ * project.
++ *
++ ********
++ * SamyGO, http://samygo.sourceforge.net
++ * Some parts of this file was copied from Samsung u-boot sources
++ * released in 2009 with GPL v2 license.
++ * Copyright (C) 2003-2009 Samsung Electronics
++ * http://www.samsung.com/global/opensource/files/uboot_b650.tgz
++ * Origin path: uboot/board/sdp/leonid/leonid.c
++ ********
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++ * MA 02111-1307 USA
++ */
++
++#include <common.h>
++
++DECLARE_GLOBAL_DATA_PTR;
++
++int board_init(void) {
++	// machine number of Samsung DTV Leonid board
++	gd->bd->bi_arch_number = MACH_TYPE_SSDTV;
++
++	// address of boot parameters
++	gd->bd->bi_boot_params = PHYS_SDRAM_1 + 0x100;
++
++	// enable cpu instruction cache
++	icache_enable();
++
++	return 0;
++}
++
++int dram_init(void) {
++	// address of first DDR bank
++	gd->bd->bi_dram[0].start = PHYS_SDRAM_1;
++
++	// 128 MB for compatibility for all board revisions
++	gd->bd->bi_dram[0].size = PHYS_SDRAM_1_SIZE;
++
++	return 0;
++}
++
++int misc_init_r(void) {
++#if defined(CONFIG_PCI)
++	// TODO: detect if board has PCI bus
++
++	// do pci board configuration
++	pci_init_board();
++#endif
++        return 0;
++}
++
+diff -urNP org/board/ssdtv/ssdtv/u-boot.lds new/board/ssdtv/ssdtv/u-boot.lds
+--- org/board/ssdtv/ssdtv/u-boot.lds	1970-01-01 01:00:00.000000000 +0100
++++ new/board/ssdtv/ssdtv/u-boot.lds	2010-06-10 11:14:28.000000000 +0200
+@@ -0,0 +1,64 @@
++/*
++ * (C) Copyright 2002
++ * Gary Jennejohn, DENX Software Engineering, <gj@denx.de>
++ *
++ * See file CREDITS for list of people who contributed to this
++ * project.
++ *
++ ********
++ * SamyGO, http://samygo.sourceforge.net
++ * Some parts this file was copied from Samsung u-boot sources
++ * released in 2009 with GPL v2 license.
++ * Copyright (C) 2003-2009 Samsung Electronics
++ * http://www.samsung.com/global/opensource/files/uboot_b650.tgz
++ * Origin path: uboot/board/sdp/leonid/u-boot.lds
++ ********
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++ * MA 02111-1307 USA
++ */
++
++OUTPUT_FORMAT("elf32-littlearm", "elf32-littlearm", "elf32-littlearm")
++OUTPUT_ARCH(arm)
++ENTRY(_start)
++SECTIONS
++{
++	. = 0x67c00000;
++	
++	. = ALIGN(4);
++	.text      :
++	{
++		cpu/arm1136/start.o	(.text)
++		*(.text)
++	}
++
++	. = ALIGN(4);
++	.rodata : { *(.rodata) }
++	
++	. = ALIGN(4);
++	.data : { *(.data) }
++	
++	. = ALIGN(4);
++	.got : { *(.got) }
++	
++	__u_boot_cmd_start = .;
++	.u_boot_cmd : { *(.u_boot_cmd) }
++	__u_boot_cmd_end = .;
++
++	. = ALIGN(4);
++	__bss_start = .;
++	.bss : { *(.bss) }
++	_end = .;	
++}
+diff -urNP org/cpu/arm1136/config.mk new/cpu/arm1136/config.mk
+--- org/cpu/arm1136/config.mk	2006-11-02 15:15:01.000000000 +0100
++++ new/cpu/arm1136/config.mk	2010-04-28 15:27:25.000000000 +0200
+@@ -24,7 +24,7 @@
+ 	-msoft-float
+ 
+ # Make ARMv5 to allow more compilers to work, even though its v6.
+-PLATFORM_CPPFLAGS += -march=armv5
++PLATFORM_CPPFLAGS += -march=armv6j -mtune=arm1136jf-s
+ # =========================================================================
+ #
+ # Supply options according to compiler version
+diff -urNP org/cpu/arm1136/cpu.c new/cpu/arm1136/cpu.c
+--- org/cpu/arm1136/cpu.c	2006-11-02 15:15:01.000000000 +0100
++++ new/cpu/arm1136/cpu.c	2010-06-25 08:51:23.000000000 +0200
+@@ -33,7 +33,7 @@
+ 
+ #include <common.h>
+ #include <command.h>
+-#if !defined(CONFIG_INTEGRATOR) && ! defined(CONFIG_ARCH_CINTEGRATOR)
++#if !defined(CONFIG_INTEGRATOR) && ! defined(CONFIG_ARCH_CINTEGRATOR) && !defined(CONFIG_MACH_SSDTV)
+ #include <asm/arch/omap2420.h>
+ #endif
+ 
+diff -urNP org/cpu/arm1136/interrupts.c new/cpu/arm1136/interrupts.c
+--- org/cpu/arm1136/interrupts.c	2006-11-02 15:15:01.000000000 +0100
++++ new/cpu/arm1136/interrupts.c	2010-06-25 08:50:53.000000000 +0200
+@@ -31,18 +31,18 @@
+  */
+ 
+ #include <common.h>
+-#include <asm/arch/bits.h>
+ 
+-#if !defined(CONFIG_INTEGRATOR) && ! defined(CONFIG_ARCH_CINTEGRATOR)
++#if !defined(CONFIG_INTEGRATOR) && ! defined(CONFIG_ARCH_CINTEGRATOR) && !defined(CONFIG_MACH_SSDTV)
++# include <asm/arch/bits.h>
+ # include <asm/arch/omap2420.h>
++/* macro to read the 32 bit timer */
++# define READ_TIMER (*(volatile ulong *)(CFG_TIMERBASE+TCRR))
+ #endif
+ 
+ #include <asm/proc-armv/ptrace.h>
+ 
+ #define TIMER_LOAD_VAL 0
+ 
+-/* macro to read the 32 bit timer */
+-#define READ_TIMER (*(volatile ulong *)(CFG_TIMERBASE+TCRR))
+ 
+ #ifdef CONFIG_USE_IRQ
+ /* enable IRQ interrupts */
+@@ -176,7 +176,7 @@
+ 	bad_mode ();
+ }
+ 
+-#if defined(CONFIG_INTEGRATOR) && defined(CONFIG_ARCH_CINTEGRATOR)
++#if defined(CONFIG_INTEGRATOR) && defined(CONFIG_ARCH_CINTEGRATOR) || defined(CONFIG_MACH_SSDTV)
+ /* Use the IntegratorCP function from board/integratorcp.c */
+ #else
+ 
+diff -urNP org/cpu/arm1136/ssdtv/Makefile new/cpu/arm1136/ssdtv/Makefile
+--- org/cpu/arm1136/ssdtv/Makefile	1970-01-01 01:00:00.000000000 +0100
++++ new/cpu/arm1136/ssdtv/Makefile	2010-06-05 09:37:19.000000000 +0200
+@@ -0,0 +1,46 @@
++#
++# (C) Copyright 2000-2006
++# Wolfgang Denk, DENX Software Engineering, wd@denx.de.
++#
++# See file CREDITS for list of people who contributed to this
++# project.
++#
++# This program is free software; you can redistribute it and/or
++# modify it under the terms of the GNU General Public License as
++# published by the Free Software Foundation; either version 2 of
++# the License, or (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program; if not, write to the Free Software
++# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++# MA 02111-1307 USA
++#
++
++include $(TOPDIR)/config.mk
++
++LIB	= $(obj)lib$(SOC).a
++
++COBJS	= interrupts.o pci.o serial.o usb_ohci.o
++SOBJS	= 
++
++SRCS	:= $(SOBJS:.o=.S) $(COBJS:.o=.c)
++OBJS	:= $(addprefix $(obj),$(SOBJS) $(COBJS))
++
++all:	$(obj).depend $(LIB)
++
++$(LIB):	$(OBJS)
++	$(AR) $(ARFLAGS) $@ $(OBJS)
++
++#########################################################################
++
++# defines $(obj).depend target
++include $(SRCTREE)/rules.mk
++
++sinclude $(obj).depend
++
++#########################################################################
+diff -urNP org/cpu/arm1136/ssdtv/interrupts.c new/cpu/arm1136/ssdtv/interrupts.c
+--- org/cpu/arm1136/ssdtv/interrupts.c	1970-01-01 01:00:00.000000000 +0100
++++ new/cpu/arm1136/ssdtv/interrupts.c	2010-06-10 11:18:33.000000000 +0200
+@@ -0,0 +1,164 @@
++/*
++ * (C) Copyright 2003
++ * Texas Instruments <www.ti.com>
++ *
++ * (C) Copyright 2002
++ * Lineo, Inc. <www.lineo.com>
++ * Bernhard Kuhn <bkuhn@lineo.com>
++ *
++ * (C) Copyright 2002
++ * Sysgo Real-Time Solutions, GmbH <www.elinos.com>
++ * Alex Zuepke <azu@sysgo.de>
++ * Marius Groeger <mgroeger@sysgo.de>
++ *
++ * (C) Copyright 2002-2004
++ * Gary Jennejohn, DENX Software Engineering, <gj@denx.de>
++ *
++ * (C) Copyright 2004
++ * Philippe Robin, ARM Ltd. <philippe.robin@arm.com>
++ *
++ ********
++ * SamyGO, http://samygo.sourceforge.net
++ * Some code copied from files:
++ *   u-boot-1.1.6/cpu/arm946es/interrupts.c
++ *   u-boot-1.1.6/cpu/arm926ejs/versatile/interrupts.c
++ * Some parts this file was copied from Samsung u-boot sources
++ * released in 2009 with GPL v2 license.
++ * Copyright (C) 2003-2009 Samsung Electronics
++ * http://www.samsung.com/global/opensource/files/uboot_b650.tgz
++ *   uboot/cpu/arm926ejs/sdp76/interrupts.c
++ *   uboot/cpu/arm926ejs/s5h2150/timer.c
++ *   uboot/cpu/arm926ejs/s5h2111/timer.c
++ *   uboot/cpu/arm1136/sdp83/timer.c
++ ********
++ *
++ * See file CREDITS for list of people who contributed to this
++ * project.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++ * MA 02111-1307 USA
++ */
++
++#include <common.h>
++
++static ulong timestamp;
++static ulong lastdec;
++
++#define TIMER_CONTROL	(*(volatile unsigned long *)(0x30090400))
++#define TIMER_DATA	(*(volatile unsigned long *)(0x30090404))
++#define TIMER_COUNTER	(*(volatile unsigned long *)(0x30090408))
++#define TIMER_DMA	(*(volatile unsigned long *)(0x3009040c))
++
++#define READ_TIMER	(TIMER_COUNTER & 0xffff)
++
++#define TIMER_LOAD_VAL	0xffff
++
++/*
++ * timer without interrupts
++ */
++
++int interrupt_init(void)
++{
++	// don't enable irqs but instead setup timer
++	TIMER_CONTROL = 0;	// disable timer
++	TIMER_DMA = 0; 		// turn off DMA
++	timestamp = 0;
++	lastdec = TIMER_LOAD_VAL; // initial value
++	TIMER_DATA = TIMER_LOAD_VAL | (0x22 << 16);
++	TIMER_CONTROL = 1; 	// enable timer
++
++	return 0;
++}
++
++ulong get_timer_masked(void)
++{
++	ulong now = READ_TIMER;	/* current tick value */
++
++	if (lastdec >= now) {		/* normal mode (non roll) */
++		/* normal mode */
++		timestamp += lastdec - now; /* move stamp fordward with absoulte diff ticks */
++	} else {			/* we have overflow of the count down timer */
++		/* nts = ts + ld + (TLV - now)
++		 * ts=old stamp, ld=time that passed before passing through -1
++		 * (TLV-now) amount of time after passing though -1
++		 * nts = new "advancing time stamp"...it could also roll and cause problems.
++		 */
++		timestamp += (lastdec + (TIMER_LOAD_VAL - now)) & 0xffff;
++	}
++	lastdec = now;
++
++	return timestamp;
++}
++
++void reset_timer_masked(void)
++{
++	/* reset time */
++	lastdec = READ_TIMER;	/* capture current decrementer value time */
++	timestamp = 0;		/* start "advancing" time stamp from 0 */
++}
++
++void reset_timer(void)
++{
++	reset_timer_masked();
++}
++
++ulong get_timer(ulong base)
++{
++	return get_timer_masked() - base;
++}
++
++void set_timer(ulong t)
++{
++	timestamp = t;
++}
++
++void udelay_masked(unsigned long usec)
++{
++	ulong tmo;
++
++	tmo = get_timer_masked() + usec;
++
++	while (get_timer_masked() < tmo)	/* loop till event */
++		/*NOP*/;
++}
++
++void udelay(unsigned long usec)
++{
++	udelay_masked(usec);
++}
++
++/*
++ * This function is derived from PowerPC code (read timebase as long long).
++ * On ARM it just returns the timer value.
++ */
++unsigned long long get_ticks(void)
++{
++	return get_timer(0);
++}
++
++/*
++ * This function is derived from PowerPC code (timebase clock frequency).
++ * On ARM it returns the number of timer ticks per second.
++ */
++ulong get_tbclk(void)
++{
++	return 0;
++}
++
++void reset_cpu(ulong addr) {
++        puts("Dummy CPU Reset, Stop...\n");
++
++        for (;;) {}
++}
+diff -urNP org/cpu/arm1136/ssdtv/pci.c new/cpu/arm1136/ssdtv/pci.c
+--- org/cpu/arm1136/ssdtv/pci.c	1970-01-01 01:00:00.000000000 +0100
++++ new/cpu/arm1136/ssdtv/pci.c	2010-06-10 11:20:07.000000000 +0200
+@@ -0,0 +1,128 @@
++/*
++ ********
++ * SamyGO, http://samygo.sourceforge.net
++ * Some parts this file was copied from Samsung u-boot sources
++ * released in 2009 with GPL v2 license.
++ * Copyright (C) 2003-2009 Samsung Electronics
++ * http://www.samsung.com/global/opensource/files/uboot_b650.tgz
++ *   uboot/cpu/arm1136/sdp83/sdp83_pci.c
++ ********
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++ * MA 02111-1307 USA
++ */
++
++#include <common.h>
++
++#ifdef CONFIG_PCI
++
++#include <pci.h>
++
++#define PCIHSC		(*(volatile unsigned *)(0x30030004))
++#define PCIHLINE	(*(volatile unsigned *)(0x3003000C))
++#define PCIHBAR0	(*(volatile unsigned *)(0x30030010))
++#define PCIHBAR1	(*(volatile unsigned *)(0x30030014))
++#define PCIHBAR2	(*(volatile unsigned *)(0x30030018))
++#define PCIHLTIT	(*(volatile unsigned *)(0x3003003C))
++#define PCIHTIMER	(*(volatile unsigned *)(0x30030040))
++
++#define PCICON		(*(volatile unsigned *)(0x30030100))
++#define PCISET		(*(volatile unsigned *)(0x30030104))
++#define PCIINTEN	(*(volatile unsigned *)(0x30030108))
++#define PCIBATAPM	(*(volatile unsigned *)(0x30030114))
++#define PCIBATAPI	(*(volatile unsigned *)(0x30030118))
++#define PCIRCC		(*(volatile unsigned *)(0x3003011C))
++#define PCIDIAG0	(*(volatile unsigned *)(0x30030120))
++#define PCIBATPA0	(*(volatile unsigned *)(0x30030140))
++#define PCIBAM0		(*(volatile unsigned *)(0x30030144))
++#define PCIBATPA1	(*(volatile unsigned *)(0x30030148))
++#define PCIBAM1		(*(volatile unsigned *)(0x3003014C))
++#define PCIBATPA2	(*(volatile unsigned *)(0x30030150))
++#define PCIBAM2		(*(volatile unsigned *)(0x30030154))
++
++
++#define mem_pci(type)		*(volatile type *)(0x50000000 | (offs & 0xff) | ((PCI_FUNC(d) & 0x07) << 8) | (PCI_DEV(d) << 11))
++#define mem_pci_read(type)	*v = mem_pci(type)
++#define mem_pci_write(type)	mem_pci(type) = v
++#define vt_read		*
++#define vt_write
++
++#define FUNC(type, rw) \
++static int func_##rw##_##type(struct pci_controller *unused, pci_dev_t d, int offs, type vt_##rw v) { \
++	mem_pci_##rw(type); \
++	return 0; \
++}
++
++FUNC(u8, read)
++FUNC(u16, read)
++FUNC(u32, read)
++FUNC(u8, write)
++FUNC(u16, write)
++FUNC(u32, write)
++
++struct pci_controller hose;
++
++void pci_init_board(void) {
++	PCIINTEN = 0x0;		// disable pci interrupts
++	PCICON = 0x13;		// disable pci controller
++
++	PCIDIAG0 &= 0xfffffff0;	// setup pci clocks
++	PCIDIAG0 |= 0x4;
++
++	PCIRCC &= 0xfffffff0;	// reset pci bus
++	PCIRCC |= 0x3;
++
++	PCIBATAPM = 0x0;	// setup pci memory window base
++	PCIBATAPI = 0x5c000000;	// setup pci I/O window base
++	PCISET = 0x400;
++
++	PCIBAM0 = 0xf8000000;	// setup mask for base address
++	PCIBATPA0 = 0x60000000;	// setup base address translation
++	PCIHBAR0 = 0x60000000;
++
++	PCIBAM1 = 0xf8000000;
++	PCIBATPA1 = 0x68000000;
++	PCIHBAR1 = 0x68000000;
++
++	PCIBAM2 = 0xfc000000;
++	PCIBATPA2 = 0x5c000000;
++	PCIHBAR2 = 0x5c000000;
++
++	PCIHLINE = 0x1008;
++	PCIHLTIT &= 0xffff0000;
++	PCIHLTIT |= 0x11a;
++
++	PCIHTIMER = 0x8080;
++	PCIHSC = 0xffff0357;
++	PCICON = 0x393;
++
++
++	hose.first_busno = 0;
++
++	// there is only one bus, it simplify things
++	hose.last_busno = 0;
++
++	hose.region_count = 2;
++	// PCI memory space
++	pci_set_region(hose.regions + 0, 0x4000, 0x40004000, 0xffffffff, PCI_REGION_MEM);
++	// PCI I/O space
++	pci_set_region(hose.regions + 1, 0x5c000600, 0x5c000600, 0x80000, PCI_REGION_IO);
++
++	pci_set_ops(&hose, func_read_u8, func_read_u16, func_read_u32, func_write_u8, func_write_u16, func_write_u32);
++	pci_register_hose(&hose);
++	pci_hose_scan(&hose);
++}
++#endif
++
+diff -urNP org/cpu/arm1136/ssdtv/serial.c new/cpu/arm1136/ssdtv/serial.c
+--- org/cpu/arm1136/ssdtv/serial.c	1970-01-01 01:00:00.000000000 +0100
++++ new/cpu/arm1136/ssdtv/serial.c	2010-06-10 11:23:01.000000000 +0200
+@@ -0,0 +1,125 @@
++/*
++ * (C) Copyright 2002
++ * Gary Jennejohn, DENX Software Engineering, <gj@denx.de>
++ *
++ ********
++ * SamyGO, http://samygo.sourceforge.net
++ * Some parts this file was copied from Samsung u-boot sources
++ * released in 2009 with GPL v2 license.
++ * Copyright (C) 2003-2009 Samsung Electronics
++ * http://www.samsung.com/global/opensource/files/uboot_b650.tgz
++ * Origin path:
++ *   uboot/cpu/arm926ejs/sdp76/serial.c
++ *   uboot/cpu/arm926ejs/s5h2150/serial.c
++ *   uboot/cpu/arm1136/sdp83/serial.c
++ ********
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++
++#include <common.h>
++
++#define	ULCON		(*(volatile unsigned long *)(0x30090A40))
++#define	UCON		(*(volatile unsigned long *)(0x30090A44))
++#define	UFCON		(*(volatile unsigned long *)(0x30090A48))
++#define UMCON		(*(volatile unsigned long *)(0x30090A4C))
++#define	UFSTAT		(*(volatile unsigned long *)(0x30090A58))
++#define	UTXH		(*(volatile unsigned char *)(0x30090A60))
++#define	URXH		(*(volatile unsigned char *)(0x30090A64))
++#define	UBRDIV		(*(volatile unsigned long *)(0x30090A68))
++
++void serial_setbrg (void)
++{
++	int i;
++
++	/* FIFO enable, Tx/Rx FIFO clear */
++	UFCON = 0x7;
++	UMCON = 0x0;
++	/* Normal,No parity,1 stop,8 bit */
++	ULCON = 0x3;
++	/*
++	 * tx=level,rx=edge,disable timeout int.,enable rx error int.,
++	 * normal,interrupt or polling
++	 */
++	UCON = 0x5;
++	UBRDIV = 74; // taken from runtime
++
++	for (i = 0; i < 100; i++);
++}
++
++/*
++ * Initialise the serial port with the given baudrate. The settings
++ * are always 8 data bits, no parity, 1 stop bit, no start bits.
++ *
++ */
++int serial_init (void)
++{
++	serial_setbrg ();
++
++	return (0);
++}
++
++/*
++ * Read a single byte from the serial port. Returns 1 on success, 0
++ * otherwise. When the function is succesfull, the character read is
++ * written into its argument c.
++ */
++int serial_getc (void)
++{
++	/* wait for character to arrive */
++	while (!((UFSTAT & 0x10f)>0));
++
++	return (URXH & 0xff);
++}
++
++/*
++ * Output a single byte to the serial port.
++ */
++void serial_putc (const char c)
++{
++	/* wait for room in the tx FIFO */
++	while( (UFSTAT & 0x200) );
++
++	UTXH = c;
++
++	/* If \n, also do \r */
++	if (c == '\n')
++		serial_putc ('\r');
++}
++
++/*
++ * Test whether a character is in the RX buffer
++ */
++int serial_tstc (void)
++{
++	return ((UFSTAT & 0x10f)>0);
++}
++
++void serial_puts (const char *s)
++{
++	while (*s) {
++		serial_putc (*s++);
++	}
++}
++
++void debug_putc (const char c)
++{
++	/* wait for character to arrive */
++	while( (UFSTAT & 0x200) );
++
++	UTXH = c;
++}
++
+diff -urNP org/cpu/arm1136/ssdtv/usb_ohci.c new/cpu/arm1136/ssdtv/usb_ohci.c
+--- org/cpu/arm1136/ssdtv/usb_ohci.c	1970-01-01 01:00:00.000000000 +0100
++++ new/cpu/arm1136/ssdtv/usb_ohci.c	2010-06-10 11:24:14.000000000 +0200
+@@ -0,0 +1,1714 @@
++/*
++ * URB OHCI HCD (Host Controller Driver) for USB on the S3C2400.
++ *
++ * (C) Copyright 2003
++ * Gary Jennejohn, DENX Software Engineering <gj@denx.de>
++ *
++ * See file CREDITS for list of people who contributed to this
++ * project.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++ * MA 02111-1307 USA
++ *
++ * Note: Part of this code has been derived from linux
++ *
++ ********
++ * SamyGO, http://samygo.sourceforge.net
++ * Content of this file was copied from Samsung u-boot sources
++ * licensed as GPL v2 released in 2009.
++ * http://www.samsung.com/global/opensource/files/uboot_b650.tgz
++ * Copyright (C) 2003-2009 Samsung Electronics
++ * Origin path: uboot/cpu/arm1136/sdp83/usb_ohci.c
++ ********
++ */
++/*
++ * IMPORTANT NOTES
++ * 1 - you MUST define LITTLEENDIAN in the configuration file for the
++ *     board or this driver will NOT work!
++ * 2 - this driver is intended for use with USB Mass Storage Devices
++ *     (BBB) ONLY. There is NO support for Interrupt or Isochronous pipes!
++ */
++
++#include <common.h>
++
++#ifdef CONFIG_USB_OHCI
++
++#include <malloc.h>
++#include <usb.h>
++#include "usb_ohci.h"
++
++/* allow more time for a BULK device to react - some are slow */
++//#define BULK_TO	 10	/* timeout in milliseconds */
++#define BULK_TO	 5000	/* timeout in milliseconds */
++
++#define OHCI_USE_NPS		/* force NoPowerSwitching mode */
++
++#undef OHCI_VERBOSE_DEBUG	/* not always helpful */
++#undef SHOW_INFO
++#undef OHCI_VERBOSE_DEBUG2	/* ij.jang extra messages */
++
++/* For initializing controller (mask in an HCFS mode too) */
++#define	OHCI_CONTROL_INIT \
++	(OHCI_CTRL_CBSR & 0x3) 
++//	(OHCI_CTRL_CBSR & 0x3) | OHCI_CTRL_IE | OHCI_CTRL_PLE
++
++#define readl(a) (*((vu_long *)(a)))
++#define writel(a, b) (*((vu_long *)(b)) = ((vu_long)a))
++
++#define min_t(type,x,y) ({ type __x = (x); type __y = (y); __x < __y ? __x: __y; })
++
++/* ij.jang */
++#ifdef OHCI_VERBOSE_DEBUG2
++#define dbg2(format, arg...) printf("[OHCI DBG2 ] " format "\n", ## arg)
++#else
++#define dbg2(format, arg...) do {} while(0)
++#endif
++
++#ifdef DEBUG
++#define dbg(format, arg...) printf("[OHCI DEBUG] " format "\n", ## arg)
++#else
++#define dbg(format, arg...) do {} while(0)
++#endif /* DEBUG */
++
++#define err(format, arg...) printf("[OHCI ERROR] " format "\n", ## arg)
++
++#ifdef SHOW_INFO
++#define info(format, arg...) printf("[OHCI INFO] " format "\n", ## arg)
++#else
++#define info(format, arg...) do {} while(0)
++#endif
++
++#define m16_swap(x) swap_16(x)
++#define m32_swap(x) swap_32(x)
++
++/* global ohci_t */
++static ohci_t gohci;
++/* this must be aligned to a 256 byte boundary */
++struct ohci_hcca ghcca[1];
++/* a pointer to the aligned storage */
++struct ohci_hcca *phcca;
++/* this allocates EDs for all possible endpoints */
++struct ohci_device ohci_dev;
++/* urb_priv */
++urb_priv_t urb_priv;
++/* RHSC flag */
++int got_rhsc;
++/* device which was disconnected */
++struct usb_device *devgone;
++/* flag guarding URB transaction */
++int urb_finished = 0;
++
++/*-------------------------------------------------------------------------*/
++
++/* AMD-756 (D2 rev) reports corrupt register contents in some cases.
++ * The erratum (#4) description is incorrect.  AMD's workaround waits
++ * till some bits (mostly reserved) are clear; ok for all revs.
++ */
++#define OHCI_QUIRK_AMD756 0xabcd
++#define read_roothub(hc, register, mask) ({ \
++	u32 temp = readl (&hc->regs->roothub.register); \
++	if (hc->flags & OHCI_QUIRK_AMD756) \
++		while (temp & mask) \
++			temp = readl (&hc->regs->roothub.register); \
++	temp; })
++
++static u32 roothub_a (struct ohci *hc)
++	{ return read_roothub (hc, a, 0xfc0fe000); }
++static inline u32 roothub_b (struct ohci *hc)
++	{ return readl (&hc->regs->roothub.b); }
++static inline u32 roothub_status (struct ohci *hc)
++	{ return readl (&hc->regs->roothub.status); }
++static u32 roothub_portstatus (struct ohci *hc, int i)
++	{ return read_roothub (hc, portstatus [i], 0xffe0fce0); }
++
++
++/* forward declaration */
++static int hc_interrupt (void);
++static void
++td_submit_job (struct usb_device * dev, unsigned long pipe, void * buffer,
++	int transfer_len, struct devrequest * setup, urb_priv_t * urb, int interval);
++
++/*-------------------------------------------------------------------------*
++ * URB support functions
++ *-------------------------------------------------------------------------*/
++
++/* free HCD-private data associated with this URB */
++
++static void urb_free_priv (urb_priv_t * urb)
++{
++	int		i;
++	int		last;
++	struct td	* td;
++
++	last = urb->length - 1;
++	if (last >= 0) {
++		for (i = 0; i <= last; i++) {
++			td = urb->td[i];
++			if (td) {
++				td->usb_dev = NULL;
++				urb->td[i] = NULL;
++			}
++		}
++	}
++}
++
++/*-------------------------------------------------------------------------*/
++
++#ifdef DEBUG
++static int sohci_get_current_frame_number (struct usb_device * dev);
++
++/* debug| print the main components of an URB
++ * small: 0) header + data packets 1) just header */
++static void pkt_print (struct usb_device * dev, unsigned long pipe, void * buffer,
++	int transfer_len, struct devrequest * setup, char * str, int small)
++{
++	urb_priv_t * purb = &urb_priv;
++
++	dbg("%s URB:[%4x] dev:%2d,ep:%2d-%c,type:%s,len:%d/%d stat:%#lx",
++			str,
++			sohci_get_current_frame_number (dev),
++			usb_pipedevice (pipe),
++			usb_pipeendpoint (pipe),
++			usb_pipeout (pipe)? 'O': 'I',
++			usb_pipetype (pipe) < 2? (usb_pipeint (pipe)? "INTR": "ISOC"):
++				(usb_pipecontrol (pipe)? "CTRL": "BULK"),
++			purb->actual_length,
++			transfer_len, dev->status);
++#ifdef	OHCI_VERBOSE_DEBUG
++	if (!small) {
++		int i, len;
++
++		if (usb_pipecontrol (pipe)) {
++			printf (__FILE__ ": cmd(8):");
++			for (i = 0; i < 8 ; i++)
++				printf (" %02x", ((__u8 *) setup) [i]);
++			printf ("\n");
++		}
++		if (transfer_len > 0 && buffer) {
++			printf (__FILE__ ": data(%d/%d):",
++				purb->actual_length,
++				transfer_len);
++			len = usb_pipeout (pipe)?
++					transfer_len: purb->actual_length;
++			for (i = 0; i < 16 && i < len; i++)
++				printf (" %02x", ((__u8 *) buffer) [i]);
++			printf ("%s\n", i < len? "...": "");
++		}
++	}
++#endif
++}
++
++/* just for debugging; prints non-empty branches of the int ed tree inclusive iso eds*/
++void ep_print_int_eds (ohci_t *ohci, char * str) {
++	int i, j;
++	 __u32 * ed_p;
++	for (i= 0; i < 32; i++) {
++		j = 5;
++		ed_p = &(ohci->hcca->int_table [i]);
++		if (*ed_p == 0)
++		    continue;
++		printf (__FILE__ ": %s branch int %2d(%2x):", str, i, i);
++		while (*ed_p != 0 && j--) {
++			ed_t *ed = (ed_t *)m32_swap(ed_p);
++			printf (" ed: %4x;", ed->hwINFO);
++			ed_p = &ed->hwNextED;
++		}
++		printf ("\n");
++	}
++}
++
++static void ohci_dump_intr_mask (char *label, __u32 mask)
++{
++	dbg ("%s: 0x%08x%s%s%s%s%s%s%s%s%s",
++		label,
++		mask,
++		(mask & OHCI_INTR_MIE) ? " MIE" : "",
++		(mask & OHCI_INTR_OC) ? " OC" : "",
++		(mask & OHCI_INTR_RHSC) ? " RHSC" : "",
++		(mask & OHCI_INTR_FNO) ? " FNO" : "",
++		(mask & OHCI_INTR_UE) ? " UE" : "",
++		(mask & OHCI_INTR_RD) ? " RD" : "",
++		(mask & OHCI_INTR_SF) ? " SF" : "",
++		(mask & OHCI_INTR_WDH) ? " WDH" : "",
++		(mask & OHCI_INTR_SO) ? " SO" : ""
++		);
++}
++
++static void maybe_print_eds (char *label, __u32 value)
++{
++	ed_t *edp = (ed_t *)value;
++
++	if (value) {
++		dbg ("%s %08x", label, value);
++		dbg ("%08x", edp->hwINFO);
++		dbg ("%08x", edp->hwTailP);
++		dbg ("%08x", edp->hwHeadP);
++		dbg ("%08x", edp->hwNextED);
++	}
++}
++
++static char * hcfs2string (int state)
++{
++	switch (state) {
++		case OHCI_USB_RESET:	return "reset";
++		case OHCI_USB_RESUME:	return "resume";
++		case OHCI_USB_OPER:	return "operational";
++		case OHCI_USB_SUSPEND:	return "suspend";
++	}
++	return "?";
++}
++
++/* dump control and status registers */
++static void ohci_dump_status (ohci_t *controller)
++{
++	struct ohci_regs	*regs = controller->regs;
++	__u32			temp;
++
++	temp = readl (&regs->revision) & 0xff;
++	if (temp != 0x10)
++		dbg ("spec %d.%d", (temp >> 4), (temp & 0x0f));
++
++	temp = readl (&regs->control);
++	dbg ("control: 0x%08x%s%s%s HCFS=%s%s%s%s%s CBSR=%d", temp,
++		(temp & OHCI_CTRL_RWE) ? " RWE" : "",
++		(temp & OHCI_CTRL_RWC) ? " RWC" : "",
++		(temp & OHCI_CTRL_IR) ? " IR" : "",
++		hcfs2string (temp & OHCI_CTRL_HCFS),
++		(temp & OHCI_CTRL_BLE) ? " BLE" : "",
++		(temp & OHCI_CTRL_CLE) ? " CLE" : "",
++		(temp & OHCI_CTRL_IE) ? " IE" : "",
++		(temp & OHCI_CTRL_PLE) ? " PLE" : "",
++		temp & OHCI_CTRL_CBSR
++		);
++
++	temp = readl (&regs->cmdstatus);
++	dbg ("cmdstatus: 0x%08x SOC=%d%s%s%s%s", temp,
++		(temp & OHCI_SOC) >> 16,
++		(temp & OHCI_OCR) ? " OCR" : "",
++		(temp & OHCI_BLF) ? " BLF" : "",
++		(temp & OHCI_CLF) ? " CLF" : "",
++		(temp & OHCI_HCR) ? " HCR" : ""
++		);
++
++	ohci_dump_intr_mask ("intrstatus", readl (&regs->intrstatus));
++	ohci_dump_intr_mask ("intrenable", readl (&regs->intrenable));
++
++	maybe_print_eds ("ed_periodcurrent", readl (&regs->ed_periodcurrent));
++
++	maybe_print_eds ("ed_controlhead", readl (&regs->ed_controlhead));
++	maybe_print_eds ("ed_controlcurrent", readl (&regs->ed_controlcurrent));
++
++	maybe_print_eds ("ed_bulkhead", readl (&regs->ed_bulkhead));
++	maybe_print_eds ("ed_bulkcurrent", readl (&regs->ed_bulkcurrent));
++
++	maybe_print_eds ("donehead", readl (&regs->donehead));
++}
++
++static void ohci_dump_roothub (ohci_t *controller, int verbose)
++{
++	__u32			temp, ndp, i;
++
++	temp = roothub_a (controller);
++	ndp = (temp & RH_A_NDP);
++
++	if (verbose) {
++		dbg ("roothub.a: %08x POTPGT=%d%s%s%s%s%s NDP=%d", temp,
++			((temp & RH_A_POTPGT) >> 24) & 0xff,
++			(temp & RH_A_NOCP) ? " NOCP" : "",
++			(temp & RH_A_OCPM) ? " OCPM" : "",
++			(temp & RH_A_DT) ? " DT" : "",
++			(temp & RH_A_NPS) ? " NPS" : "",
++			(temp & RH_A_PSM) ? " PSM" : "",
++			ndp
++			);
++		temp = roothub_b (controller);
++		dbg ("roothub.b: %08x PPCM=%04x DR=%04x",
++			temp,
++			(temp & RH_B_PPCM) >> 16,
++			(temp & RH_B_DR)
++			);
++		temp = roothub_status (controller);
++		dbg ("roothub.status: %08x%s%s%s%s%s%s",
++			temp,
++			(temp & RH_HS_CRWE) ? " CRWE" : "",
++			(temp & RH_HS_OCIC) ? " OCIC" : "",
++			(temp & RH_HS_LPSC) ? " LPSC" : "",
++			(temp & RH_HS_DRWE) ? " DRWE" : "",
++			(temp & RH_HS_OCI) ? " OCI" : "",
++			(temp & RH_HS_LPS) ? " LPS" : ""
++			);
++	}
++
++	for (i = 0; i < ndp; i++) {
++		temp = roothub_portstatus (controller, i);
++		dbg ("roothub.portstatus [%d] = 0x%08x%s%s%s%s%s%s%s%s%s%s%s%s",
++			i,
++			temp,
++			(temp & RH_PS_PRSC) ? " PRSC" : "",
++			(temp & RH_PS_OCIC) ? " OCIC" : "",
++			(temp & RH_PS_PSSC) ? " PSSC" : "",
++			(temp & RH_PS_PESC) ? " PESC" : "",
++			(temp & RH_PS_CSC) ? " CSC" : "",
++
++			(temp & RH_PS_LSDA) ? " LSDA" : "",
++			(temp & RH_PS_PPS) ? " PPS" : "",
++			(temp & RH_PS_PRS) ? " PRS" : "",
++			(temp & RH_PS_POCI) ? " POCI" : "",
++			(temp & RH_PS_PSS) ? " PSS" : "",
++
++			(temp & RH_PS_PES) ? " PES" : "",
++			(temp & RH_PS_CCS) ? " CCS" : ""
++			);
++	}
++}
++
++static void ohci_dump (ohci_t *controller, int verbose)
++{
++	dbg ("OHCI controller usb-%s state", controller->slot_name);
++
++	/* dumps some of the state we know about */
++	ohci_dump_status (controller);
++	if (verbose)
++		ep_print_int_eds (controller, "hcca");
++	dbg ("hcca frame #%04x", controller->hcca->frame_no);
++	ohci_dump_roothub (controller, 1);
++}
++
++
++#endif /* DEBUG */
++
++/*-------------------------------------------------------------------------*
++ * Interface functions (URB)
++ *-------------------------------------------------------------------------*/
++
++/* get a transfer request */
++int sohci_submit_job(struct usb_device *dev, unsigned long pipe, void *buffer,
++		int transfer_len, struct devrequest *setup, int interval)
++{
++	ohci_t *ohci;
++	ed_t * ed;
++	urb_priv_t *purb_priv;
++	int i, size = 0;
++
++	ohci = &gohci;
++
++	/* when controller's hung, permit only roothub cleanup attempts
++	 * such as powering down ports */
++	if (ohci->disabled) {
++		err("sohci_submit_job: EPIPE");
++		return -1;
++	}
++
++	if (!urb_finished) {
++		err("sohci_submit_job: URB NOT FINISHED");
++		return -1;
++	}
++	urb_finished = 0;
++
++	/* every endpoint has a ed, locate and fill it */
++	if (!(ed = ep_add_ed (dev, pipe))) {
++		err("sohci_submit_job: ENOMEM");
++		return -1;
++	}
++
++	/* for the private part of the URB we need the number of TDs (size) */
++	switch (usb_pipetype (pipe)) {
++		case PIPE_BULK:	/* one TD for every 4096 Byte */
++#if 0
++			size = (transfer_len - 1) / 4096 + 1;
++#else
++			size = ((transfer_len - 1) >> 12) + 1;
++#endif
++			dbg2("BULK data submit len=%d, size=%d",
++					transfer_len, size);
++			break;
++		case PIPE_CONTROL: /* 1 TD for setup, 1 for ACK and 1 for every 4096 B */
++#if 0
++			size = (transfer_len == 0)? 2:
++						(transfer_len - 1) / 4096 + 3;
++#else
++			if (transfer_len == 0)
++				size = 2;
++			else
++				size = ((transfer_len-1)>>12) + 3;
++#endif
++			break;
++	}
++
++
++	if (size >= (N_URB_TD - 1)) {
++		err("need %d TDs, only have %d", size, N_URB_TD);
++		return -1;
++	}
++	purb_priv = &urb_priv;
++	purb_priv->pipe = pipe;
++
++	/* fill the private part of the URB */
++	purb_priv->length = size;
++	purb_priv->ed = ed;
++	purb_priv->actual_length = 0;
++
++	/* allocate the TDs */
++	/* note that td[0] was allocated in ep_add_ed */
++	for (i = 0; i < size; i++) {
++		purb_priv->td[i] = td_alloc (dev);
++		if (!purb_priv->td[i]) {
++			purb_priv->length = i;
++			urb_free_priv (purb_priv);
++			err("sohci_submit_job: ENOMEM");
++			return -1;
++		}
++	}
++
++	if (ed->state == ED_NEW || (ed->state & ED_DEL)) {
++		urb_free_priv (purb_priv);
++		err("sohci_submit_job: EINVAL");
++		return -1;
++	}
++
++	/* link the ed into a chain if is not already */
++	if (ed->state != ED_OPER)
++		ep_link (ohci, ed);
++
++	/* fill the TDs and link it to the ed */
++	td_submit_job(dev, pipe, buffer, transfer_len, setup, purb_priv, interval);
++
++	return 0;
++}
++
++/*-------------------------------------------------------------------------*/
++
++#ifdef DEBUG
++/* tell us the current USB frame number */
++
++static int sohci_get_current_frame_number (struct usb_device *usb_dev)
++{
++	ohci_t *ohci = &gohci;
++
++	return m16_swap (ohci->hcca->frame_no);
++}
++#endif
++
++/*-------------------------------------------------------------------------*
++ * ED handling functions
++ *-------------------------------------------------------------------------*/
++
++/* link an ed into one of the HC chains */
++
++static int ep_link (ohci_t *ohci, ed_t *edi)
++{
++	volatile ed_t *ed = edi;
++
++	ed->state = ED_OPER;
++
++	switch (ed->type) {
++	case PIPE_CONTROL:
++		ed->hwNextED = 0;
++		if (ohci->ed_controltail == NULL) {
++			writel (ed, &ohci->regs->ed_controlhead);
++		} else {
++			ohci->ed_controltail->hwNextED = m32_swap (ed);
++		}
++		ed->ed_prev = ohci->ed_controltail;
++		if (!ohci->ed_controltail && !ohci->ed_rm_list[0] &&
++			!ohci->ed_rm_list[1] && !ohci->sleeping) {
++			ohci->hc_control |= OHCI_CTRL_CLE;
++			writel (ohci->hc_control, &ohci->regs->control);
++		}
++		ohci->ed_controltail = edi;
++		break;
++
++	case PIPE_BULK:
++		ed->hwNextED = 0;
++		if (ohci->ed_bulktail == NULL) {
++			writel (ed, &ohci->regs->ed_bulkhead);
++		} else {
++			ohci->ed_bulktail->hwNextED = m32_swap (ed);
++		}
++		ed->ed_prev = ohci->ed_bulktail;
++		if (!ohci->ed_bulktail && !ohci->ed_rm_list[0] &&
++			!ohci->ed_rm_list[1] && !ohci->sleeping) {
++			ohci->hc_control |= OHCI_CTRL_BLE;
++			writel (ohci->hc_control, &ohci->regs->control);
++		}
++		ohci->ed_bulktail = edi;
++		break;
++	}
++	return 0;
++}
++
++/*-------------------------------------------------------------------------*/
++
++/* unlink an ed from one of the HC chains.
++ * just the link to the ed is unlinked.
++ * the link from the ed still points to another operational ed or 0
++ * so the HC can eventually finish the processing of the unlinked ed */
++
++static int ep_unlink (ohci_t *ohci, ed_t *ed)
++{
++	ed->hwINFO |= m32_swap (OHCI_ED_SKIP);
++
++	switch (ed->type) {
++	case PIPE_CONTROL:
++		if (ed->ed_prev == NULL) {
++			if (!ed->hwNextED) {
++				ohci->hc_control &= ~OHCI_CTRL_CLE;
++				writel (ohci->hc_control, &ohci->regs->control);
++			}
++			writel (m32_swap (*((__u32 *)&ed->hwNextED)), &ohci->regs->ed_controlhead);
++		} else {
++			ed->ed_prev->hwNextED = ed->hwNextED;
++		}
++		if (ohci->ed_controltail == ed) {
++			ohci->ed_controltail = ed->ed_prev;
++		} else {
++			((ed_t *)m32_swap (*((__u32 *)&ed->hwNextED)))->ed_prev = ed->ed_prev;
++		}
++		break;
++
++	case PIPE_BULK:
++		if (ed->ed_prev == NULL) {
++			if (!ed->hwNextED) {
++				ohci->hc_control &= ~OHCI_CTRL_BLE;
++				writel (ohci->hc_control, &ohci->regs->control);
++			}
++			writel (m32_swap (*((__u32 *)&ed->hwNextED)), &ohci->regs->ed_bulkhead);
++		} else {
++			ed->ed_prev->hwNextED = ed->hwNextED;
++		}
++		if (ohci->ed_bulktail == ed) {
++			ohci->ed_bulktail = ed->ed_prev;
++		} else {
++			((ed_t *)m32_swap (*((__u32 *)&ed->hwNextED)))->ed_prev = ed->ed_prev;
++		}
++		break;
++	}
++	ed->state = ED_UNLINK;
++	return 0;
++}
++
++
++/*-------------------------------------------------------------------------*/
++
++/* add/reinit an endpoint; this should be done once at the usb_set_configuration command,
++ * but the USB stack is a little bit stateless  so we do it at every transaction
++ * if the state of the ed is ED_NEW then a dummy td is added and the state is changed to ED_UNLINK
++ * in all other cases the state is left unchanged
++ * the ed info fields are setted anyway even though most of them should not change */
++
++static ed_t * ep_add_ed (struct usb_device *usb_dev, unsigned long pipe)
++{
++	td_t *td;
++	ed_t *ed_ret;
++	volatile ed_t *ed;
++
++	ed = ed_ret = &ohci_dev.ed[(usb_pipeendpoint (pipe) << 1) |
++			(usb_pipecontrol (pipe)? 0: usb_pipeout (pipe))];
++
++	if ((ed->state & ED_DEL) || (ed->state & ED_URB_DEL)) {
++		err("ep_add_ed: pending delete");
++		/* pending delete request */
++		return NULL;
++	}
++
++	if (ed->state == ED_NEW) {
++		ed->hwINFO = m32_swap (OHCI_ED_SKIP); /* skip ed */
++		/* dummy td; end of td list for ed */
++		td = td_alloc (usb_dev);
++		ed->hwTailP = m32_swap (td);
++		ed->hwHeadP = ed->hwTailP;
++		ed->state = ED_UNLINK;
++		ed->type = usb_pipetype (pipe);
++		ohci_dev.ed_cnt++;
++	}
++
++	ed->hwINFO = m32_swap (usb_pipedevice (pipe)
++			| usb_pipeendpoint (pipe) << 7
++			| (usb_pipeisoc (pipe)? 0x8000: 0)
++			| (usb_pipecontrol (pipe)? 0: (usb_pipeout (pipe)? 0x800: 0x1000))
++			| usb_pipeslow (pipe) << 13
++			| usb_maxpacket (usb_dev, pipe) << 16);
++
++	return ed_ret;
++}
++
++/*-------------------------------------------------------------------------*
++ * TD handling functions
++ *-------------------------------------------------------------------------*/
++
++/* enqueue next TD for this URB (OHCI spec 5.2.8.2) */
++
++static void td_fill (ohci_t *ohci, unsigned int info,
++	void *data, int len,
++	struct usb_device *dev, int index, urb_priv_t *urb_priv)
++{
++	volatile td_t  *td, *td_pt;
++#ifdef OHCI_FILL_TRACE
++	int i;
++#endif
++
++	if (index > urb_priv->length) {
++		err("index > length");
++		return;
++	}
++	/* use this td as the next dummy */
++	td_pt = urb_priv->td [index];
++	td_pt->hwNextTD = 0;
++
++	/* fill the old dummy TD */
++	td = urb_priv->td [index] = (td_t *)(m32_swap (urb_priv->ed->hwTailP) & ~0xf);
++
++	td->ed = urb_priv->ed;
++	td->next_dl_td = NULL;
++	td->index = index;
++	td->data = (__u32)data;
++#ifdef OHCI_FILL_TRACE
++	if ((usb_pipetype(urb_priv->pipe) == PIPE_BULK) && usb_pipeout(urb_priv->pipe)) {
++		for (i = 0; i < len; i++)
++		printf("td->data[%d] %#2x ",i, ((unsigned char *)td->data)[i]);
++		printf("\n");
++	}
++#endif
++	if (!len)
++		data = 0;
++
++	td->hwINFO = m32_swap (info);
++	td->hwCBP = m32_swap (data);
++	if (data)
++		td->hwBE = m32_swap (data + len - 1);
++	else
++		td->hwBE = 0;
++	td->hwNextTD = m32_swap (td_pt);
++	td->hwPSW [0] = m16_swap (((__u32)data & 0x0FFF) | 0xE000);
++
++	/* append to queue */
++	td->ed->hwTailP = td->hwNextTD;
++}
++
++/*-------------------------------------------------------------------------*/
++
++/* prepare all TDs of a transfer */
++
++static void td_submit_job (struct usb_device *dev, unsigned long pipe, void *buffer,
++	int transfer_len, struct devrequest *setup, urb_priv_t *urb, int interval)
++{
++	ohci_t *ohci = &gohci;
++	int data_len = transfer_len;
++	void *data;
++	int cnt = 0;
++	__u32 info = 0;
++	unsigned int toggle = 0;
++
++	/* OHCI handles the DATA-toggles itself, we just use the USB-toggle bits for reseting */
++	if(usb_gettoggle(dev, usb_pipeendpoint(pipe), usb_pipeout(pipe))) {
++		toggle = TD_T_TOGGLE;
++	} else {
++		toggle = TD_T_DATA0;
++		usb_settoggle(dev, usb_pipeendpoint(pipe), usb_pipeout(pipe), 1);
++	}
++	urb->td_cnt = 0;
++	if (data_len)
++		data = buffer;
++	else
++		data = 0;
++
++	switch (usb_pipetype (pipe)) {
++	case PIPE_BULK:
++		info = usb_pipeout (pipe)?
++			TD_CC | TD_DP_OUT : TD_CC | TD_DP_IN ;
++		while(data_len > 4096) {
++			td_fill (ohci, info | (cnt? TD_T_TOGGLE:toggle), data, 4096, dev, cnt, urb);
++			data += 4096; data_len -= 4096; cnt++;
++		}
++		info = usb_pipeout (pipe)?
++			TD_CC | TD_DP_OUT : TD_CC | TD_R | TD_DP_IN ;
++		td_fill (ohci, info | (cnt? TD_T_TOGGLE:toggle), data, data_len, dev, cnt, urb);
++		cnt++;
++
++		if (!ohci->sleeping)
++		{
++			do{
++				udelay(5);
++			} while(readl(&ohci->regs->cmdstatus) & OHCI_BLF);
++
++			writel (OHCI_BLF, &ohci->regs->cmdstatus); /* start bulk list */
++
++			do{
++				udelay(15);
++			} while(readl(&ohci->regs->ed_bulkcurrent));
++		}
++		break;
++
++	case PIPE_CONTROL:
++		info = TD_CC | TD_DP_SETUP | TD_T_DATA0;
++		td_fill (ohci, info, setup, 8, dev, cnt++, urb);
++		if (data_len > 0) {
++			info = usb_pipeout (pipe)?
++				TD_CC | TD_R | TD_DP_OUT | TD_T_DATA1 : TD_CC | TD_R | TD_DP_IN | TD_T_DATA1;
++			/* NOTE:  mishandles transfers >8K, some >4K */
++			td_fill (ohci, info, data, data_len, dev, cnt++, urb);
++		}
++		info = usb_pipeout (pipe)?
++			TD_CC | TD_DP_IN | TD_T_DATA1: TD_CC | TD_DP_OUT | TD_T_DATA1;
++		td_fill (ohci, info, data, 0, dev, cnt++, urb);
++		if (!ohci->sleeping)
++		{
++			udelay(100);
++
++			writel (OHCI_CLF, &ohci->regs->cmdstatus); /* start Control list */
++
++			udelay(1000);
++		}
++		break;
++	}
++	if (urb->length != cnt)
++		dbg("TD LENGTH %d != CNT %d", urb->length, cnt);
++}
++
++/*-------------------------------------------------------------------------*
++ * Done List handling functions
++ *-------------------------------------------------------------------------*/
++
++
++/* calculate the transfer length and update the urb */
++
++static void dl_transfer_length(td_t * td)
++{
++	__u32 tdINFO, tdBE, tdCBP;
++	urb_priv_t *lurb_priv = &urb_priv;
++
++	tdINFO = m32_swap (td->hwINFO);
++	tdBE   = m32_swap (td->hwBE);
++	tdCBP  = m32_swap (td->hwCBP);
++
++
++	if (!(usb_pipetype (lurb_priv->pipe) == PIPE_CONTROL &&
++	    ((td->index == 0) || (td->index == lurb_priv->length - 1)))) {
++		if (tdBE != 0) {
++			if (td->hwCBP == 0)
++				lurb_priv->actual_length += tdBE - td->data + 1;
++			else
++				lurb_priv->actual_length += tdCBP - td->data;
++		}
++	}
++}
++
++/*-------------------------------------------------------------------------*/
++
++/* replies to the request have to be on a FIFO basis so
++ * we reverse the reversed done-list */
++
++static td_t * dl_reverse_done_list (ohci_t *ohci)
++{
++	__u32 td_list_hc = 0;
++	td_t *td_rev = NULL;
++	td_t *td_list = NULL;
++	urb_priv_t *lurb_priv = NULL;
++
++	td_list_hc = m32_swap (ohci->hcca->done_head) & 0xfffffff0;
++	ohci->hcca->done_head = 0;
++
++	while (td_list_hc) {
++		td_list = (td_t *)td_list_hc;
++
++		if (TD_CC_GET (m32_swap (td_list->hwINFO))) {
++			lurb_priv = &urb_priv;
++			dbg(" USB-error/status: %x : %p",
++					TD_CC_GET (m32_swap (td_list->hwINFO)), td_list);
++			if (td_list->ed->hwHeadP & m32_swap (0x1)) {
++				if (lurb_priv && ((td_list->index + 1) < lurb_priv->length)) {
++					td_list->ed->hwHeadP =
++						(lurb_priv->td[lurb_priv->length - 1]->hwNextTD & m32_swap (0xfffffff0)) |
++									(td_list->ed->hwHeadP & m32_swap (0x2));
++					lurb_priv->td_cnt += lurb_priv->length - td_list->index - 1;
++				} else
++					td_list->ed->hwHeadP &= m32_swap (0xfffffff2);
++			}
++		}
++
++		td_list->next_dl_td = td_rev;
++		td_rev = td_list;
++		td_list_hc = m32_swap (td_list->hwNextTD) & 0xfffffff0;
++	}
++	return td_list;
++}
++
++/*-------------------------------------------------------------------------*/
++
++/* td done list */
++static int dl_done_list (ohci_t *ohci, td_t *td_list)
++{
++	td_t *td_list_next = NULL;
++	ed_t *ed;
++	int cc = 0;
++	int stat = 0;
++	/* urb_t *urb; */
++	urb_priv_t *lurb_priv;
++	__u32 tdINFO, edHeadP, edTailP;
++
++	while (td_list) {
++		td_list_next = td_list->next_dl_td;
++
++		lurb_priv = &urb_priv;
++		tdINFO = m32_swap (td_list->hwINFO);
++
++		ed = td_list->ed;
++
++		dl_transfer_length(td_list);
++
++		/* error code of transfer */
++		cc = TD_CC_GET (tdINFO);
++		if (cc != 0) {
++			dbg("ConditionCode %#x", cc);
++			stat = cc_to_error[cc];
++		}
++
++		if (++(lurb_priv->td_cnt) == lurb_priv->length) {
++			if ((ed->state & (ED_OPER | ED_UNLINK)))
++				urb_finished = 1;
++			else {
++				dbg ("dl_done_list: strange.., ED state %x, ed->state\n");
++			}
++		} else {
++			dbg("dl_done_list: processing TD %x, len %x\n", lurb_priv->td_cnt,
++				lurb_priv->length);
++		}
++
++		if (ed->state != ED_NEW) {
++			edHeadP = m32_swap (ed->hwHeadP) & 0xfffffff0;
++			edTailP = m32_swap (ed->hwTailP);
++
++			/* unlink eds if they are not busy */
++			if ((edHeadP == edTailP) && (ed->state == ED_OPER))
++				ep_unlink (ohci, ed);
++		}
++
++		td_list = td_list_next;
++	}
++	return stat;
++}
++
++/*-------------------------------------------------------------------------*
++ * Virtual Root Hub
++ *-------------------------------------------------------------------------*/
++
++/* Device descriptor */
++static __u8 root_hub_dev_des[] =
++{
++	0x12,       /*  __u8  bLength; */
++	0x01,       /*  __u8  bDescriptorType; Device */
++	0x10,	    /*  __u16 bcdUSB; v1.1 */
++	0x01,
++	0x09,	    /*  __u8  bDeviceClass; HUB_CLASSCODE */
++	0x00,	    /*  __u8  bDeviceSubClass; */
++	0x00,       /*  __u8  bDeviceProtocol; */
++	0x08,       /*  __u8  bMaxPacketSize0; 8 Bytes */
++	0x00,       /*  __u16 idVendor; */
++	0x00,
++	0x00,       /*  __u16 idProduct; */
++	0x00,
++	0x00,       /*  __u16 bcdDevice; */
++	0x00,
++	0x00,       /*  __u8  iManufacturer; */
++	0x01,       /*  __u8  iProduct; */
++	0x00,       /*  __u8  iSerialNumber; */
++	0x01        /*  __u8  bNumConfigurations; */
++};
++
++
++/* Configuration descriptor */
++static __u8 root_hub_config_des[] =
++{
++	0x09,       /*  __u8  bLength; */
++	0x02,       /*  __u8  bDescriptorType; Configuration */
++	0x19,       /*  __u16 wTotalLength; */
++	0x00,
++	0x01,       /*  __u8  bNumInterfaces; */
++	0x01,       /*  __u8  bConfigurationValue; */
++	0x00,       /*  __u8  iConfiguration; */
++	0x40,       /*  __u8  bmAttributes;
++		 Bit 7: Bus-powered, 6: Self-powered, 5 Remote-wakwup, 4..0: resvd */
++	0x00,       /*  __u8  MaxPower; */
++
++	/* interface */
++	0x09,       /*  __u8  if_bLength; */
++	0x04,       /*  __u8  if_bDescriptorType; Interface */
++	0x00,       /*  __u8  if_bInterfaceNumber; */
++	0x00,       /*  __u8  if_bAlternateSetting; */
++	0x01,       /*  __u8  if_bNumEndpoints; */
++	0x09,       /*  __u8  if_bInterfaceClass; HUB_CLASSCODE */
++	0x00,       /*  __u8  if_bInterfaceSubClass; */
++	0x00,       /*  __u8  if_bInterfaceProtocol; */
++	0x00,       /*  __u8  if_iInterface; */
++
++	/* endpoint */
++	0x07,       /*  __u8  ep_bLength; */
++	0x05,       /*  __u8  ep_bDescriptorType; Endpoint */
++	0x81,       /*  __u8  ep_bEndpointAddress; IN Endpoint 1 */
++	0x03,       /*  __u8  ep_bmAttributes; Interrupt */
++	0x02,       /*  __u16 ep_wMaxPacketSize; ((MAX_ROOT_PORTS + 1) / 8 */
++	0x00,
++	0xff        /*  __u8  ep_bInterval; 255 ms */
++};
++
++static unsigned char root_hub_str_index0[] =
++{
++	0x04,			/*  __u8  bLength; */
++	0x03,			/*  __u8  bDescriptorType; String-descriptor */
++	0x09,			/*  __u8  lang ID */
++	0x04,			/*  __u8  lang ID */
++};
++
++static unsigned char root_hub_str_index1[] =
++{
++	28,			/*  __u8  bLength; */
++	0x03,			/*  __u8  bDescriptorType; String-descriptor */
++	'O',			/*  __u8  Unicode */
++	0,				/*  __u8  Unicode */
++	'H',			/*  __u8  Unicode */
++	0,				/*  __u8  Unicode */
++	'C',			/*  __u8  Unicode */
++	0,				/*  __u8  Unicode */
++	'I',			/*  __u8  Unicode */
++	0,				/*  __u8  Unicode */
++	' ',			/*  __u8  Unicode */
++	0,				/*  __u8  Unicode */
++	'R',			/*  __u8  Unicode */
++	0,				/*  __u8  Unicode */
++	'o',			/*  __u8  Unicode */
++	0,				/*  __u8  Unicode */
++	'o',			/*  __u8  Unicode */
++	0,				/*  __u8  Unicode */
++	't',			/*  __u8  Unicode */
++	0,				/*  __u8  Unicode */
++	' ',			/*  __u8  Unicode */
++	0,				/*  __u8  Unicode */
++	'H',			/*  __u8  Unicode */
++	0,				/*  __u8  Unicode */
++	'u',			/*  __u8  Unicode */
++	0,				/*  __u8  Unicode */
++	'b',			/*  __u8  Unicode */
++	0,				/*  __u8  Unicode */
++};
++
++/* Hub class-specific descriptor is constructed dynamically */
++
++
++/*-------------------------------------------------------------------------*/
++
++#define OK(x) 			len = (x); break
++#ifdef DEBUG
++#define WR_RH_STAT(x) 		{info("WR:status %#8x", (x));writel((x), &gohci.regs->roothub.status);}
++#define WR_RH_PORTSTAT(x) 	{info("WR:portstatus[%d] %#8x", wIndex-1, (x));writel((x), &gohci.regs->roothub.portstatus[wIndex-1]);}
++#else
++#define WR_RH_STAT(x) 		writel((x), &gohci.regs->roothub.status)
++#define WR_RH_PORTSTAT(x) 	writel((x), &gohci.regs->roothub.portstatus[wIndex-1])
++#endif
++#define RD_RH_STAT		roothub_status(&gohci)
++#define RD_RH_PORTSTAT		roothub_portstatus(&gohci,wIndex-1)
++
++/* request to virtual root hub */
++
++int rh_check_port_status(ohci_t *controller)
++{
++	__u32 temp, ndp, i;
++	int res;
++
++	res = -1;
++	temp = roothub_a (controller);
++	ndp = (temp & RH_A_NDP);
++	for (i = 0; i < ndp; i++) {
++		temp = roothub_portstatus (controller, i);
++		/* check for a device disconnect */
++		if (((temp & (RH_PS_PESC | RH_PS_CSC)) ==
++			(RH_PS_PESC | RH_PS_CSC)) &&
++			((temp & RH_PS_CCS) == 0)) {
++			res = i;
++			break;
++		}
++	}
++	return res;
++}
++
++static int ohci_submit_rh_msg(struct usb_device *dev, unsigned long pipe,
++		void *buffer, int transfer_len, struct devrequest *cmd)
++{
++	void * data = buffer;
++	int leni = transfer_len;
++	int len = 0;
++	int stat = 0;
++	__u32 datab[4];
++	__u8 *data_buf = (__u8 *)datab;
++	__u16 bmRType_bReq;
++	__u16 wValue;
++	__u16 wIndex;
++	__u16 wLength;
++
++#ifdef DEBUG
++urb_priv.actual_length = 0;
++pkt_print(dev, pipe, buffer, transfer_len, cmd, "SUB(rh)", usb_pipein(pipe));
++#else
++	//wait_ms(1);
++#endif
++	if ((pipe & PIPE_INTERRUPT) == PIPE_INTERRUPT) {
++		info("Root-Hub submit IRQ: NOT implemented");
++		return 0;
++	}
++
++	bmRType_bReq  = cmd->requesttype | (cmd->request << 8);
++	wValue        = m16_swap (cmd->value);
++	wIndex        = m16_swap (cmd->index);
++	wLength       = m16_swap (cmd->length);
++
++	info("Root-Hub: adr: %2x cmd(%1x): %08x %04x %04x %04x",
++		dev->devnum, 8, bmRType_bReq, wValue, wIndex, wLength);
++
++	switch (bmRType_bReq) {
++	/* Request Destination:
++	   without flags: Device,
++	   RH_INTERFACE: interface,
++	   RH_ENDPOINT: endpoint,
++	   RH_CLASS means HUB here,
++	   RH_OTHER | RH_CLASS  almost ever means HUB_PORT here
++	*/
++
++	case RH_GET_STATUS:
++			*(__u16 *) data_buf = m16_swap (1); OK (2);
++	case RH_GET_STATUS | RH_INTERFACE:
++			*(__u16 *) data_buf = m16_swap (0); OK (2);
++	case RH_GET_STATUS | RH_ENDPOINT:
++			*(__u16 *) data_buf = m16_swap (0); OK (2);
++	case RH_GET_STATUS | RH_CLASS:
++			*(__u32 *) data_buf = m32_swap (
++				RD_RH_STAT & ~(RH_HS_CRWE | RH_HS_DRWE));
++			OK (4);
++	case RH_GET_STATUS | RH_OTHER | RH_CLASS:
++			*(__u32 *) data_buf = m32_swap (RD_RH_PORTSTAT); OK (4);
++
++	case RH_CLEAR_FEATURE | RH_ENDPOINT:
++		switch (wValue) {
++			case (RH_ENDPOINT_STALL): OK (0);
++		}
++		break;
++
++	case RH_CLEAR_FEATURE | RH_CLASS:
++		switch (wValue) {
++			case RH_C_HUB_LOCAL_POWER:
++				OK(0);
++			case (RH_C_HUB_OVER_CURRENT):
++					WR_RH_STAT(RH_HS_OCIC); OK (0);
++		}
++		break;
++
++	case RH_CLEAR_FEATURE | RH_OTHER | RH_CLASS:
++		switch (wValue) {
++			case (RH_PORT_ENABLE):
++					WR_RH_PORTSTAT (RH_PS_CCS ); OK (0);
++			case (RH_PORT_SUSPEND):
++					WR_RH_PORTSTAT (RH_PS_POCI); OK (0);
++			case (RH_PORT_POWER):
++					WR_RH_PORTSTAT (RH_PS_LSDA); OK (0);
++			case (RH_C_PORT_CONNECTION):
++					WR_RH_PORTSTAT (RH_PS_CSC ); OK (0);
++			case (RH_C_PORT_ENABLE):
++					WR_RH_PORTSTAT (RH_PS_PESC); OK (0);
++			case (RH_C_PORT_SUSPEND):
++					WR_RH_PORTSTAT (RH_PS_PSSC); OK (0);
++			case (RH_C_PORT_OVER_CURRENT):
++					WR_RH_PORTSTAT (RH_PS_OCIC); OK (0);
++			case (RH_C_PORT_RESET):
++					WR_RH_PORTSTAT (RH_PS_PRSC); OK (0);
++		}
++		break;
++
++	case RH_SET_FEATURE | RH_OTHER | RH_CLASS:
++		switch (wValue) {
++			case (RH_PORT_SUSPEND):
++					WR_RH_PORTSTAT (RH_PS_PSS ); OK (0);
++			case (RH_PORT_RESET): /* BUG IN HUP CODE *********/
++					if (RD_RH_PORTSTAT & RH_PS_CCS)
++					    WR_RH_PORTSTAT (RH_PS_PRS);
++					OK (0);
++			case (RH_PORT_POWER):
++					WR_RH_PORTSTAT (RH_PS_PPS ); OK (0);
++			case (RH_PORT_ENABLE): /* BUG IN HUP CODE *********/
++					if (RD_RH_PORTSTAT & RH_PS_CCS)
++					    WR_RH_PORTSTAT (RH_PS_PES );
++					OK (0);
++		}
++		break;
++
++	case RH_SET_ADDRESS: gohci.rh.devnum = wValue; OK(0);
++
++	case RH_GET_DESCRIPTOR:
++		switch ((wValue & 0xff00) >> 8) {
++			case (0x01): /* device descriptor */
++				len = min_t(unsigned int,
++					  leni,
++					  min_t(unsigned int,
++					      sizeof (root_hub_dev_des),
++					      wLength));
++				data_buf = root_hub_dev_des; OK(len);
++			case (0x02): /* configuration descriptor */
++				len = min_t(unsigned int,
++					  leni,
++					  min_t(unsigned int,
++					      sizeof (root_hub_config_des),
++					      wLength));
++				data_buf = root_hub_config_des; OK(len);
++			case (0x03): /* string descriptors */
++				if(wValue==0x0300) {
++					len = min_t(unsigned int,
++						  leni,
++						  min_t(unsigned int,
++						      sizeof (root_hub_str_index0),
++						      wLength));
++					data_buf = root_hub_str_index0;
++					OK(len);
++				}
++				if(wValue==0x0301) {
++					len = min_t(unsigned int,
++						  leni,
++						  min_t(unsigned int,
++						      sizeof (root_hub_str_index1),
++						      wLength));
++					data_buf = root_hub_str_index1;
++					OK(len);
++			}
++			default:
++				stat = USB_ST_STALLED;
++		}
++		break;
++
++	case RH_GET_DESCRIPTOR | RH_CLASS:
++	    {
++		    __u32 temp = roothub_a (&gohci);
++
++		    data_buf [0] = 9;		/* min length; */
++		    data_buf [1] = 0x29;
++		    data_buf [2] = temp & RH_A_NDP;
++		    data_buf [3] = 0;
++		    if (temp & RH_A_PSM) 	/* per-port power switching? */
++			data_buf [3] |= 0x1;
++		    if (temp & RH_A_NOCP)	/* no overcurrent reporting? */
++			data_buf [3] |= 0x10;
++		    else if (temp & RH_A_OCPM)	/* per-port overcurrent reporting? */
++			data_buf [3] |= 0x8;
++
++		    /* corresponds to data_buf[4-7] */
++		    datab [1] = 0;
++		    data_buf [5] = (temp & RH_A_POTPGT) >> 24;
++		    temp = roothub_b (&gohci);
++		    data_buf [7] = temp & RH_B_DR;
++		    if (data_buf [2] < 7) {
++			data_buf [8] = 0xff;
++		    } else {
++			data_buf [0] += 2;
++			data_buf [8] = (temp & RH_B_DR) >> 8;
++			data_buf [10] = data_buf [9] = 0xff;
++		    }
++
++		    len = min_t(unsigned int, leni,
++			      min_t(unsigned int, data_buf [0], wLength));
++		    OK (len);
++		}
++
++	case RH_GET_CONFIGURATION: 	*(__u8 *) data_buf = 0x01; OK (1);
++
++	case RH_SET_CONFIGURATION: 	WR_RH_STAT (0x10000); OK (0);
++
++	default:
++		dbg ("unsupported root hub command");
++		stat = USB_ST_STALLED;
++	}
++
++#ifdef	DEBUG
++	ohci_dump_roothub (&gohci, 1);
++#else
++	//wait_ms(1);
++#endif
++
++	len = min_t(int, len, leni);
++	if (data != data_buf)
++	    memcpy (data, data_buf, len);
++	dev->act_len = len;
++	dev->status = stat;
++
++#ifdef DEBUG
++	if (transfer_len)
++		urb_priv.actual_length = transfer_len;
++	pkt_print(dev, pipe, buffer, transfer_len, cmd, "RET(rh)", 0/*usb_pipein(pipe)*/);
++#else
++	//wait_ms(1);
++#endif
++
++	return stat;
++}
++
++/*-------------------------------------------------------------------------*/
++
++/* common code for handling submit messages - used for all but root hub */
++/* accesses. */
++int submit_common_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
++		int transfer_len, struct devrequest *setup, int interval)
++{
++	int stat = 0;
++	int maxsize = usb_maxpacket(dev, pipe);
++	int timeout;
++
++	/* device pulled? Shortcut the action. */
++	if (devgone == dev) {
++		dev->status = USB_ST_CRC_ERR;
++		return 0;
++	}
++
++#ifdef DEBUG
++	urb_priv.actual_length = 0;
++	pkt_print(dev, pipe, buffer, transfer_len, setup, "SUB", usb_pipein(pipe));
++#else
++	#ifndef CONFIG_DRIVER_RTL8150
++	wait_ms(1);
++	#endif
++#endif
++	if (!maxsize) {
++		err("submit_common_message: pipesize for pipe %lx is zero",
++			pipe);
++		return -1;
++	}
++
++	if (sohci_submit_job(dev, pipe, buffer, transfer_len, setup, interval) < 0) {
++		err("sohci_submit_job failed");
++		return -1;
++	}
++
++#if !defined(CONFIG_DRIVER_RTL8150) && !defined(CONFIG_RTL8150USB)
++	wait_ms(10);
++#endif
++
++	/* ohci_dump_status(&gohci); */
++	timeout = (usb_pipetype (pipe) == PIPE_BULK) ? BULK_TO : 1000;
++
++	/* wait for it to complete */
++	for (;;) {
++		/* check whether the controller is done */
++		stat = hc_interrupt();
++
++		if (stat < 0) {
++			stat = USB_ST_CRC_ERR;
++			break;
++		}
++		/* We cannot assume the transaction finished on the first
++		   successful return from hc_interrupt()... */
++		if ((stat >= 0) && (stat != 0xff) && (urb_finished)) {
++			/* 0xff is returned for an SF-interrupt */
++			break;
++		}
++
++		timeout--;
++
++		if (timeout > 0) {
++			wait_ms(1);
++			if (!urb_finished)
++				dbg("\%");
++		} else {
++			err("CTL:TIMEOUT ");
++			dbg ("submit_common_msg: TO status %X\n", stat);
++			stat = USB_ST_NOT_PROC;
++			urb_finished = 1;
++			break;
++		}
++	}
++#if 0
++	/* we got an Root Hub Status Change interrupt */
++	if (got_rhsc) {
++#ifdef DEBUG
++//		ohci_dump_roothub (&gohci, 1);
++#endif
++		got_rhsc = 0;
++		/* abuse timeout */
++		timeout = rh_check_port_status(&gohci);
++		if (timeout >= 0) {
++#if 0 /* this does nothing useful, but leave it here in case that changes */
++			/* the called routine adds 1 to the passed value */
++			usb_hub_port_connect_change(gohci.rh.dev, timeout - 1);
++#endif
++			/*
++			 * XXX
++			 * This is potentially dangerous because it assumes
++			 * that only one device is ever plugged in!
++			 */
++			devgone = dev;
++		}
++	}
++#endif
++	dev->status = stat;
++	dev->act_len = transfer_len;
++
++#ifdef DEBUG
++	pkt_print(dev, pipe, buffer, transfer_len, setup, "RET(ctlr)", usb_pipein(pipe));
++#else	
++	wait_ms(1);
++#endif
++
++	/* free TDs in urb_priv */
++	urb_free_priv (&urb_priv);
++#if 0
++	if(((volatile unsigned long)dev->status & USB_ST_NOT_PROC))
++	{
++		do{
++			udelay(5);
++		} while(readl(&gohci.regs->cmdstatus) & (OHCI_BLF | OHCI_CLF));
++	}
++#endif
++	return 0;
++}
++
++/* submit routines called from usb.c */
++int submit_bulk_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
++		int transfer_len)
++{
++	info("submit_bulk_msg");
++	return submit_common_msg(dev, pipe, buffer, transfer_len, NULL, 0);
++}
++
++int submit_control_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
++		int transfer_len, struct devrequest *setup)
++{
++	int maxsize = usb_maxpacket(dev, pipe);
++
++	info("submit_control_msg");
++#ifdef DEBUG
++	urb_priv.actual_length = 0;
++	pkt_print(dev, pipe, buffer, transfer_len, setup, "SUB", usb_pipein(pipe));
++#else
++/*	#4	*/
++	wait_ms(10);
++#endif
++	if (!maxsize) {
++		err("submit_control_message: pipesize for pipe %lx is zero",
++			pipe);
++		return -1;
++	}
++	if (((pipe >> 8) & 0x7f) == gohci.rh.devnum) {
++		gohci.rh.dev = dev;
++		/* root hub - redirect */
++		return ohci_submit_rh_msg(dev, pipe, buffer, transfer_len,
++			setup);
++	}
++
++	return submit_common_msg(dev, pipe, buffer, transfer_len, setup, 0);
++}
++
++int submit_int_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
++		int transfer_len, int interval)
++{
++	info("submit_int_msg");
++	return -1;
++}
++
++/*-------------------------------------------------------------------------*
++ * HC functions
++ *-------------------------------------------------------------------------*/
++
++/* reset the HC and BUS */
++
++static int hc_reset (ohci_t *ohci)
++{
++	int timeout = 30;
++	int smm_timeout = 50; /* 0,5 sec */
++
++	if (readl (&ohci->regs->control) & OHCI_CTRL_IR) { /* SMM owns the HC */
++		writel (OHCI_OCR, &ohci->regs->cmdstatus); /* request ownership */
++		info("USB HC TakeOver from SMM");
++		while (readl (&ohci->regs->control) & OHCI_CTRL_IR) {
++			wait_ms (10);
++			if (--smm_timeout == 0) {
++				err("USB HC TakeOver failed!");
++				return -1;
++			}
++		}
++	}
++
++	/* Disable HC interrupts */
++	writel (OHCI_INTR_MIE, &ohci->regs->intrdisable);
++
++	dbg("USB HC reset_hc usb-%s: ctrl = 0x%X ;",
++		ohci->slot_name,
++		readl (&ohci->regs->control));
++
++	/* Reset USB (needed by some controllers) */
++	writel (0, &ohci->regs->control);
++
++	/* HC Reset requires max 10 us delay */
++	writel (OHCI_HCR,  &ohci->regs->cmdstatus);
++	while ((readl (&ohci->regs->cmdstatus) & OHCI_HCR) != 0) {
++		if (--timeout == 0) {
++			err("USB HC reset timed out!");
++			return -1;
++		}
++		udelay (10);
++	}
++	return 0;
++}
++
++/*-------------------------------------------------------------------------*/
++
++/* Start an OHCI controller, set the BUS operational
++ * enable interrupts
++ * connect the virtual root hub */
++
++static int hc_start (ohci_t * ohci)
++{
++	__u32 mask;
++	unsigned int fminterval;
++
++	ohci->disabled = 1;
++
++	/* Tell the controller where the control and bulk lists are
++	 * The lists are empty now. */
++	writel (0, &ohci->regs->ed_controlhead);
++	writel (0, &ohci->regs->ed_bulkhead);
++
++	writel ((__u32)ohci->hcca, &ohci->regs->hcca); /* a reset clears this */
++#if 1
++	fminterval = 0x2edf;
++	writel ((fminterval * 9) / 10, &ohci->regs->periodicstart);
++	fminterval |= ((((fminterval - 210) * 6) / 7) << 16);
++	writel (fminterval, &ohci->regs->fminterval);
++	//writel (0x628, &ohci->regs->lsthresh);
++#else	/* ij.jang */
++	fminterval = 6000;	/* use only half */
++	writel (5400, &ohci->regs->periodicstart);
++	fminterval |= ((((fminterval - 210) * 6) / 7) << 16);
++	writel (fminterval, &ohci->regs->fminterval);
++	// OHCI 7.3.5 : not allowed to change this register
++	//writel (0x628, &ohci->regs->lsthresh);
++#endif
++
++	/* start controller operations */
++	ohci->hc_control = OHCI_CONTROL_INIT | OHCI_USB_OPER;
++	ohci->disabled = 0;
++	writel (ohci->hc_control, &ohci->regs->control);
++
++	/* disable all interrupts */
++	mask = (OHCI_INTR_SO | OHCI_INTR_WDH | OHCI_INTR_SF | OHCI_INTR_RD |
++			OHCI_INTR_UE | OHCI_INTR_FNO | OHCI_INTR_RHSC |
++			OHCI_INTR_OC | OHCI_INTR_MIE);
++	writel (mask, &ohci->regs->intrdisable);
++	/* clear all interrupts */
++	mask &= ~OHCI_INTR_MIE;
++	writel (mask, &ohci->regs->intrstatus);
++	/* Choose the interrupts we care about now  - but w/o MIE */
++	mask = OHCI_INTR_RHSC | OHCI_INTR_UE | OHCI_INTR_WDH | OHCI_INTR_SO;
++
++	writel (mask, &ohci->regs->intrenable);
++
++#ifdef	OHCI_USE_NPS
++	/* required for AMD-756 and some Mac platforms */
++	writel ((roothub_a (ohci) | RH_A_NPS) & ~RH_A_PSM,
++		&ohci->regs->roothub.a);
++	writel (RH_HS_LPSC, &ohci->regs->roothub.status);
++#endif	/* OHCI_USE_NPS */
++
++	/* POTPGT delay is bits 24-31, in 2 ms units. */
++	wait_ms ( (roothub_a (ohci) >>23) & 0x1FE );
++
++	/* connect the virtual root hub */
++	ohci->rh.devnum = 0;
++
++	return 0;
++}
++
++/*-------------------------------------------------------------------------*/
++
++/* an interrupt happens */
++
++static int
++hc_interrupt (void)
++{
++	ohci_t *ohci = &gohci;
++	struct ohci_regs *regs = ohci->regs;
++	int ints;
++	int stat = -1;
++
++	if ((ohci->hcca->done_head != 0) &&
++		!(m32_swap (ohci->hcca->done_head) & 0x01)) {
++		ints =  OHCI_INTR_WDH;
++#if 1	/* ij.jang : copy from u-boot 1.1.6 */
++	} else if ( (ints = readl (&regs->intrstatus)) == ~(u32)0) {
++		ohci->disabled++;
++		err ("%s device removed!", ohci->slot_name);
++		return -1;
++	} else if ( (ints &= readl (&regs->intrenable)) == 0) {
++		dbg ("hc_interrupt: returning..\n");
++		return 0xff;
++	}
++#else
++	} else {
++		ints = readl (&regs->intrstatus);
++//		if(!((ints = readl (&regs->intrstatus)) & 0x1D))
++//			return 0xff;
++	}
++#endif
++
++	/* dbg("Interrupt: %x frame: %x", ints, le16_to_cpu (ohci->hcca->frame_no)); */
++
++	if (ints & OHCI_INTR_RHSC) {
++		got_rhsc = 1;
++		stat = 0xFF;
++	}
++
++	if (ints & OHCI_INTR_UE) {
++		ohci->disabled++;
++		err ("OHCI Unrecoverable Error, controller usb-%s disabled",
++			ohci->slot_name);
++		/* e.g. due to PCI Master/Target Abort */
++
++#ifdef	DEBUG
++		ohci_dump (ohci, 1);
++#else
++		wait_ms(1);
++#endif
++		/* FIXME: be optimistic, hope that bug won't repeat often. */
++		/* Make some non-interrupt context restart the controller. */
++		/* Count and limit the retries though; either hardware or */
++		/* software errors can go forever... */
++		hc_reset (ohci);
++		return -1;
++	}
++
++	if (ints & OHCI_INTR_WDH) {
++		wait_ms (1);
++		
++		writel (OHCI_INTR_WDH, &regs->intrdisable);
++		stat = dl_done_list (&gohci, dl_reverse_done_list (&gohci));
++		writel (OHCI_INTR_WDH, &regs->intrenable);
++	}
++
++	if (ints & OHCI_INTR_SO) {
++		err ("USB Schedule overrun\n");
++		writel (OHCI_INTR_SO, &regs->intrenable);
++		stat = -1;
++	}
++
++	/* FIXME:  this assumes SOF (1/ms) interrupts don't get lost... */
++	if (ints & OHCI_INTR_SF) {
++		unsigned int frame = m16_swap (ohci->hcca->frame_no) & 1;
++		wait_ms(1);
++		writel (OHCI_INTR_SF, &regs->intrdisable);
++		if (ohci->ed_rm_list[frame] != NULL)
++			writel (OHCI_INTR_SF, &regs->intrenable);
++		stat = 0xff;
++	}
++
++	writel (ints, &regs->intrstatus);
++	return stat;
++}
++
++/*-------------------------------------------------------------------------*/
++
++/*-------------------------------------------------------------------------*/
++
++/* De-allocate all resources.. */
++
++static void hc_release_ohci (ohci_t *ohci)
++{
++	dbg ("USB HC release ohci usb-%s", ohci->slot_name);
++
++	if (!ohci->disabled)
++		hc_reset (ohci);
++}
++
++/*-------------------------------------------------------------------------*/
++
++/*
++ * low level initalisation routine, called from usb.c
++ */
++static char ohci_inited = 0;
++
++int usb_lowlevel_init(unsigned int usb_div)
++{
++	memset (&gohci, 0, sizeof (ohci_t));
++	memset (&urb_priv, 0, sizeof (urb_priv_t));
++
++	/* align the storage */
++	if ((__u32)&ghcca[0] & 0xff) {
++		err("HCCA not aligned!!");
++		return -1;
++	}
++	phcca = &ghcca[0];
++	info("aligned ghcca %p", phcca);
++	memset(&ohci_dev, 0, sizeof(struct ohci_device));
++	if ((__u32)&ohci_dev.ed[0] & 0x7) {
++		err("EDs not aligned!!");
++		return -1;
++	}
++	memset((void*)gtd, 0, sizeof(td_t) * (NUM_TD + 1));
++	if ((__u32)gtd & 0x7) {
++		err("TDs not aligned!!");
++		return -1;
++	}
++	ptd = gtd;
++	gohci.hcca = phcca;
++	memset (phcca, 0, sizeof (struct ohci_hcca));
++
++	gohci.disabled = 1;
++	gohci.sleeping = 0;
++	gohci.irq = -1;
++       #ifdef CONFIG_USB_STORAGE_ALL
++            if(usb_div==1) {    
++                gohci.regs = (struct ohci_regs *)0x30088000;
++            } else { 
++                gohci.regs = (struct ohci_regs *)0x30078000;
++            }
++        #else 
++            gohci.regs = (struct ohci_regs *)0x30078000;
++        #endif
++
++	gohci.flags = 0;
++	gohci.slot_name = "SDP83 OHCI";
++
++	if (hc_reset (&gohci) < 0) {
++		hc_release_ohci (&gohci);
++		return -1;
++	}
++
++	if (hc_start (&gohci) < 0) {
++		err ("can't start usb-%s", gohci.slot_name);
++		hc_release_ohci (&gohci);
++		return -1;
++	}
++
++#ifdef	DEBUG
++	ohci_dump (&gohci, 1);
++#else
++	wait_ms(100);
++#endif
++	ohci_inited = 1;
++	urb_finished = 1;
++	return 0;
++}
++
++int usb_lowlevel_stop(void)
++{
++	/* this gets called really early - before the controller has */
++	/* even been initialized! */
++	if (!ohci_inited)
++		return 0;
++	hc_reset (&gohci);
++	return 0;
++}
++
++#endif /* CONFIG_USB_OHCI */
+diff -urNP org/cpu/arm1136/ssdtv/usb_ohci.h new/cpu/arm1136/ssdtv/usb_ohci.h
+--- org/cpu/arm1136/ssdtv/usb_ohci.h	1970-01-01 01:00:00.000000000 +0100
++++ new/cpu/arm1136/ssdtv/usb_ohci.h	2010-06-10 11:24:55.000000000 +0200
+@@ -0,0 +1,424 @@
++/*
++ * URB OHCI HCD (Host Controller Driver) for USB.
++ *
++ * (C) Copyright 1999 Roman Weissgaerber <weissg@vienna.at>
++ * (C) Copyright 2000-2001 David Brownell <dbrownell@users.sourceforge.net>
++ *
++ * usb-ohci.h
++ *
++ ********
++ * SamyGO, http://samygo.sourceforge.net
++ * Content of this file was copied from Samsung u-boot sources
++ * released in 2009 with GPL v2 license.
++ * Copyright (C) 2003-2009 Samsung Electronics
++ * http://www.samsung.com/global/opensource/files/uboot_b650.tgz
++ * Origin path: uboot/cpu/arm1136/sdp83/usb_ohci.h
++ ********
++ */
++
++
++static int cc_to_error[16] = {
++
++/* mapping of the OHCI CC status to error codes */
++	/* No  Error  */               0,
++	/* CRC Error  */               USB_ST_CRC_ERR,
++	/* Bit Stuff  */               USB_ST_BIT_ERR,
++	/* Data Togg  */               USB_ST_CRC_ERR,
++	/* Stall      */               USB_ST_STALLED,
++	/* DevNotResp */               -1,
++	/* PIDCheck   */               USB_ST_BIT_ERR,
++	/* UnExpPID   */               USB_ST_BIT_ERR,
++	/* DataOver   */               USB_ST_BUF_ERR,
++	/* DataUnder  */               USB_ST_BUF_ERR,
++	/* reservd    */               -1,
++	/* reservd    */               -1,
++	/* BufferOver */               USB_ST_BUF_ERR,
++	/* BuffUnder  */               USB_ST_BUF_ERR,
++	/* Not Access */               -1,
++	/* Not Access */               -1
++};
++
++/* ED States */
++
++#define ED_NEW 		0x00
++#define ED_UNLINK 	0x01
++#define ED_OPER		0x02
++#define ED_DEL		0x04
++#define ED_URB_DEL  	0x08
++
++/* usb_ohci_ed */
++struct ed {
++	__u32 hwINFO;
++	__u32 hwTailP;
++	__u32 hwHeadP;
++	__u32 hwNextED;
++
++	struct ed *ed_prev;
++	__u8 int_period;
++	__u8 int_branch;
++	__u8 int_load;
++	__u8 int_interval;
++	__u8 state;
++	__u8 type;
++	__u16 last_iso;
++	struct ed *ed_rm_list;
++
++	struct usb_device *usb_dev;
++	__u32 unused[3];
++} __attribute((aligned(16)));
++typedef struct ed ed_t;
++
++
++/* TD info field */
++#define TD_CC       0xf0000000
++#define TD_CC_GET(td_p) ((td_p >>28) & 0x0f)
++#define TD_CC_SET(td_p, cc) (td_p) = ((td_p) & 0x0fffffff) | (((cc) & 0x0f) << 28)
++#define TD_EC       0x0C000000
++#define TD_T        0x03000000
++#define TD_T_DATA0  0x02000000
++#define TD_T_DATA1  0x03000000
++#define TD_T_TOGGLE 0x00000000
++#define TD_R        0x00040000
++#define TD_DI       0x00E00000
++#define TD_DI_SET(X) (((X) & 0x07)<< 21)
++#define TD_DP       0x00180000
++#define TD_DP_SETUP 0x00000000
++#define TD_DP_IN    0x00100000
++#define TD_DP_OUT   0x00080000
++
++#define TD_ISO	    0x00010000
++#define TD_DEL      0x00020000
++
++/* CC Codes */
++#define TD_CC_NOERROR      0x00
++#define TD_CC_CRC          0x01
++#define TD_CC_BITSTUFFING  0x02
++#define TD_CC_DATATOGGLEM  0x03
++#define TD_CC_STALL        0x04
++#define TD_DEVNOTRESP      0x05
++#define TD_PIDCHECKFAIL    0x06
++#define TD_UNEXPECTEDPID   0x07
++#define TD_DATAOVERRUN     0x08
++#define TD_DATAUNDERRUN    0x09
++#define TD_BUFFEROVERRUN   0x0C
++#define TD_BUFFERUNDERRUN  0x0D
++#define TD_NOTACCESSED     0x0F
++
++
++#define MAXPSW 1
++
++struct td {
++	__u32 hwINFO;
++  	__u32 hwCBP;		/* Current Buffer Pointer */
++  	__u32 hwNextTD;		/* Next TD Pointer */
++  	__u32 hwBE;		/* Memory Buffer End Pointer */
++
++  	__u16 hwPSW[MAXPSW];
++  	__u8 unused;
++  	__u8 index;
++  	struct ed *ed;
++  	struct td *next_dl_td;
++	struct usb_device *usb_dev;
++	int transfer_len;
++	__u32 data;
++
++	__u32 unused2[2];
++} __attribute((aligned(32)));
++typedef struct td td_t;
++
++#define OHCI_ED_SKIP	(1 << 14)
++
++/*
++ * The HCCA (Host Controller Communications Area) is a 256 byte
++ * structure defined in the OHCI spec. that the host controller is
++ * told the base address of.  It must be 256-byte aligned.
++ */
++
++#define NUM_INTS 32	/* part of the OHCI standard */
++struct ohci_hcca {
++	__u32	int_table[NUM_INTS];	/* Interrupt ED table */
++	__u16	frame_no;		/* current frame number */
++	__u16	pad1;			/* set to 0 on each frame_no change */
++	__u32	done_head;		/* info returned for an interrupt */
++	u8		reserved_for_hc[116];
++} __attribute((aligned(256)));
++
++/*
++ * Maximum number of root hub ports.
++ */
++#define MAX_ROOT_PORTS	15	/* maximum OHCI root hub ports */
++
++/*
++ * This is the structure of the OHCI controller's memory mapped I/O
++ * region.  This is Memory Mapped I/O.  You must use the readl() and
++ * writel() macros defined in asm/io.h to access these!!
++ */
++struct ohci_regs {
++	/* control and status registers */
++	__u32	revision;
++	__u32	control;
++	__u32	cmdstatus;
++	__u32	intrstatus;
++	__u32	intrenable;
++	__u32	intrdisable;
++	/* memory pointers */
++	__u32	hcca;
++	__u32	ed_periodcurrent;
++	__u32	ed_controlhead;
++	__u32	ed_controlcurrent;
++	__u32	ed_bulkhead;
++	__u32	ed_bulkcurrent;
++	__u32	donehead;
++	/* frame counters */
++	__u32	fminterval;
++	__u32	fmremaining;
++	__u32	fmnumber;
++	__u32	periodicstart;
++	__u32	lsthresh;
++	/* Root hub ports */
++	struct	ohci_roothub_regs {
++		__u32	a;
++		__u32	b;
++		__u32	status;
++		__u32	portstatus[MAX_ROOT_PORTS];
++	} roothub;
++} __attribute((aligned(32)));
++
++
++/* OHCI CONTROL AND STATUS REGISTER MASKS */
++
++/*
++ * HcControl (control) register masks
++ */
++#define OHCI_CTRL_CBSR	(3 << 0)	/* control/bulk service ratio */
++#define OHCI_CTRL_PLE	(1 << 2)	/* periodic list enable */
++#define OHCI_CTRL_IE	(1 << 3)	/* isochronous enable */
++#define OHCI_CTRL_CLE	(1 << 4)	/* control list enable */
++#define OHCI_CTRL_BLE	(1 << 5)	/* bulk list enable */
++#define OHCI_CTRL_HCFS	(3 << 6)	/* host controller functional state */
++#define OHCI_CTRL_IR	(1 << 8)	/* interrupt routing */
++#define OHCI_CTRL_RWC	(1 << 9)	/* remote wakeup connected */
++#define OHCI_CTRL_RWE	(1 << 10)	/* remote wakeup enable */
++
++/* pre-shifted values for HCFS */
++#	define OHCI_USB_RESET	(0 << 6)
++#	define OHCI_USB_RESUME	(1 << 6)
++#	define OHCI_USB_OPER	(2 << 6)
++#	define OHCI_USB_SUSPEND	(3 << 6)
++
++/*
++ * HcCommandStatus (cmdstatus) register masks
++ */
++#define OHCI_HCR	(1 << 0)	/* host controller reset */
++#define OHCI_CLF  	(1 << 1)	/* control list filled */
++#define OHCI_BLF  	(1 << 2)	/* bulk list filled */
++#define OHCI_OCR  	(1 << 3)	/* ownership change request */
++#define OHCI_SOC  	(3 << 16)	/* scheduling overrun count */
++
++/*
++ * masks used with interrupt registers:
++ * HcInterruptStatus (intrstatus)
++ * HcInterruptEnable (intrenable)
++ * HcInterruptDisable (intrdisable)
++ */
++#define OHCI_INTR_SO	(1 << 0)	/* scheduling overrun */
++#define OHCI_INTR_WDH	(1 << 1)	/* writeback of done_head */
++#define OHCI_INTR_SF	(1 << 2)	/* start frame */
++#define OHCI_INTR_RD	(1 << 3)	/* resume detect */
++#define OHCI_INTR_UE	(1 << 4)	/* unrecoverable error */
++#define OHCI_INTR_FNO	(1 << 5)	/* frame number overflow */
++#define OHCI_INTR_RHSC	(1 << 6)	/* root hub status change */
++#define OHCI_INTR_OC	(1 << 30)	/* ownership change */
++#define OHCI_INTR_MIE	(1 << 31)	/* master interrupt enable */
++
++
++/* Virtual Root HUB */
++struct virt_root_hub {
++	int devnum; /* Address of Root Hub endpoint */
++	void *dev;  /* was urb */
++	void *int_addr;
++	int send;
++	int interval;
++};
++
++/* USB HUB CONSTANTS (not OHCI-specific; see hub.h) */
++
++/* destination of request */
++#define RH_INTERFACE               0x01
++#define RH_ENDPOINT                0x02
++#define RH_OTHER                   0x03
++
++#define RH_CLASS                   0x20
++#define RH_VENDOR                  0x40
++
++/* Requests: bRequest << 8 | bmRequestType */
++#define RH_GET_STATUS           0x0080
++#define RH_CLEAR_FEATURE        0x0100
++#define RH_SET_FEATURE          0x0300
++#define RH_SET_ADDRESS		0x0500
++#define RH_GET_DESCRIPTOR	0x0680
++#define RH_SET_DESCRIPTOR       0x0700
++#define RH_GET_CONFIGURATION	0x0880
++#define RH_SET_CONFIGURATION	0x0900
++#define RH_GET_STATE            0x0280
++#define RH_GET_INTERFACE        0x0A80
++#define RH_SET_INTERFACE        0x0B00
++#define RH_SYNC_FRAME           0x0C80
++/* Our Vendor Specific Request */
++#define RH_SET_EP               0x2000
++
++
++/* Hub port features */
++#define RH_PORT_CONNECTION         0x00
++#define RH_PORT_ENABLE             0x01
++#define RH_PORT_SUSPEND            0x02
++#define RH_PORT_OVER_CURRENT       0x03
++#define RH_PORT_RESET              0x04
++#define RH_PORT_POWER              0x08
++#define RH_PORT_LOW_SPEED          0x09
++
++#define RH_C_PORT_CONNECTION       0x10
++#define RH_C_PORT_ENABLE           0x11
++#define RH_C_PORT_SUSPEND          0x12
++#define RH_C_PORT_OVER_CURRENT     0x13
++#define RH_C_PORT_RESET            0x14
++
++/* Hub features */
++#define RH_C_HUB_LOCAL_POWER       0x00
++#define RH_C_HUB_OVER_CURRENT      0x01
++
++#define RH_DEVICE_REMOTE_WAKEUP    0x00
++#define RH_ENDPOINT_STALL          0x01
++
++#define RH_ACK                     0x01
++#define RH_REQ_ERR                 -1
++#define RH_NACK                    0x00
++
++
++/* OHCI ROOT HUB REGISTER MASKS */
++
++/* roothub.portstatus [i] bits */
++#define RH_PS_CCS            0x00000001   	/* current connect status */
++#define RH_PS_PES            0x00000002   	/* port enable status*/
++#define RH_PS_PSS            0x00000004   	/* port suspend status */
++#define RH_PS_POCI           0x00000008   	/* port over current indicator */
++#define RH_PS_PRS            0x00000010  	/* port reset status */
++#define RH_PS_PPS            0x00000100   	/* port power status */
++#define RH_PS_LSDA           0x00000200    	/* low speed device attached */
++#define RH_PS_CSC            0x00010000 	/* connect status change */
++#define RH_PS_PESC           0x00020000   	/* port enable status change */
++#define RH_PS_PSSC           0x00040000    	/* port suspend status change */
++#define RH_PS_OCIC           0x00080000    	/* over current indicator change */
++#define RH_PS_PRSC           0x00100000   	/* port reset status change */
++
++/* roothub.status bits */
++#define RH_HS_LPS	     0x00000001		/* local power status */
++#define RH_HS_OCI	     0x00000002		/* over current indicator */
++#define RH_HS_DRWE	     0x00008000		/* device remote wakeup enable */
++#define RH_HS_LPSC	     0x00010000		/* local power status change */
++#define RH_HS_OCIC	     0x00020000		/* over current indicator change */
++#define RH_HS_CRWE	     0x80000000		/* clear remote wakeup enable */
++
++/* roothub.b masks */
++#define RH_B_DR		0x0000ffff		/* device removable flags */
++#define RH_B_PPCM	0xffff0000		/* port power control mask */
++
++/* roothub.a masks */
++#define	RH_A_NDP	(0xff << 0)		/* number of downstream ports */
++#define	RH_A_PSM	(1 << 8)		/* power switching mode */
++#define	RH_A_NPS	(1 << 9)		/* no power switching */
++#define	RH_A_DT		(1 << 10)		/* device type (mbz) */
++#define	RH_A_OCPM	(1 << 11)		/* over current protection mode */
++#define	RH_A_NOCP	(1 << 12)		/* no over current protection */
++#define	RH_A_POTPGT	(0xff << 24)		/* power on to power good time */
++
++/* urb */
++#define N_URB_TD 480
++typedef struct
++{
++	ed_t *ed;
++	__u16 length;	/* number of tds associated with this request */
++	__u16 td_cnt;	/* number of tds already serviced */
++	int   state;
++	unsigned long pipe;
++	int actual_length;
++	td_t *td[N_URB_TD];	/* list pointer to all corresponding TDs associated with this request */
++} urb_priv_t;
++#define URB_DEL 1
++
++/*
++ * This is the full ohci controller description
++ *
++ * Note how the "proper" USB information is just
++ * a subset of what the full implementation needs. (Linus)
++ */
++typedef struct ohci {
++	struct ohci_hcca *hcca;		/* hcca */
++	/*dma_addr_t hcca_dma;*/
++
++	int irq;
++	int disabled;			/* e.g. got a UE, we're hung */
++	int sleeping;
++	unsigned long flags;		/* for HC bugs */
++
++	struct ohci_regs *regs;	/* OHCI controller's memory */
++
++	ed_t *ed_rm_list[2];     /* lists of all endpoints to be removed */
++	ed_t *ed_bulktail;       /* last endpoint of bulk list */
++	ed_t *ed_controltail;    /* last endpoint of control list */
++	int intrstatus;
++	__u32 hc_control;		/* copy of the hc control reg */
++	struct usb_device *dev[32];
++	struct virt_root_hub rh;
++
++	const char	*slot_name;
++} ohci_t;
++
++#define NUM_EDS 8		/* num of preallocated endpoint descriptors */
++
++struct ohci_device {
++	ed_t 	ed[NUM_EDS];
++	int ed_cnt;
++};
++
++/* hcd */
++/* endpoint */
++static int ep_link(ohci_t * ohci, ed_t * ed);
++static int ep_unlink(ohci_t * ohci, ed_t * ed);
++static ed_t * ep_add_ed(struct usb_device * usb_dev, unsigned long pipe);
++
++/*-------------------------------------------------------------------------*/
++
++/* we need more TDs than EDs */
++#define NUM_TD 640
++
++/* +1 so we can align the storage */
++volatile td_t gtd[NUM_TD+1];
++/* pointers to aligned storage */
++volatile td_t *ptd;
++
++/* TDs ... */
++static inline struct td *
++td_alloc (struct usb_device *usb_dev)
++{
++	int i;
++	td_t *td = NULL;
++
++	for (i = 0; i < NUM_TD; i++)
++	{
++		if (ptd[i].usb_dev == NULL)
++		{
++			td = (struct td*)&ptd[i];
++			td->usb_dev = usb_dev;
++			break;
++		}
++	}
++
++	return td;
++}
++
++static inline void
++ed_free (struct ed *ed)
++{
++	ed->usb_dev = NULL;
++}
+diff -urNP org/cpu/arm1136/start.S new/cpu/arm1136/start.S
+--- org/cpu/arm1136/start.S	2006-11-02 15:15:01.000000000 +0100
++++ new/cpu/arm1136/start.S	2010-06-25 08:51:44.000000000 +0200
+@@ -12,6 +12,13 @@
+  * See file CREDITS for list of people who contributed to this
+  * project.
+  *
++ ********
++ * SamyGO, http://samygo.sourceforge.net
++ * modification CONFIG_SKIP_LOWLEVEL_INIT code copied from
++ * Samsung u-boot sources released in 2009 with GPL v2 license.
++ * Copyright (C) 2003-2009 Samsung Electronics
++ * http://www.samsung.com/global/opensource/files/uboot_b650.tgz
++ ********
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License as
+  * published by the Free Software Foundation; either version 2 of
+@@ -30,7 +37,7 @@
+ 
+ #include <config.h>
+ #include <version.h>
+-#if !defined(CONFIG_INTEGRATOR) && ! defined(CONFIG_ARCH_CINTEGRATOR)
++#if !defined(CONFIG_INTEGRATOR) && ! defined(CONFIG_ARCH_CINTEGRATOR) && !defined(CONFIG_MACH_SSDTV)
+ #include <asm/arch/omap2420.h>
+ #endif
+ .globl _start
+@@ -130,9 +137,7 @@
+ 	bl	cpy_clk_code		/* put dpll adjust code behind vectors */
+ #endif
+ 	/* the mask ROM code should have PLL and others stable */
+-#ifndef CONFIG_SKIP_LOWLEVEL_INIT
+ 	bl  cpu_init_crit
+-#endif
+ 
+ #ifndef CONFIG_SKIP_RELOCATE_UBOOT
+ relocate:				/* relocate U-Boot to RAM	    */
+@@ -210,10 +215,13 @@
+ 	 * Jump to board specific initialization... The Mask ROM will have already initialized
+ 	 * basic memory.  Go here to bump up clock rate and handle wake up conditions.
+ 	 */
++#ifndef CONFIG_SKIP_LOWLEVEL_INIT
+ 	mov	ip, lr		/* persevere link reg across call */
+ 	bl	lowlevel_init	/* go setup pll,mux,memory */
+ 	mov	lr, ip		/* restore link */
++#endif /* CONFIG_SKIP_LOWLEVEL_INIT */
+ 	mov	pc, lr		/* back to my caller */
++
+ /*
+  *************************************************************************
+  *
+@@ -398,7 +406,7 @@
+ 		mcr	p15, 0, r1, c7, c5, 0	@ invalidate I cache
+ 		mov	pc, lr			@ back to caller
+ 
+-#if defined(CONFIG_INTEGRATOR) && defined(CONFIG_ARCH_CINTEGRATOR)
++#if defined(CONFIG_INTEGRATOR) && defined(CONFIG_ARCH_CINTEGRATOR) || defined(CONFIG_MACH_SSDTV)
+ /* Use the IntegratorCP function from board/integratorcp/platform.S */
+ #else
+ 
+diff -urNP org/drivers/rtl8139.c new/drivers/rtl8139.c
+--- org/drivers/rtl8139.c	2006-11-02 15:15:01.000000000 +0100
++++ new/drivers/rtl8139.c	2010-06-25 01:38:30.000000000 +0200
+@@ -5,6 +5,13 @@
+  *
+  * Most part is taken from rtl8139.c of etherboot
+  *
++ ********
++ * SamyGO, http://samygo.sourceforge.net
++ * modification of virtual pci mem mapping, pci address code copied
++ * from Samsung u-boot sources released in 2009 with GPL v2 license.
++ * Copyright (C) 2003-2009 Samsung Electronics
++ * http://www.samsung.com/global/opensource/files/uboot_b650.tgz
++ ********
+  */
+ 
+ /* rtl8139.c - etherboot driver for the Realtek 8139 chipset
+@@ -104,8 +111,8 @@
+ #undef DEBUG_RX
+ 
+ #define currticks()	get_timer(0)
+-#define bus_to_phys(a)	pci_mem_to_phys((pci_dev_t)dev->priv, a)
+-#define phys_to_bus(a)	pci_phys_to_mem((pci_dev_t)dev->priv, a)
++#define bus_to_phys(a) (a)
++#define phys_to_bus(a) (a)
+ 
+ /* Symbolic offsets to registers. */
+ enum RTL8139_registers {
+@@ -213,7 +220,8 @@
+ 		if ((devno = pci_find_devices(supported, idx++)) < 0)
+ 			break;
+ 
+-		pci_read_config_dword(devno, PCI_BASE_ADDRESS_1, &iobase);
++		pci_read_config_dword(devno, PCI_BASE_ADDRESS_0, &iobase);
++
+ 		iobase &= ~0xf;
+ 
+ 		debug ("rtl8139: REALTEK RTL8139 @0x%x\n", iobase);
+@@ -247,7 +255,6 @@
+ 	int speed10, fullduplex;
+ 	int addr_len;
+ 	unsigned short *ap = (unsigned short *)dev->enetaddr;
+-
+ 	ioaddr = dev->iobase;
+ 
+ 	/* Bring the chip out of low-power mode. */
+@@ -362,7 +369,6 @@
+ 		udelay (100); /* wait 100us */
+ 	}
+ 
+-
+ 	for (i = 0; i < ETH_ALEN; i++)
+ 		outb(dev->enetaddr[i], ioaddr + MAC0 + i);
+ 
+diff -urNP org/include/asm-arm/mach-types.h new/include/asm-arm/mach-types.h
+--- org/include/asm-arm/mach-types.h	2006-11-02 15:15:01.000000000 +0100
++++ new/include/asm-arm/mach-types.h	2010-06-25 08:49:42.000000000 +0200
+@@ -737,6 +737,7 @@
+ #define MACH_TYPE_CB3RUFC              726
+ #define MACH_TYPE_MP2USB               727
+ #define MACH_TYPE_PDNB3               1002
++#define MACH_TYPE_SSDTV               5000
+ 
+ #ifdef CONFIG_ARCH_EBSA110
+ # ifdef machine_arch_type
+@@ -9402,6 +9403,18 @@
+ # define machine_is_mp2usb()	(0)
+ #endif
+ 
++#ifdef CONFIG_MACH_SSDTV
++# ifdef machine_arch_type
++#  undef machine_arch_type
++#  define machine_arch_type	__machine_arch_type
++# else
++#  define machine_arch_type	MACH_TYPE_SSDTV
++# endif
++# define machine_is_ssdtv()	(machine_arch_type == MACH_TYPE_SSDTV)
++#else
++# define machine_is_ssdtv()	(0)
++#endif
++
+ /*
+  * These have not yet been registered
+  */
+diff -urNP org/include/configs/ssdtv.h new/include/configs/ssdtv.h
+--- org/include/configs/ssdtv.h	1970-01-01 01:00:00.000000000 +0100
++++ new/include/configs/ssdtv.h	2010-06-25 08:33:48.000000000 +0200
+@@ -0,0 +1,106 @@
++#ifndef _CONFIG_H_
++#define _CONFIG_H_
++
++#define CONFIG_ARM1136			1		// set to use ARM1116 CPU
++#define CONFIG_MACH_SSDTV		1		// set to use Samsung DTV Leonid platform
++#define CONFIG_MISC_INIT_R		1		// enable board misc_init_r call
++
++// startup defines
++#define CONFIG_SKIP_LOWLEVEL_INIT	1
++
++// memory related defines
++#define CONFIG_NR_DRAM_BANKS		1		// use use here only one bank of SDRAM
++#define PHYS_SDRAM_1			0x60000000	// SDRAM Bank #1
++#define PHYS_SDRAM_1_SIZE		0x08000000	// set 128MB for cover diffrent RAM sizes version tv size of RAM
++#define CFG_MEMTEST_START		PHYS_SDRAM_1	// set to SDRAM Bank #1
++#define CFG_MEMTEST_END			(PHYS_SDRAM_1 | 0x400000) // set 4MB range of memory test
++
++// USB related defines
++#define LITTLEENDIAN			1		// this ARM is a little endian cpu
++#define __LITTLE_ENDIAN			1		// this ARM is a little endian cpu
++#define __LITTLE_ENDIAN_BITFIELD	1		// this ARM is a little endian cpu
++#define CONFIG_USB_OHCI			1		// enable v1.1 usb support
++#define CONFIG_USB_STORAGE		1		// enable USB storage device support like drives and pendrives
++#define CONFIG_DOS_PARTITION		1		// enable parsing DOS partitions
++#define CONFIG_USB_STORAGE_ALL		1		// enable more than one usb controller ?
++
++// PCI related defines
++#define CONFIG_PCI			1
++#define CONFIG_PCI_PNP			1
++#define __io(a)				((void *)(a))
++#define __mem_pci(a)			((void *)(a))
++
++// ethernet related defines
++#define CONFIG_NET_MULTI		1
++#define CONFIG_RTL8139			1
++#define KSEG1ADDR(x)			(x)
++
++// timer
++#define	CFG_HZ				1000000		// 65.5ms, 1Mhz timer
++
++// UART
++#define CFG_BAUDRATE_TABLE		{ 115200 }
++#define CONFIG_SERIAL1			1
++#define CONFIG_BAUDRATE			115200
++#define CONFIG_USE_UART_FIFO		1
++
++// u-boot prompt commands
++#define CONFIG_COMMANDS ( \
++			CFG_CMD_ASKENV		| \
++			CFG_CMD_AUTOSCRIPT	| \
++			CFG_CMD_CONSOLE		| \
++			CFG_CMD_DHCP		| \
++			CFG_CMD_ECHO		| \
++			CFG_CMD_EXT2		| \
++			CFG_CMD_FAT		| \
++			CFG_CMD_LOADB		| \
++			CFG_CMD_MEMORY		| \
++			CFG_CMD_NET		| \
++			CFG_CMD_NFS		| \
++			CFG_CMD_MISC		| \
++			CFG_CMD_PCI		| \
++			CFG_CMD_PING		| \
++			CFG_CMD_REISER		| \
++			CFG_CMD_RUN		| \
++			CFG_CMD_USB		| \
++			0ULL) & ~(0ULL		| \
++			0ULL)
++
++#include <cmd_confdefs.h>
++
++#define	CFG_LONGHELP			1		// full command help
++#define	CFG_PROMPT			"SamyGO # "	// monitor command prompt
++#define	CFG_CBSIZE			256		// console I/O buffer size
++#define CFG_PBSIZE      		(CFG_CBSIZE + sizeof(CFG_PROMPT) + 16) // print buffer size
++#define	CFG_MAXARGS			16		// max number of command arguments
++#define CFG_BARGSIZE			CFG_CBSIZE	// boot argument buffer size
++#define	CFG_LOAD_ADDR			0x61000000	// default load address
++
++#define CONFIG_BOOTDELAY		5
++#define CONFIG_ETHADDR			00:00:00:00:00:00
++#define CONFIG_IPADDR			0.0.0.0
++#define CONFIG_SERVERIP			0.0.0.0
++#define CONFIG_GATEWAYIP		0.0.0.0
++#define CONFIG_NETMASK			255.255.255.0
++#define CONFIG_BOOTFILE			uImage
++#define CONFIG_LOADADDR			CFG_LOAD_ADDR
++#define CONFIG_BOOTCOMMAND		"tftp;bootm"
++
++#define CONFIG_TIMESTAMP		1
++
++#define CONFIG_STACKSIZE		(128 * 1024)	// size of stack 128kb
++
++#define CFG_NO_FLASH			1		// no flash support
++
++#define CONFIG_ENV_OVERWRITE		1		// allow overwrite default envirenments
++#define CFG_ENV_IS_NOWHERE		1		// no env in flash
++#define CFG_ENV_SIZE			0x00010000
++
++#define CONFIG_CMDLINE_EDITING		1		// enable editing in cmd prompt
++#define CONFIG_CMDLINE_TAG		1		// enable setup TAGs for kernel configuration
++
++#define CFG_MALLOC_LEN			(CFG_ENV_SIZE + 128 * 1024) // minimal chunk size
++#define CFG_GBL_DATA_SIZE		128		// size in bytes reserved for initial data
++
++#endif	// __CONFIG_H
++

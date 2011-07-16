@@ -1,0 +1,4 @@
+#!/bin/sh
+#SamyGO use own
+depmod -ae
+exit 0

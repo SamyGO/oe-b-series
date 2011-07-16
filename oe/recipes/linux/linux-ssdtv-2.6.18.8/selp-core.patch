@@ -1,0 +1,297 @@
+# This patch content was copied from Samsung kernel sources SELP.3.2.x-Chelsea.src.tgz,
+# from package released as GPL v2 http://www.samsung.com/global/opensource/files/32B650.zip
+--- old/fs/proc/array.c	2010-07-04 08:00:06.000000000 +0200
++++ new/fs/proc/array.c	2008-07-24 02:42:16.000000000 +0200
+@@ -363,6 +363,8 @@
+ 	sigemptyset(&sigign);
+ 	sigemptyset(&sigcatch);
+ 	cutime = cstime = utime = stime = cputime_zero;
++
++	mutex_lock(&tty_mutex);
+ 	read_lock(&tasklist_lock);
+ 	if (task->sighand) {
+ 		spin_lock_irq(&task->sighand->siglock);
+@@ -404,6 +406,7 @@
+ 	}
+ 	ppid = pid_alive(task) ? task->group_leader->real_parent->tgid : 0;
+ 	read_unlock(&tasklist_lock);
++	mutex_unlock(&tty_mutex);
+ 
+ 	if (!whole || num_threads<2)
+ 		wchan = get_wchan(task);
+--- old/lib/kernel_lock.c	2010-07-04 08:00:06.000000000 +0200
++++ new/lib/kernel_lock.c	2008-07-24 02:42:26.000000000 +0200
+@@ -128,11 +128,7 @@
+ int __lockfunc __reacquire_kernel_lock(void)
+ {
+ 	local_irq_enable();
+-	while (!_raw_spin_trylock(&kernel_flag)) {
+-		if (test_thread_flag(TIF_NEED_RESCHED))
+-			return -EAGAIN;
+-		cpu_relax();
+-	}
++	_raw_spin_lock(&kernel_flag);
+ 	local_irq_disable();
+ 	preempt_disable();
+ 	return 0;
+--- old/drivers/char/mem.c	2007-02-24 00:52:30.000000000 +0100
++++ new/drivers/char/mem.c	2008-07-24 02:42:01.000000000 +0200
+@@ -75,6 +75,10 @@
+ 	 * On ia64, we ignore O_SYNC because we cannot tolerate memory attribute aliases.
+ 	 */
+ 	return !(efi_mem_attributes(addr) & EFI_MEMORY_WB);
++#elif defined(CONFIG_ARCH_SSDTV)
++	if (file->f_flags & O_SYNC)
++		return 1;
++	return 0;
+ #else
+ 	/*
+ 	 * Accessing memory above the top the kernel knows about or through a file pointer
+--- old/include/linux/jiffies.h	2010-07-04 19:46:03.000000000 +0200
++++ new/include/linux/jiffies.h	2008-07-24 03:33:56.000000000 +0200
+@@ -119,7 +119,10 @@
+  * Have the 32 bit jiffies value wrap 5 minutes after boot
+  * so jiffies wrap bugs show up earlier.
+  */
+-#define INITIAL_JIFFIES ((unsigned long)(unsigned int) (-300*HZ))
++// SELP-arm 3.x 2007.12.14
++//#define INITIAL_JIFFIES ((unsigned long)(unsigned int) (-300*HZ))
++// jur
++#define INITIAL_JIFFIES ((unsigned long)(unsigned int) (0*HZ))
+ 
+ /*
+  * Change timeval to jiffies, trying to avoid the
+--- old/kernel/futex.c	2010-07-04 19:46:04.000000000 +0200
++++ new/kernel/futex.c	2008-07-24 02:41:51.000000000 +0200
+@@ -1098,7 +1098,7 @@
+ 
+ 		current->flags &= ~PF_NOSCHED;
+ 
+-		if (time->tv_sec == 0 && time->tv_nsec == 0)
++		if (!time)
+ 			schedule();
+ 		else {
+ 
+@@ -1171,7 +1171,7 @@
+ 	if (refill_pi_state_cache())
+ 		return -ENOMEM;
+ 
+-	if (time->tv_sec || time->tv_nsec) {
++	if (time) {
+ 		to = &timeout;
+ 		hrtimer_init(&to->timer, CLOCK_REALTIME, HRTIMER_MODE_ABS);
+ 		hrtimer_init_sleeper(to, current);
+@@ -1848,7 +1848,7 @@
+ 			  struct timespec __user *utime, u32 __user *uaddr2,
+ 			  u32 val3)
+ {
+-	struct timespec t = {.tv_sec=0, .tv_nsec=0};
++	struct timespec t, *tp = NULL;
+ 	u32 val2 = 0;
+ 
+ 	if (utime && (op == FUTEX_WAIT || op == FUTEX_LOCK_PI)) {
+@@ -1856,6 +1856,7 @@
+ 			return -EFAULT;
+ 		if (!timespec_valid(&t))
+ 			return -EINVAL;
++		tp = &t;
+ 	}
+ 	/*
+ 	 * requeue parameter in 'utime' if op == FUTEX_REQUEUE.
+@@ -1863,7 +1864,7 @@
+ 	if (op == FUTEX_REQUEUE || op == FUTEX_CMP_REQUEUE)
+ 		val2 = (u32) (unsigned long) utime;
+ 
+-	return do_futex(uaddr, op, val, &t, uaddr2, val2, val3);
++	return do_futex(uaddr, op, val, tp, uaddr2, val2, val3);
+ }
+ 
+ static int futexfs_get_sb(struct file_system_type *fs_type,
+--- old/kernel/futex_compat.c	2010-07-04 19:46:04.000000000 +0200
++++ new/kernel/futex_compat.c	2008-07-24 02:41:51.000000000 +0200
+@@ -141,7 +141,7 @@
+ 		struct compat_timespec __user *utime, u32 __user *uaddr2,
+ 		u32 val3)
+ {
+-	struct timespec t = {.tv_sec = 0, .tv_nsec = 0};
++	struct timespec t, *tp = NULL;
+ 	int val2 = 0;
+ 
+ 	if (utime && (op == FUTEX_WAIT || op == FUTEX_LOCK_PI)) {
+@@ -149,9 +149,10 @@
+ 			return -EFAULT;
+ 		if (!timespec_valid(&t))
+ 			return -EINVAL;
++		tp = &t;
+ 	}
+ 	if (op == FUTEX_REQUEUE || op == FUTEX_CMP_REQUEUE)
+ 		val2 = (int) (unsigned long) utime;
+ 
+-	return do_futex(uaddr, op, val, &t, uaddr2, val2, val3);
++	return do_futex(uaddr, op, val, tp, uaddr2, val2, val3);
+ }
+--- old/kernel/hrtimer.c	2010-07-04 19:46:04.000000000 +0200
++++ new/kernel/hrtimer.c	2008-07-24 02:41:51.000000000 +0200
+@@ -314,7 +314,7 @@
+ 	return 1;
+ }
+ 
+-__setup("highres", setup_hrtimer_hres);
++__setup("highres=", setup_hrtimer_hres);
+ 
+ /*
+  * Is the high resolution mode active ?
+@@ -441,8 +441,6 @@
+  */
+ void clock_was_set(void)
+ {
+-	warp_check_clock_was_changed();
+-
+ 	/* Retrigger the CPU local events everywhere */
+ 	on_each_cpu(retrigger_next_event, NULL, 0, 1);
+ }
+--- old/include/linux/kernel.h	2010-07-04 19:46:03.000000000 +0200
++++ new/include/linux/kernel.h	2008-10-08 03:59:14.000000000 +0200
+@@ -31,7 +31,7 @@
+ #define STACK_MAGIC	0xdeadbeef
+ 
+ #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+-#define ALIGN(x,a) (((x)+(a)-1)&~((a)-1))
++#define ALIGN(x,a) (((x)+(a)-1UL)&~((a)-1UL))
+ #define FIELD_SIZEOF(t, f) (sizeof(((t*)0)->f))
+ #define roundup(x, y) ((((x) + ((y) - 1)) / (y)) * (y))
+ 
+--- old/kernel/sched.c	2010-07-07 05:20:28.000000000 +0200
++++ samsung/kernel/sched.c	2008-07-24 02:41:51.000000000 +0200
+@@ -7539,6 +7547,9 @@
+ #ifdef in_atomic
+ 	static unsigned long prev_jiffy;	/* ratelimiting */
+ 
++	if (atomic_read(&debugger_active))
++		return;
++
+ 	if ((in_atomic() || irqs_disabled()) &&
+ 	    system_state == SYSTEM_RUNNING && !oops_in_progress) {
+ 		if (debug_direct_keyboard && hardirq_count())
+--- old/kernel/signal.c	2010-07-07 05:20:28.000000000 +0200
++++ samsung/kernel/signal.c	2008-07-24 02:41:51.000000000 +0200
+@@ -448,25 +456,50 @@
+ int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
+ {
+ 	int signr = __dequeue_signal(&tsk->pending, mask, info);
+-	if (!signr)
++	if (!signr) {
+ 		signr = __dequeue_signal(&tsk->signal->shared_pending,
+ 					 mask, info);
+- 	if (signr && unlikely(sig_kernel_stop(signr))) {
+- 		/*
+- 		 * Set a marker that we have dequeued a stop signal.  Our
+- 		 * caller might release the siglock and then the pending
+- 		 * stop signal it is about to process is no longer in the
+- 		 * pending bitmasks, but must still be cleared by a SIGCONT
+- 		 * (and overruled by a SIGKILL).  So those cases clear this
+- 		 * shared flag after we've set it.  Note that this flag may
+- 		 * remain set after the signal we return is ignored or
+- 		 * handled.  That doesn't matter because its only purpose
+- 		 * is to alert stop-signal processing code when another
+- 		 * processor has come along and cleared the flag.
+- 		 */
+- 		if (!(tsk->signal->flags & SIGNAL_GROUP_EXIT))
+- 			tsk->signal->flags |= SIGNAL_STOP_DEQUEUED;
+- 	}
++		/*
++		 * itimer signal ?
++		 *
++		 * itimers are process shared and we restart periodic
++		 * itimers in the signal delivery path to prevent DoS
++		 * attacks in the high resolution timer case. This is
++		 * compliant with the old way of self restarting
++		 * itimers, as the SIGALRM is a legacy signal and only
++		 * queued once. Changing the restart behaviour to
++		 * restart the timer in the signal dequeue path is
++		 * reducing the timer noise on heavy loaded !highres
++		 * systems too.
++		 */
++		if (unlikely(signr == SIGALRM)) {
++			struct hrtimer *tmr = &tsk->signal->real_timer;
++
++			if (!hrtimer_active(tmr) &&
++			    tsk->signal->it_real_incr.tv64 != 0) {
++				hrtimer_forward(tmr, hrtimer_cb_get_time(tmr),
++						tsk->signal->it_real_incr);
++				hrtimer_restart(tmr);
++			}
++		}
++	}
++	recalc_sigpending_tsk(tsk);
++	if (signr && unlikely(sig_kernel_stop(signr))) {
++		/*
++		 * Set a marker that we have dequeued a stop signal.  Our
++		 * caller might release the siglock and then the pending
++		 * stop signal it is about to process is no longer in the
++		 * pending bitmasks, but must still be cleared by a SIGCONT
++		 * (and overruled by a SIGKILL).  So those cases clear this
++		 * shared flag after we've set it.  Note that this flag may
++		 * remain set after the signal we return is ignored or
++		 * handled.  That doesn't matter because its only purpose
++		 * is to alert stop-signal processing code when another
++		 * processor has come along and cleared the flag.
++		 */
++		if (!(tsk->signal->flags & SIGNAL_GROUP_EXIT))
++			tsk->signal->flags |= SIGNAL_STOP_DEQUEUED;
++	}
+ 	if ( signr &&
+ 	     ((info->si_code & __SI_MASK) == __SI_TIMER) &&
+ 	     info->si_sys_private){
+--- old/kernel/timer.c	2010-07-07 05:20:28.000000000 +0200
++++ samsung/kernel/timer.c	2008-07-24 02:41:51.000000000 +0200
+@@ -884,6 +887,8 @@
+ 
+ 	warp_check_clock_was_changed();
+ 
++	update_vsyscall(&xtime, clock);
++
+ 	write_sequnlock_irqrestore(&xtime_lock, flags);
+ 
+ 	/* signal hrtimers about time change */
+@@ -1010,6 +1015,7 @@
+ 	clock->cycle_last = clocksource_read(clock);
+ 	clock->error = 0;
+ 	timekeeping_suspended = 0;
++	warp_check_clock_was_changed();
+ 	write_sequnlock_irqrestore(&xtime_lock, flags);
+ 
+ 	hrtimer_notify_resume();
+--- old/drivers/char/vt.c	2007-02-24 00:52:30.000000000 +0100
++++ samsung/drivers/char/vt.c	2008-07-24 02:42:01.000000000 +0200
+@@ -730,7 +730,8 @@
+ 	    visual_init(vc, currcons, 1);
+ 	    if (!*vc->vc_uni_pagedir_loc)
+ 		con_set_default_unimap(vc);
+-	    vc->vc_screenbuf = kmalloc(vc->vc_screenbuf_size, GFP_KERNEL);
++	    if (!vc->vc_kmalloced)
++		vc->vc_screenbuf = kmalloc(vc->vc_screenbuf_size, GFP_KERNEL);
+ 	    if (!vc->vc_screenbuf) {
+ 		kfree(vc);
+ 		vc_cons[currcons].d = NULL;
+--- old/kernel/printk.c	2010-07-16 05:38:35.000000000 +0200
++++ samsung/kernel/printk.c	2008-10-07 03:26:32.000000000 +0200
+@@ -521,6 +560,8 @@
+ /* cpu currently holding logbuf_lock */
+ static volatile unsigned int printk_cpu = UINT_MAX;
+ 
++extern void printascii(const char *string);
++
+ asmlinkage int vprintk(const char *fmt, va_list args)
+ {
+ 	unsigned long flags;
+@@ -544,6 +544,9 @@
+ 
+ 	/* Emit the output into the temporary buffer */
+ 	printed_len = vscnprintf(printk_buf, sizeof(printk_buf), fmt, args);
++#ifdef CONFIG_DEBUG_LL
++	printascii(printk_buf);
++#endif
+ 
+ 	/*
+ 	 * Copy the output into log_buf.  If the caller didn't provide

@@ -1,0 +1,41 @@
+#!/bin/sh
+
+DAEMON=/usr/sbin/telnetd
+NAME=telnetd
+DESC="Busybox Telnet Daemon"
+ARGS=""
+
+test -f $DAEMON || exit 0
+
+set -e
+
+case "$1" in
+    start)
+        echo -n "Starting $DESC: $NAME... "
+        start-stop-daemon -S -b -n $NAME -a $DAEMON -- $ARGS
+        echo "done."
+        ;;
+    stop)
+        echo -n "Stopping $DESC: $NAME... "
+        start-stop-daemon -K -n $NAME
+        echo "done."
+        ;;
+    restart)
+        echo "Restarting $DESC: $NAME... "
+        $0 stop
+        $0 start
+        echo "done."
+        ;;
+    reload)
+        echo -n "Reloading $DESC: $NAME... "
+        killall -HUP $(basename ${DAEMON})
+        echo "done."
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|reload}"
+        exit 1
+        ;;
+esac
+
+exit 0
+

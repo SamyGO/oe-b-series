@@ -1,0 +1,13 @@
+diff -ur old/hw/xfree86/x86emu/x86emu/types.h new/hw/xfree86/x86emu/x86emu/types.h
+--- old/hw/xfree86/x86emu/x86emu/types.h	2008-11-14 22:27:05.000000000 +0100
++++ new/hw/xfree86/x86emu/x86emu/types.h	2010-04-11 14:16:58.000000000 +0200
+@@ -40,9 +40,7 @@
+ #ifndef __X86EMU_TYPES_H
+ #define __X86EMU_TYPES_H
+ 
+-#ifndef NO_SYS_HEADERS
+ #include <sys/types.h>
+-#endif
+ 
+ /*
+  * The following kludge is an attempt to work around typedef conflicts with

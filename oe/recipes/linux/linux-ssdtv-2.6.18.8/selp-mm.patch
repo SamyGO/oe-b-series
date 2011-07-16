@@ -1,0 +1,534 @@
+# This patch content was copied from Samsung kernel sources SELP.3.2.x-Chelsea.src.tgz,
+# from package released as GPL v2 http://www.samsung.com/global/opensource/files/32B650.zip
+--- old/include/asm-arm/cacheflush.h	2007-02-24 00:52:30.000000000 +0100
++++ new/include/asm-arm/cacheflush.h	2008-07-24 02:41:40.000000000 +0200
+@@ -337,6 +353,8 @@
+  */
+ extern void flush_dcache_page(struct page *);
+ 
++extern void __flush_dcache_page(struct address_space *mapping, struct page *page);
++
+ #define flush_dcache_mmap_lock(mapping) \
+ 	write_lock_irq(&(mapping)->tree_lock)
+ #define flush_dcache_mmap_unlock(mapping) \
+--- old/arch/arm/mm/copypage-v6.c	2010-07-04 08:00:05.000000000 +0200
++++ new/arch/arm/mm/copypage-v6.c	2008-07-24 02:41:31.000000000 +0200
+@@ -53,6 +53,10 @@
+ {
+ 	unsigned int offset = CACHE_COLOUR(vaddr);
+ 	unsigned long from, to;
++	struct page *page = virt_to_page(kfrom);
++
++	if (test_and_clear_bit(PG_dcache_dirty, &page->flags))
++		__flush_dcache_page(page_mapping(page), page);
+ 
+ 	/*
+ 	 * Discard data in the kernel mapping for the new page.
+--- old/arch/arm/mm/fault-armv.c	2007-02-24 00:52:30.000000000 +0100
++++ new/arch/arm/mm/fault-armv.c	2008-12-29 08:44:00.000000000 +0100
+@@ -119,8 +119,6 @@
+ 		flush_cache_page(vma, addr, pfn);
+ }
+ 
+-void __flush_dcache_page(struct address_space *mapping, struct page *page);
+-
+ /*
+  * Take care of architecture specific things when placing a new PTE into
+  * a page table, or changing an existing PTE.  Basically, there are two
+@@ -148,11 +146,20 @@
+ 	if (mapping) {
+ 		int dirty = test_and_clear_bit(PG_dcache_dirty, &page->flags);
+ 
++#if 0 /* force dcache page flush */
+ 		if (dirty)
++#endif
+ 			__flush_dcache_page(mapping, page);
+ 
+ 		if (cache_is_vivt())
+ 			make_coherent(mapping, vma, addr, pfn);
++#if 1 /*  __flush_icache_all(); patch */
++		else if (vma->vm_flags & VM_EXEC) {
++			asm("mcr    p15, 0, %0, c7, c5, 0   @ invalidate I-cache\n"
++				:
++				: "r" (0));
++		}
++#endif
+ 	}
+ }
+ 
+--- old/arch/arm/mm/flush.c	2010-07-04 07:59:50.000000000 +0200
++++ new/arch/arm/mm/flush.c	2008-12-29 08:44:00.000000000 +0100
+@@ -134,6 +134,12 @@
+ 	if (mapping && cache_is_vipt_aliasing())
+ 		flush_pfn_alias(page_to_pfn(page),
+ 				page->index << PAGE_CACHE_SHIFT);
++
++#if 0 /* force icache invalidate */
++	asm("mcr    p15, 0, %0, c7, c5, 0   @ invalidate I-cache\n"
++		:
++		: "r" (0));
++#endif
+ }
+ 
+ static void __flush_dcache_aliases(struct address_space *mapping, struct page *page)
+@@ -199,6 +205,13 @@
+ 		__flush_dcache_page(mapping, page);
+ 		if (mapping && cache_is_vivt())
+ 			__flush_dcache_aliases(mapping, page);
++#if 1 /* __flush_icache_all(); patch */
++		else if (mapping) {
++			asm("mcr    p15, 0, %0, c7, c5, 0   @ invalidate I-cache\n"
++				:
++				: "r" (0));
++		}
++#endif
+ 	}
+ }
+ EXPORT_SYMBOL(flush_dcache_page);
+--- old/arch/arm/mm/init.c	2010-07-04 07:59:50.000000000 +0200
++++ new/arch/arm/mm/init.c	2008-07-24 02:41:31.000000000 +0200
+@@ -32,51 +32,40 @@
+ extern unsigned long phys_initrd_size;
+ 
+ /*
+- * This is used to pass memory configuration data from paging_init
+- * to mem_init, and by show_mem() to skip holes in the memory map.
++ * The sole use of this is to pass memory configuration
++ * data from paging_init to mem_init.
+  */
+-static struct meminfo meminfo = { 0, };
+-
+-#define for_each_nodebank(iter,mi,no)			\
+-	for (iter = 0; iter < mi->nr_banks; iter++)	\
+-		if (mi->bank[iter].node == no)
++static struct meminfo meminfo __initdata = { 0, };
+ 
+ void show_mem(void)
+ {
+ 	int free = 0, total = 0, reserved = 0;
+-	int shared = 0, cached = 0, slab = 0, node, i;
+-	struct meminfo * mi = &meminfo;
++	int shared = 0, cached = 0, slab = 0, node;
+ 
+ 	printk("Mem-info:\n");
+ 	show_free_areas();
+ 	printk("Free swap:       %6ldkB\n", nr_swap_pages<<(PAGE_SHIFT-10));
+ 
+ 	for_each_online_node(node) {
+-		for_each_nodebank (i,mi,node) {
+-			unsigned int pfn1, pfn2;
+-			struct page *page, *end;
+-
+-			pfn1 = mi->bank[i].start >> PAGE_SHIFT;
+-			pfn2 = (mi->bank[i].size + mi->bank[i].start) >> PAGE_SHIFT;
+-
+-			page = NODE_MEM_MAP(node) + pfn1;
+-			end  = NODE_MEM_MAP(node) + pfn2;
+-
+-			do {
+-				total++;
+-				if (PageReserved(page))
+-					reserved++;
+-				else if (PageSwapCache(page))
+-					cached++;
+-				else if (PageSlab(page))
+-					slab++;
+-				else if (!page_count(page))
+-					free++;
+-				else
+-					shared += page_count(page) - 1;
+-				page++;
+-			} while (page < end);
+-		}
++		struct page *page, *end;
++
++		page = NODE_MEM_MAP(node);
++		end  = page + NODE_DATA(node)->node_spanned_pages;
++
++		do {
++			total++;
++			if (PageReserved(page))
++				reserved++;
++			else if (PageSwapCache(page))
++				cached++;
++			else if (PageSlab(page))
++				slab++;
++			else if (!page_count(page))
++				free++;
++			else
++				shared += page_count(page) - 1;
++			page++;
++		} while (page < end);
+ 	}
+ 
+ 	printk("%d pages of RAM\n", total);
+@@ -87,6 +76,10 @@
+ 	printk("%d pages swap cached\n", cached);
+ }
+ 
++#define for_each_nodebank(iter,mi,no)			\
++	for (iter = 0; iter < mi->nr_banks; iter++)	\
++		if (mi->bank[iter].node == no)
++
+ /*
+  * FIXME: We really want to avoid allocating the bootmap bitmap
+  * over the top of the initrd.  Hopefully, this is located towards
+--- old/mm/slab.c	2010-07-07 05:20:28.000000000 +0200
++++ samsung/mm/slab.c	2008-07-24 02:41:36.000000000 +0200
+@@ -107,6 +107,7 @@
+ #include	<linux/nodemask.h>
+ #include	<linux/mempolicy.h>
+ #include	<linux/mutex.h>
++#include	<linux/reciprocal_div.h>
+ 
+ #include	<asm/uaccess.h>
+ #include	<asm/cacheflush.h>
+@@ -442,6 +443,7 @@
+ 	unsigned int shared;
+ 
+ 	unsigned int buffer_size;
++	u32 reciprocal_buffer_size;
+ /* 3) touched by every alloc & free from the backend */
+ 	struct kmem_list3 *nodelists[MAX_NUMNODES];
+ 
+@@ -683,10 +685,17 @@
+ 	return slab->s_mem + cache->buffer_size * idx;
+ }
+ 
+-static inline unsigned int obj_to_index(struct kmem_cache *cache,
+-					struct slab *slab, void *obj)
++/*
++ * We want to avoid an expensive divide : (offset / cache->buffer_size)
++ *   Using the fact that buffer_size is a constant for a particular cache,
++ *   we can replace (offset / cache->buffer_size) by
++ *   reciprocal_divide(offset, cache->reciprocal_buffer_size)
++ */
++static inline unsigned int obj_to_index(const struct kmem_cache *cache,
++					const struct slab *slab, void *obj)
+ {
+-	return (unsigned)(obj - slab->s_mem) / cache->buffer_size;
++	u32 offset = (obj - slab->s_mem);
++	return reciprocal_divide(offset, cache->reciprocal_buffer_size);
+ }
+ 
+ /*
+@@ -730,6 +739,8 @@
+ #endif
+ };
+ 
++#define BAD_ALIEN_MAGIC 0x01020304ul
++
+ #ifdef CONFIG_LOCKDEP
+ 
+ /*
+@@ -738,29 +749,53 @@
+  * The locking for this is tricky in that it nests within the locks
+  * of all other slabs in a few places; to deal with this special
+  * locking we put on-slab caches into a separate lock-class.
++ *
++ * We set lock class for alien array caches which are up during init.
++ * The lock annotation will be lost if all cpus of a node goes down and
++ * then comes back up during hotplug
+  */
+-static struct lock_class_key on_slab_key;
++static struct lock_class_key on_slab_l3_key;
++static struct lock_class_key on_slab_alc_key;
++
++static inline void init_lock_keys(void)
+ 
+-static inline void init_lock_keys(struct cache_sizes *s)
+ {
+ 	int q;
++	struct cache_sizes *s = malloc_sizes;
+ 
+-	for (q = 0; q < MAX_NUMNODES; q++) {
+-		if (!s->cs_cachep->nodelists[q] || OFF_SLAB(s->cs_cachep))
+-			continue;
+-		lockdep_set_class(&s->cs_cachep->nodelists[q]->list_lock,
+-				  &on_slab_key);
++	while (s->cs_size != ULONG_MAX) {
++		for_each_node(q) {
++			struct array_cache **alc;
++			int r;
++			struct kmem_list3 *l3 = s->cs_cachep->nodelists[q];
++			if (!l3 || OFF_SLAB(s->cs_cachep))
++				continue;
++			lockdep_set_class(&l3->list_lock, &on_slab_l3_key);
++			alc = l3->alien;
++			/*
++			 * FIXME: This check for BAD_ALIEN_MAGIC
++			 * should go away when common slab code is taught to
++			 * work even without alien caches.
++			 * Currently, non NUMA code returns BAD_ALIEN_MAGIC
++			 * for alloc_alien_cache,
++			 */
++			if (!alc || (unsigned long)alc == BAD_ALIEN_MAGIC)
++				continue;
++			for_each_node(r) {
++				if (alc[r])
++					lockdep_set_class(&alc[r]->lock,
++					     &on_slab_alc_key);
++			}
++		}
++		s++;
+ 	}
+ }
+-
+ #else
+-static inline void init_lock_keys(struct cache_sizes *s)
++static inline void init_lock_keys(void)
+ {
+ }
+ #endif
+ 
+-
+-
+ /* Guard access to the cache-chain. */
+ static DEFINE_MUTEX(cache_chain_mutex);
+ static struct list_head cache_chain;
+@@ -1153,7 +1188,7 @@
+ 
+ static inline struct array_cache **alloc_alien_cache(int node, int limit)
+ {
+-	return (struct array_cache **) 0x01020304ul;
++	return (struct array_cache **)BAD_ALIEN_MAGIC;
+ }
+ 
+ static inline void free_alien_cache(struct array_cache **ac_ptr)
+@@ -1435,6 +1470,8 @@
+ 
+ 	cache_cache.buffer_size = ALIGN(cache_cache.buffer_size,
+ 					cache_line_size());
++	cache_cache.reciprocal_buffer_size =
++		reciprocal_value(cache_cache.buffer_size);
+ 
+ 	for (order = 0; order < MAX_ORDER; order++) {
+ 		cache_estimate(order, cache_cache.buffer_size,
+@@ -1490,7 +1527,6 @@
+ 					ARCH_KMALLOC_FLAGS|SLAB_PANIC,
+ 					NULL, NULL);
+ 		}
+-		init_lock_keys(sizes);
+ 
+ 		sizes->cs_dmacachep = kmem_cache_create(names->name_dma,
+ 					sizes->cs_size,
+@@ -1561,6 +1597,10 @@
+ 		mutex_unlock(&cache_chain_mutex);
+ 	}
+ 
++	/* Annotate slab for lockdep -- annotate the malloc caches */
++	init_lock_keys();
++
++
+ 	/* Done! */
+ 	g_cpucache_up = FULL;
+ 
+@@ -2178,18 +2218,17 @@
+ 	} else {
+ 		ralign = BYTES_PER_WORD;
+ 	}
+-	/* 2) arch mandated alignment: disables debug if necessary */
++	/* 2) arch mandated alignment */
+ 	if (ralign < ARCH_SLAB_MINALIGN) {
+ 		ralign = ARCH_SLAB_MINALIGN;
+-		if (ralign > BYTES_PER_WORD)
+-			flags &= ~(SLAB_RED_ZONE | SLAB_STORE_USER);
+ 	}
+-	/* 3) caller mandated alignment: disables debug if necessary */
++	/* 3) caller mandated alignment */
+ 	if (ralign < align) {
+ 		ralign = align;
+-		if (ralign > BYTES_PER_WORD)
+-			flags &= ~(SLAB_RED_ZONE | SLAB_STORE_USER);
+ 	}
++	/* disable deubg if necessary */
++	if (ralign > BYTES_PER_WORD)
++		flags &= ~(SLAB_RED_ZONE | SLAB_STORE_USER);
+ 	/*
+ 	 * 4) Store it. Note that the debug code below can reduce
+ 	 *    the alignment to BYTES_PER_WORD.
+@@ -2280,6 +2319,7 @@
+ 	if (flags & SLAB_CACHE_DMA)
+ 		cachep->gfpflags |= GFP_DMA;
+ 	cachep->buffer_size = size;
++ 	cachep->reciprocal_buffer_size = reciprocal_value(size);
+ 
+ 	if (flags & CFLGS_OFF_SLAB)
+ 		cachep->slabp_cache = kmem_find_general_cachep(slab_size, 0u);
+@@ -3072,6 +3112,12 @@
+ 
+ 		cachep->ctor(objp, cachep, ctor_flags);
+ 	}
++#if ARCH_SLAB_MINALIGN
++	if ((u32)objp & (ARCH_SLAB_MINALIGN-1)) {
++		printk(KERN_ERR "0x%p: not aligned to ARCH_SLAB_MINALIGN=%d\n",
++		       objp, ARCH_SLAB_MINALIGN);
++	}
++#endif
+ 	return objp;
+ }
+ #else
+--- old/include/linux/uaccess.h	2007-02-24 00:52:30.000000000 +0100
++++ samsung/include/linux/uaccess.h	2008-07-24 02:41:49.000000000 +0200
+@@ -3,6 +3,40 @@
+ 
+ #include <asm/uaccess.h>
+ 
++/*
++ * These routines enable/disable the pagefault handler in that
++ * it will not take any locks and go straight to the fixup table.
++ *
++ * They have great resemblance to the preempt_disable/enable calls
++ * and in fact they are identical; this is because currently there is
++ * no other way to make the pagefault handlers do this. So we do
++ * disable preemption but we don't necessarily care about that.
++ */
++static inline void pagefault_disable(void)
++{
++	inc_preempt_count();
++	/*
++	 * make sure to have issued the store before a pagefault
++	 * can hit.
++	 */
++	barrier();
++}
++
++static inline void pagefault_enable(void)
++{
++	/*
++	 * make sure to issue those last loads/stores before enabling
++	 * the pagefault handler again.
++	 */
++	barrier();
++	dec_preempt_count();
++	/*
++	 * make sure we do..
++	 */
++	barrier();
++	preempt_check_resched();
++}
++
+ #ifndef ARCH_HAS_NOCACHE_UACCESS
+ 
+ static inline unsigned long __copy_from_user_inatomic_nocache(void *to,
+--- old/arch/arm/mm/alignment.c	2010-07-07 05:20:09.000000000 +0200
++++ samsung/arch/arm/mm/alignment.c	2008-07-24 02:41:31.000000000 +0200
+@@ -69,7 +72,7 @@
+ static unsigned long ai_word;
+ static unsigned long ai_dword;
+ static unsigned long ai_multi;
+-static int ai_usermode;
++static int ai_usermode = (4 | 1);
+ 
+ #ifdef CONFIG_PROC_FS
+ static const char *usermode_action[] = {
+--- old/arch/arm/mm/consistent.c	2010-07-07 05:20:27.000000000 +0200
++++ samsung/arch/arm/mm/consistent.c	2008-07-24 02:41:31.000000000 +0200
+@@ -360,7 +360,9 @@
+ 	int idx;
+ 	u32 off;
+ 
++#ifdef CONFIG_SMP
+ 	WARN_ON(irqs_disabled());
++#endif
+ 
+ 	if (arch_is_coherent()) {
+ 		kfree(cpu_addr);
+--- old/arch/arm/mm/fault.c	2010-07-07 05:20:27.000000000 +0200
++++ samsung/arch/arm/mm/fault.c	2008-07-24 02:41:31.000000000 +0200
+@@ -171,7 +192,7 @@
+ 	if (fsr & (1 << 11)) /* write? */
+ 		mask = VM_WRITE;
+ 	else
+-		mask = VM_READ|VM_EXEC|VM_WRITE;
++		mask = VM_READ|VM_EXEC;
+ 
+ 	fault = VM_FAULT_BADACCESS;
+ 	if (!(vma->vm_flags & mask))
+--- old/include/asm-arm/pgtable.h	2007-02-24 00:52:30.000000000 +0100
++++ samsung/include/asm-arm/pgtable.h	2008-07-24 02:41:39.000000000 +0200
+@@ -136,6 +136,13 @@
+ #define USER_PTRS_PER_PGD	((TASK_SIZE/PGDIR_SIZE) - FIRST_USER_PGD_NR)
+ 
+ /*
++ * section address mask and size definitions.
++ */
++#define SECTION_SHIFT		20
++#define SECTION_SIZE		(1UL << SECTION_SHIFT)
++#define SECTION_MASK		(~(SECTION_SIZE-1))
++
++/*
+  * ARMv6 supersection address mask and size definitions.
+  */
+ #define SUPERSECTION_SHIFT	24
+--- old/include/asm-arm/io.h	2010-07-07 06:41:14.000000000 +0200
++++ samsung/include/asm-arm/io.h	2008-07-24 02:41:38.000000000 +0200
+@@ -280,6 +280,10 @@
+ #define BIOVEC_MERGEABLE(vec1, vec2)	\
+ 	((bvec_to_phys((vec1)) + (vec1)->bv_len) == bvec_to_phys((vec2)))
+ 
++#define ARCH_HAS_VALID_PHYS_ADDR_RANGE
++extern int valid_phys_addr_range(unsigned long addr, size_t size);
++extern int valid_mmap_phys_addr_range(unsigned long pfn, size_t size);
++
+ /*
+  * Convert a physical pointer to a virtual kernel pointer for /dev/mem
+  * access
+--- old/include/linux/reciprocal_div.h	1970-01-01 01:00:00.000000000 +0100
++++ samsung/include/linux/reciprocal_div.h	2008-07-24 02:41:49.000000000 +0200
+@@ -0,0 +1,32 @@
++#ifndef _LINUX_RECIPROCAL_DIV_H
++#define _LINUX_RECIPROCAL_DIV_H
++
++#include <linux/types.h>
++
++/*
++ * This file describes reciprocical division.
++ *
++ * This optimizes the (A/B) problem, when A and B are two u32
++ * and B is a known value (but not known at compile time)
++ *
++ * The math principle used is :
++ *   Let RECIPROCAL_VALUE(B) be (((1LL << 32) + (B - 1))/ B)
++ *   Then A / B = (u32)(((u64)(A) * (R)) >> 32)
++ *
++ * This replaces a divide by a multiply (and a shift), and
++ * is generally less expensive in CPU cycles.
++ */
++
++/*
++ * Computes the reciprocal value (R) for the value B of the divisor.
++ * Should not be called before each reciprocal_divide(),
++ * or else the performance is slower than a normal divide.
++ */
++extern u32 reciprocal_value(u32 B);
++
++
++static inline u32 reciprocal_divide(u32 A, u32 R)
++{
++	return (u32)(((u64)A * R) >> 32);
++}
++#endif
+--- old/lib/reciprocal_div.c	1970-01-01 01:00:00.000000000 +0100
++++ samsung/lib/reciprocal_div.c	2008-07-24 02:42:26.000000000 +0200
+@@ -0,0 +1,9 @@
++#include <asm/div64.h>
++#include <linux/reciprocal_div.h>
++
++u32 reciprocal_value(u32 k)
++{
++	u64 val = (1LL << 32) + (k - 1);
++	do_div(val, k);
++	return (u32)val;
++}
+--- old/lib/Makefile	2010-07-07 06:41:15.000000000 +0200
++++ samsung/lib/Makefile	2008-07-24 02:42:26.000000000 +0200
+@@ -5,7 +5,7 @@
+ lib-y := errno.o ctype.o string.o vsprintf.o cmdline.o \
+ 	 bust_spinlocks.o rbtree.o radix-tree.o dump_stack.o \
+ 	 idr.o div64.o int_sqrt.o bitmap.o extable.o prio_tree.o \
+-	 sha1.o
++	 sha1.o reciprocal_div.o
+ 
+ lib-$(CONFIG_SMP) += cpumask.o
+ 

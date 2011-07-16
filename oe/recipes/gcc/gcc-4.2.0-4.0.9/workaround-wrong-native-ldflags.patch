@@ -1,0 +1,11 @@
+diff -ur old/gcc/Makefile.in new/gcc/Makefile.in
+--- old/gcc/Makefile.in	2010-08-08 15:27:43.000000000 +0200
++++ new/gcc/Makefile.in	2010-08-08 15:48:52.000000000 +0200
+@@ -669,7 +669,6 @@
+ BUILD_CFLAGS= @BUILD_CFLAGS@ -DGENERATOR_FILE
+ 
+ # Native linker and preprocessor flags.  For x-fragment overrides.
+-BUILD_LDFLAGS=$(LDFLAGS)
+ BUILD_CPPFLAGS=$(ALL_CPPFLAGS)
+ 
+ # Actual name to use when installing a native compiler.

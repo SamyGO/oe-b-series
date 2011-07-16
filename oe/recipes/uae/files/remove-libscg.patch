@@ -1,0 +1,12 @@
+diff -ur old/configure.in new/configure.in
+--- old/configure.in	2010-05-23 08:19:45.000000000 +0200
++++ new/configure.in	2010-05-23 08:25:08.000000000 +0200
+@@ -1184,8 +1184,6 @@
+         UAE_DEFINES="$UAE_DEFINES -DSCSIEMU"
+         NEED_THREAD_SUPPORT=yes
+         if [[ "$srcdir" != "." ]]; then
+-          AC_CONFIG_LINKS(src/libscg.a:src/libscg.a)
+-          AC_CONFIG_LINKS(src/libschily.a:src/libschily.a)
+ 	  UAE_LIBS="$LIBSCG_LIBS $UAE_LIBS"
+         else
+           UAE_LIBS="-L. $SCGLIBS $UAE_LIBS"

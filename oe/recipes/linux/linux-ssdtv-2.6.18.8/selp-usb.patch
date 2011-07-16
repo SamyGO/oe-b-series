@@ -1,0 +1,655 @@
+# This patch content was copied from Samsung kernel sources SELP.3.2.x-Chelsea.src.tgz,
+# from package released as GPL v2 http://www.samsung.com/global/opensource/files/32B650.zip
+--- old/drivers/usb/storage/usb.c	2007-02-24 00:52:30.000000000 +0100
++++ new/drivers/usb/storage/usb.c	2008-08-07 14:48:51.000000000 +0200
+@@ -104,7 +104,10 @@
+ MODULE_DESCRIPTION("USB Mass Storage driver for Linux");
+ MODULE_LICENSE("GPL");
+ 
+-static unsigned int delay_use = 5;
++//hongyabi 02-JAN-2007
++//patch
++//improvement of mount speed time
++static unsigned int delay_use = 1;
+ module_param(delay_use, uint, S_IRUGO | S_IWUSR);
+ MODULE_PARM_DESC(delay_use, "seconds to delay before using a new device");
+ 
+@@ -317,6 +320,12 @@
+ 			break;
+ 		}
+ 
++                //hongyabi patch JAN-27-2007 for inhancement disconnect speed
++                if (test_bit(US_FLIDX_CONNRESET, &us->flags)) {
++                        US_DEBUGP("-- exiting\n");
++                        mutex_unlock(&us->dev_mutex);
++                        break;
++                }
+ 		/* lock access to the state */
+ 		scsi_lock(host);
+ 
+@@ -483,12 +492,15 @@
+ }
+ 
+ /* Get the unusual_devs entries and the string descriptors */
++//hongyabi patch JAN-25-2007 for disconnect speed inhancement
+ static int get_device_info(struct us_data *us, const struct usb_device_id *id)
+ {
+ 	struct usb_device *dev = us->pusb_dev;
+ 	struct usb_interface_descriptor *idesc =
+ 		&us->pusb_intf->cur_altsetting->desc;
+ 	struct us_unusual_dev *unusual_dev = find_unusual(id);
++        //hongyabi patch JAN-25-2007
++        int retval = 0;
+ 
+ 	/* Store the entries */
+ 	us->unusual_dev = unusual_dev;
+@@ -547,6 +559,49 @@
+ 				UTS_RELEASE);
+ 	}
+ 
++        /* Read the device's string descriptors */
++        //hongyabi patch JAN-25-2007
++        if (dev->descriptor.iManufacturer)
++                retval = usb_string(dev, dev->descriptor.iManufacturer,
++                           us->vendor, sizeof(us->vendor));
++
++        //hongyabi patch JAN-25-2007 for disconnect speed inhancement
++        if(retval == -ECONNRESET)
++                goto readDesEnd;
++
++        if (dev->descriptor.iProduct)
++                retval = usb_string(dev, dev->descriptor.iProduct,
++                           us->product, sizeof(us->product));
++
++        //hongyabi patch JAN-25-2007 for disconnect speed inhancement
++        if(retval == -ECONNRESET)
++                goto readDesEnd;
++
++        if (dev->descriptor.iSerialNumber)
++                retval = usb_string(dev, dev->descriptor.iSerialNumber,
++                           us->serial, sizeof(us->serial));
++
++readDesEnd:
++        /* Use the unusual_dev strings if the device didn't provide them */
++        if (strlen(us->vendor) == 0) {
++                if (unusual_dev->vendorName)
++                        strlcpy(us->vendor, unusual_dev->vendorName,
++                                sizeof(us->vendor));
++                else
++                        strcpy(us->vendor, "Unknown");
++        }
++        if (strlen(us->product) == 0) {
++                if (unusual_dev->productName)
++                        strlcpy(us->product, unusual_dev->productName,
++                                sizeof(us->product));
++                else
++                        strcpy(us->product, "Unknown");
++        }
++        if (strlen(us->serial) == 0)
++                strcpy(us->serial, "None");
++
++        US_DEBUGP("Vendor: %s,  Product: %s\n", us->vendor, us->product);
++
+ 	return 0;
+ }
+ 
+@@ -895,6 +950,7 @@
+ static int usb_stor_scan_thread(void * __us)
+ {
+ 	struct us_data *us = (struct us_data *)__us;
++	struct Scsi_Host *host = us_to_host(us);
+ 
+ 	printk(KERN_DEBUG
+ 		"usb-storage: device found at %d\n", us->pusb_dev->devnum);
+@@ -912,7 +968,21 @@
+ 	}
+ 
+ 	/* If the device is still connected, perform the scanning */
+-	if (!test_bit(US_FLIDX_DISCONNECTING, &us->flags)) {
++	if (!test_bit(US_FLIDX_DISCONNECTING, &us->flags)) 
++	{
++		//hongyabi patch for wrong inquiry command response length case of SUNSTAR momory stick case
++		//JUN-18-2007
++		if((us->pusb_dev->descriptor.idVendor == 0x10d6) && (us->pusb_dev->descriptor.idProduct == 0x1100))
++		{
++			set_bit(US_FLIDX_IGNORE_RESPONSE_LENGTH, &host->flags);
++		}
++
++		//hongyabi patch for US_FLIDX_SCSI_MAX_32_BLOCK device
++		//20070716
++		if((us->pusb_dev->descriptor.idVendor == 0x0492) && (us->pusb_dev->descriptor.idProduct == 0x0140))
++		{
++			set_bit(US_FLIDX_SCSI_MAX_32_BLOCK, &host->flags);
++		}
+ 
+ 		/* For bulk-only devices, determine the max LUN value */
+ 		if (us->protocol == US_PR_BULK &&
+--- old/drivers/usb/storage/usb.h	2010-07-04 08:00:05.000000000 +0200
++++ new/drivers/usb/storage/usb.h	2008-08-07 14:50:28.000000000 +0200
+@@ -77,7 +77,13 @@
+ 					 (1UL << US_FLIDX_DISCONNECTING))
+ #define US_FLIDX_RESETTING	22  /* 0x00400000  device reset in progress */
+ #define US_FLIDX_TIMED_OUT	23  /* 0x00800000  SCSI midlayer timed out  */
+-
++//hongyabi patch JAN-25-2007
++#define US_FLIDX_CONNRESET      24  /* 0x01000000  connection reset in progress */
++//hongyabi patch JUN-18-2007
++#define US_FLIDX_IGNORE_RESPONSE_LENGTH 25  /* 0x02000000  Ignore INQUIRY response length */
++//hongyabi patch for US_FLIDX_SCSI_MAX_32_BLOCK device
++//20070716
++#define US_FLIDX_SCSI_MAX_32_BLOCK      26  /* 0x04000000  send scsi request maximum 32 block */
+ 
+ #define USB_STOR_STRING_LEN 32
+ 
+@@ -118,6 +124,10 @@
+ 	unsigned int		recv_intr_pipe;
+ 
+ 	/* information about the device */
++        //hongyabi
++        char                    vendor[USB_STOR_STRING_LEN];
++        char                    product[USB_STOR_STRING_LEN];
++        char                    serial[USB_STOR_STRING_LEN];
+ 	char			*transport_name;
+ 	char			*protocol_name;
+ 	__le32			bcs_signature;
+@@ -176,4 +186,12 @@
+ #define scsi_unlock(host)	spin_unlock_irq(host->host_lock)
+ #define scsi_lock(host)		spin_lock_irq(host->host_lock)
+ 
++
++/* Vendor ID list for devices that require special handling */
++#define USB_VENDOR_ID_GENESYS           0x05e3  /* Genesys Logic */
++
++//hongyabi patch 20070424 for SDCZ2 Cruzer Mini Flash Drive (older, thick)
++#define USB_VENDOR_ID_SANDISK           0x0781  /* SanDisk Corp */
++#define USB_MODEL_ID_CRUZER_MINI        0x8185  /* SDCZ2 Cruzer Mini Flash Drive (older, thick) */
++
+ #endif
+--- old/drivers/usb/core/devio.c	2010-07-04 08:00:05.000000000 +0200
++++ new/drivers/usb/core/devio.c	2008-08-12 09:30:01.000000000 +0200
+@@ -824,11 +824,27 @@
+ 
+ 	ci.devnum = ps->dev->devnum;
+ 	ci.slow = ps->dev->speed == USB_SPEED_LOW;
++	
+ 	if (copy_to_user(arg, &ci, sizeof(ci)))
+ 		return -EFAULT;
+ 	return 0;
+ }
+ 
++//hongyabi add for usb devpath
++static int proc_devpath(struct dev_state *ps, void __user *arg)
++{
++	struct usbdevfs_devpath dp;
++
++	memset(dp.devpath, 0x0, sizeof(dp.devpath));
++	//hongyabi 080507
++	strcpy(dp.devpath, ps->dev->devbusportpath);
++	
++	if (copy_to_user(arg, &dp, sizeof(dp)))
++		return -EFAULT;
++	return 0;
++}
++
++
+ static int proc_resetdevice(struct dev_state *ps)
+ {
+ 	return usb_reset_composite_device(ps->dev, NULL);
+@@ -1475,6 +1491,12 @@
+ 		ret = proc_connectinfo(ps, p);
+ 		break;
+ 
++	//hongyabi add for usb devpath
++	case USBDEVFS_DEVPATH:
++		snoop(&dev->dev, "%s: DEVPATH\n", __FUNCTION__);
++		ret = proc_devpath(ps, p);		
++		break;
++
+ 	case USBDEVFS_SETINTERFACE:
+ 		snoop(&dev->dev, "%s: SETINTERFACE\n", __FUNCTION__);
+ 		ret = proc_setintf(ps, p);
+@@ -1581,6 +1603,35 @@
+ 	.release =	usbdev_release,
+ };
+ 
++//hongtest
++static int IsStillImageClassDev(struct usb_device *dev)
++{
++	int i=0;
++	int ret = 0;
++
++	if(dev->actconfig)
++	{
++		for(i=0; i<USB_MAXINTERFACES; i++)
++		{
++			if(dev->actconfig->interface[i])
++			{
++				if(dev->actconfig->interface[i]->cur_altsetting == NULL)
++					continue;
++			
++				if(dev->actconfig->interface[i]->cur_altsetting->desc.bInterfaceClass == USB_CLASS_STILL_IMAGE)
++				{
++					ret = 1;
++					break;
++				}
++			}
++			else
++				break;
++		}
++	}
++
++	return ret;
++}
++
+ static void usbdev_add(struct usb_device *dev)
+ {
+ 	int minor = ((dev->bus->busnum-1) * 128) + (dev->devnum-1);
+@@ -1590,10 +1641,18 @@
+ 				"usbdev%d.%d", dev->bus->busnum, dev->devnum);
+ 
+ 	dev->class_dev->class_data = dev;
++
++	//hongtest
++	if(IsStillImageClassDev(dev) == 1)
++		kobject_uevent( &dev->class_dev->kobj, KOBJ_USB_SIC_ADD);
+ }
+ 
+ static void usbdev_remove(struct usb_device *dev)
+ {
++	//hongtest
++	if(IsStillImageClassDev(dev) == 1)
++		kobject_uevent( &dev->class_dev->kobj, KOBJ_USB_SIC_REMOVE);
++
+ 	class_device_unregister(dev->class_dev);
+ }
+ 
+--- old/drivers/usb/host/ehci-q.c	2007-02-24 00:52:30.000000000 +0100
++++ new/drivers/usb/host/ehci-q.c	2008-08-12 09:30:30.000000000 +0200
+@@ -184,7 +184,16 @@
+ 		} else if (QTD_CERR (token))
+ 			urb->status = -EPIPE;
+ 		else	/* unknown */
+-			urb->status = -EPROTO;
++		{
++			//hongyabi patch for STALL endpoint case
++			//20070514
++			//TP-U20W case
++			//urb->status = -EPROTO;
++			if(!(token & QTD_STS_ACTIVE))
++				urb->status = -EPIPE;
++			else
++                        urb->status = -EPROTO;
++		}
+ 
+ 		ehci_vdbg (ehci,
+ 			"dev%d ep%d%s qtd token %08x --> status %d\n",
+@@ -495,7 +504,18 @@
+ 	qtd->urb = urb;
+ 
+ 	token = QTD_STS_ACTIVE;
++	//hongyabi patch 20070511
++	//some device do not send ack packet in transfer continuously many times
++	//refer to EHCI 1.0 specification 3.5.3 qTD Token Error Counter(CERR)
++//hongtest	
++#if 0	
+ 	token |= (EHCI_TUNE_CERR << 10);
++#else
++	if (urb->dev->speed == USB_SPEED_HIGH) 
++		token |= (0 << 10);
++	else
++		token |= (EHCI_TUNE_CERR << 10);
++#endif	
+ 	/* for split transactions, SplitXState initialized to zero */
+ 
+ 	len = urb->transfer_buffer_length;
+@@ -1067,6 +1087,9 @@
+ 	struct ehci_qh		*qh;
+ 	enum ehci_timer_action	action = TIMER_IO_WATCHDOG;
+ 
++	//hongyabi 20071218 for strength usb
++	udelay(50);
++
+ 	if (!++(ehci->stamp))
+ 		ehci->stamp++;
+ 	timer_action_done (ehci, TIMER_ASYNC_SHRINK);
+--- old/drivers/usb/core/hcd.c	2010-07-04 08:00:05.000000000 +0200
++++ new/drivers/usb/core/hcd.c	2008-07-24 02:42:06.000000000 +0200
+@@ -344,7 +344,8 @@
+ 	struct usb_ctrlrequest *cmd;
+  	u16		typeReq, wValue, wIndex, wLength;
+ 	u8		*ubuf = urb->transfer_buffer;
+-	u8		tbuf [sizeof (struct usb_hub_descriptor)];
++	u8		tbuf [sizeof (struct usb_hub_descriptor)]
++		__attribute__((aligned(4)));
+ 	const u8	*bufp = tbuf;
+ 	int		len = 0;
+ 	int		patch_wakeup = 0;
+--- old/drivers/usb/input/hid-core.c	2007-02-24 00:52:30.000000000 +0100
++++ new/drivers/usb/input/hid-core.c	2008-07-24 02:42:06.000000000 +0200
+@@ -1818,7 +1818,7 @@
+ 	int n, len, insize = 0;
+ 
+         /* Ignore all Wacom devices */
+-        if (dev->descriptor.idVendor == USB_VENDOR_ID_WACOM)
++        if (le16_to_cpu(dev->descriptor.idVendor) == USB_VENDOR_ID_WACOM)
+                 return NULL;
+ 
+ 	for (n = 0; hid_blacklist[n].idVendor; n++)
+--- old/drivers/usb/core/hub.c	2007-02-24 00:52:30.000000000 +0100
++++ new/drivers/usb/core/hub.c	2008-08-12 09:30:11.000000000 +0200
+@@ -777,8 +777,13 @@
+ 		goto fail;
+ 	}
+ 
+-	usb_fill_int_urb(hub->urb, hdev, pipe, *hub->buffer, maxp, hub_irq,
+-		hub, endpoint->bInterval);
++	//hongyabi 02-JAN-2007
++        //patch
++        //improvement of mount speed time
++        if(hdev->parent == NULL)
++                usb_fill_int_urb(hub->urb, hdev, pipe, *hub->buffer, maxp, hub_irq, hub, 9);    //256msec interval
++        else
++	usb_fill_int_urb(hub->urb, hdev, pipe, *hub->buffer, maxp, hub_irq, hub, endpoint->bInterval);	
+ 	hub->urb->transfer_dma = hub->buffer_dma;
+ 	hub->urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
+ 
+@@ -1148,9 +1153,16 @@
+ 	 * cleaning up all state associated with the current configuration
+ 	 * so that the hardware is now fully quiesced.
+ 	 */
++//hongtest
++#if 0
+ 	usb_disable_device(udev, 0);
+ 
+ 	usb_notify_remove_device(udev);
++#else
++	usb_notify_remove_device(udev);
++
++	usb_disable_device(udev, 0);
++#endif
+ 
+ 	/* Free the device number, remove the /proc/bus/usb entry and
+ 	 * the sysfs attributes, and delete the parent's children[]
+@@ -2324,7 +2336,9 @@
+ 					USB_REQ_GET_DESCRIPTOR, USB_DIR_IN,
+ 					USB_DT_DEVICE << 8, 0,
+ 					buf, GET_DESCRIPTOR_BUFSIZE,
+-					(i ? USB_CTRL_GET_TIMEOUT : 1000));
++					//hongyabi patch APR-04-2007
++                                        //(i ? USB_CTRL_GET_TIMEOUT : 1000));
++                                        (USB_CTRL_GET_TIMEOUT));
+ 				switch (buf->bMaxPacketSize0) {
+ 				case 8: case 16: case 32: case 64:
+ 					if (buf->bDescriptorType ==
+@@ -2340,14 +2354,31 @@
+ 				}
+ 				if (r == 0)
+ 					break;
++
++                                //hongyabi patch JAN-24-2007
++                                if(r == -ECONNRESET)
++                                {
++                                        retval = -ECONNRESET;
++                                        goto fail;
++                                }
+ 			}
+ 			udev->descriptor.bMaxPacketSize0 =
+ 					buf->bMaxPacketSize0;
+ 			kfree(buf);
+ 
++                        //hongyabi 20070416 patch for special card reader
++			// 1) °­¿øÀüÀÚ UHC381 hub + card reader			
++                        if((hdev->descriptor.idVendor == 0x0409) && (hdev->descriptor.idProduct == 0x005a))
++                        {
++                                dev_dbg(&udev->dev, "device reset again is not needed\n");
++                        }
++                        else
++                        {
+ 			retval = hub_port_reset(hub, port1, udev, delay);
+ 			if (retval < 0)		/* error or disconnect */
+ 				goto fail;
++			}
++
+ 			if (oldspeed != udev->speed) {
+ 				dev_dbg(&udev->dev,
+ 					"device reset changed speed!\n");
+@@ -2677,7 +2708,10 @@
+ 		ep0_reinit(udev);
+ 		release_address(udev);
+ 		usb_put_dev(udev);
+-		if (status == -ENOTCONN)
++		//hongyabi patch JAN-24-2007
++                if (status == -ENOTCONN)
++		//hongyabi patch for A1 & Bayhill 080429
++                //if ((status == -ENOTCONN) || (status == -ECONNRESET))
+ 			break;
+ 	}
+  
+--- old/lib/kobject_uevent.c	2007-02-24 00:52:30.000000000 +0100
++++ new/lib/kobject_uevent.c	2008-08-11 09:20:16.000000000 +0200
+@@ -50,6 +50,11 @@
+ 		return "offline";
+ 	case KOBJ_ONLINE:
+ 		return "online";
++	//hongyabi
++	case KOBJ_USB_SIC_ADD:	//still image class
++		return "still_image_add";
++	case KOBJ_USB_SIC_REMOVE:
++		return "still_image_remove";				
+ 	default:
+ 		return NULL;
+ 	}
+--- old/drivers/usb/core/message.c	2010-07-04 08:00:05.000000000 +0200
++++ new/drivers/usb/core/message.c	2008-08-12 09:30:16.000000000 +0200
+@@ -67,8 +67,11 @@
+ 				);
+ 			if (urb->actual_length > 0)
+ 				status = 0;
++                        //hongyabi patch JAN-24-2007
++#if 0
+ 			else
+ 				status = -ETIMEDOUT;
++#endif
+ 		}
+ 		if (timeout > 0)
+ 			del_timer_sync(&timer);
+@@ -674,6 +677,11 @@
+ 			USB_REQ_GET_DESCRIPTOR, USB_DIR_IN,
+ 			(USB_DT_STRING << 8) + index, langid, buf, size,
+ 			USB_CTRL_GET_TIMEOUT);
++
++                //hongyabi patch JAN-25-2007
++                if(result == -ECONNRESET)
++                        break;
++
+ 		if (!(result == 0 || result == -EPIPE))
+ 			break;
+ 	}
+@@ -702,6 +710,9 @@
+ 	/* Try to read the string descriptor by asking for the maximum
+ 	 * possible number of bytes */
+ 	rc = usb_get_string(dev, langid, index, buf, 255);
++        //hongyabi patch JAN-25-2007
++        if(rc == -ECONNRESET)
++                return rc;
+ 
+ 	/* If that failed try to read the descriptor length, then
+ 	 * ask for just that many bytes */
+--- old/drivers/usb/storage/transport.c	2007-02-24 00:52:30.000000000 +0100
++++ new/drivers/usb/storage/transport.c	2008-08-07 14:41:21.000000000 +0200
+@@ -400,6 +400,12 @@
+ 
+ 	US_DEBUGP("%s: xfer %u bytes\n", __FUNCTION__, length);
+ 
++        //hongyabi patch 20070424 for SDCZ2 Cruzer Mini Flash Drive (older, thick)
++        //need a 100us delay between the Command block
++        if ((us->pusb_dev->descriptor.idVendor == USB_VENDOR_ID_SANDISK)
++                && (us->pusb_dev->descriptor.idProduct == USB_MODEL_ID_CRUZER_MINI))
++                udelay(100);
++
+ 	/* fill and submit the URB */
+ 	usb_fill_bulk_urb(us->current_urb, us->pusb_dev, pipe, buf, length,
+ 		      usb_stor_blocking_completion, NULL);
+@@ -1136,11 +1142,19 @@
+ 		return -EIO;
+ 	}
+ 
++        //hongyabi patch JAN-25-2007
++        if (test_bit(US_FLIDX_CONNRESET, &us->flags)) {
++                return -EIO;
++        }
++
+ 	result = usb_stor_control_msg(us, us->send_ctrl_pipe,
+ 			request, requesttype, value, index, data, size,
+ 			5*HZ);
+ 	if (result < 0) {
+ 		US_DEBUGP("Soft reset failed: %d\n", result);
++                //hongyabi patch JAN-25-2007
++                if(result == -ECONNRESET)
++                        set_bit(US_FLIDX_CONNRESET, &us->flags);
+ 		return result;
+ 	}
+ 
+--- old/drivers/usb/storage/transport.h	2007-02-24 00:52:30.000000000 +0100
++++ new/drivers/usb/storage/transport.h	2008-08-07 14:41:58.000000000 +0200
+@@ -91,6 +91,8 @@
+ #define USB_STOR_XFER_STALLED	2	/* endpoint stalled              */
+ #define USB_STOR_XFER_LONG	3	/* device tried to send too much */
+ #define USB_STOR_XFER_ERROR	4	/* transfer died in the middle   */
++//hongyabi patch JAN-25-2007
++#define USB_STOR_XFER_CONNRESET 5       /* connection reset */
+ 
+ /*
+  * Transport return codes
+@@ -100,6 +102,8 @@
+ #define USB_STOR_TRANSPORT_FAILED  1   /* Transport good, command failed   */
+ #define USB_STOR_TRANSPORT_NO_SENSE 2  /* Command failed, no auto-sense    */
+ #define USB_STOR_TRANSPORT_ERROR   3   /* Transport bad (i.e. device dead) */
++//hongyabi patch JAN-25-2007
++#define USB_STOR_TRANSPORT_CONNRESET   4   /* Transport bad (i.e. device disconnect) */
+ 
+ /*
+  * We used to have USB_STOR_XFER_ABORTED and USB_STOR_TRANSPORT_ABORTED
+--- old/drivers/usb/core/usb.c	2007-02-24 00:52:30.000000000 +0100
++++ new/drivers/usb/core/usb.c	2008-08-12 09:30:20.000000000 +0200
+@@ -385,6 +385,8 @@
+ usb_alloc_dev(struct usb_device *parent, struct usb_bus *bus, unsigned port1)
+ {
+ 	struct usb_device *dev;
++	//hongyabi 080507
++	char	tempdevpath [16];
+ 
+ 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+ 	if (!dev)
+@@ -426,12 +428,34 @@
+ 	} else {
+ 		/* match any labeling on the hubs; it's one-based */
+ 		if (parent->devpath [0] == '0')
++		{
+ 			snprintf (dev->devpath, sizeof dev->devpath,
+ 				"%d", port1);
++
++			//hongyabi 080507
++			memset(dev->devbusportpath, 0x0, sizeof(dev->devbusportpath));
++			snprintf (dev->devbusportpath, sizeof dev->devbusportpath, "%d", bus->busnum);
++		}
+ 		else
++		{
+ 			snprintf (dev->devpath, sizeof dev->devpath,
+ 				"%s.%d", parent->devpath, port1);
+ 
++			//hongyabi 080507
++			memset(dev->devbusportpath, 0x0, sizeof(dev->devbusportpath));
++			memset(tempdevpath, 0x0, sizeof(tempdevpath));
++			
++			strcpy(tempdevpath, &parent->devpath[2]);
++			if(!strcmp(tempdevpath, ""))
++			{
++				snprintf (dev->devbusportpath, sizeof dev->devbusportpath, "%d.%d", bus->busnum, port1);
++			}
++			else
++			{
++				snprintf (dev->devbusportpath, sizeof dev->devbusportpath, "%d.%s.%d", bus->busnum, tempdevpath, port1);
++			}
++		}
++
+ 		dev->dev.parent = &parent->dev;
+ 		sprintf (&dev->dev.bus_id[0], "%d-%s",
+ 			bus->busnum, dev->devpath);
+--- old/include/linux/usb.h	2007-02-24 00:52:30.000000000 +0100
++++ new/include/linux/usb.h	2008-08-08 09:09:39.000000000 +0200
+@@ -324,6 +324,8 @@
+ struct usb_device {
+ 	int		devnum;		/* Address on USB bus */
+ 	char		devpath [16];	/* Use in messages: /port/port/... */
++	//hongyabi 080507
++	char		devbusportpath [16];		/* Use in messages: /bus/port/... */
+ 	enum usb_device_state	state;	/* configured, not attached, etc */
+ 	enum usb_device_speed	speed;	/* high/full/low (or error) */
+ 
+--- old/include/linux/usbdevice_fs.h	2007-02-24 00:52:30.000000000 +0100
++++ new/include/linux/usbdevice_fs.h	2008-08-07 14:55:40.000000000 +0200
+@@ -78,6 +78,11 @@
+ 	unsigned char slow;
+ };
+ 
++//hongyabi add for usb devpath
++struct usbdevfs_devpath {
++	char		devpath[16];	
++};
++
+ #define USBDEVFS_URB_SHORT_NOT_OK          1
+ #define USBDEVFS_URB_ISO_ASAP              2
+ 
+@@ -174,4 +179,5 @@
+ #define USBDEVFS_CLEAR_HALT        _IOR('U', 21, unsigned int)
+ #define USBDEVFS_DISCONNECT        _IO('U', 22)
+ #define USBDEVFS_CONNECT           _IO('U', 23)
++#define USBDEVFS_DEVPATH       _IOW('U', 30, struct usbdevfs_devpath)
+ #endif /* _LINUX_USBDEVICE_FS_H */
+--- old/include/linux/kobject.h	2007-02-24 00:52:30.000000000 +0100
++++ new/include/linux/kobject.h	2008-08-08 09:09:25.000000000 +0200
+@@ -46,6 +46,9 @@
+ 	KOBJ_UMOUNT	= (__force kobject_action_t) 0x05,	/* umount event for block devices (broken) */
+ 	KOBJ_OFFLINE	= (__force kobject_action_t) 0x06,	/* device offline */
+ 	KOBJ_ONLINE	= (__force kobject_action_t) 0x07,	/* device online */
++	//hongtest
++	KOBJ_USB_SIC_ADD	= (__force kobject_action_t) 0x08,	/* still image class usb device added*/
++	KOBJ_USB_SIC_REMOVE	= (__force kobject_action_t) 0x09,	/* still image class usb device removed */	
+ };
+ 
+ struct kobject {
+--- old/drivers/usb/storage/unusual_devs.h	2007-02-24 00:52:30.000000000 +0100
++++ samsung/drivers/usb/storage/unusual_devs.h	2008-08-07 14:44:00.000000000 +0200
+@@ -301,7 +301,7 @@
+ 		"FinePix 1400Zoom",
+ 		US_SC_UFI, US_PR_DEVICE, NULL, US_FL_FIX_INQUIRY | US_FL_SINGLE_LUN),
+ 
+-/* Reported by Peter Wächtler <pwaechtler@loewe-komp.de>
++/* Reported by Peter Waechtler <pwaechtler@loewe-komp.de>
+  * The device needs the flags only.
+  */
+ UNUSUAL_DEV(  0x04ce, 0x0002, 0x0074, 0x0074,
+@@ -498,6 +498,13 @@
+ 		US_SC_SCSI, US_PR_DEVICE, NULL,
+ 		US_FL_SINGLE_LUN | US_FL_NOT_LOCKABLE | US_FL_NO_WP_DETECT ),
+ 
++/* Added by Kokachev Oleksiy (o.kokachev@samsung.com) to support Sony DSC-T9 */
++UNUSUAL_DEV(  0x054c, 0x0010, 0x05FF, 0x0601,
++                "Sony",
++                "DSC-T9",
++                US_SC_8070, US_PR_CB, NULL,
++                US_FL_SINGLE_LUN),
++
+ /* Submitted by Lars Jacob <jacob.lars@googlemail.com>
+  * This entry is needed because the device reports Sub=ff */
+ UNUSUAL_DEV(  0x054c, 0x0010, 0x0500, 0x0610,
+@@ -1302,7 +1309,7 @@
+ 		US_FL_GO_SLOW ),
+ 
+ /*
+- * David Härdeman <david@2gen.com>
++ * David Haerdeman <david@2gen.com>
+  * The key makes the SCSI stack print confusing (but harmless) messages
+  */
+ UNUSUAL_DEV(  0x4146, 0xba01, 0x0100, 0x0100,

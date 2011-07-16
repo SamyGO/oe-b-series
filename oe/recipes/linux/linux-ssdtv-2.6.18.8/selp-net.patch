@@ -1,0 +1,60 @@
+# This patch content was copied from Samsung kernel sources SELP.3.2.x-Chelsea.src.tgz,
+# from package released as GPL v2 http://www.samsung.com/global/opensource/files/32B650.zip
+--- org/drivers/net/phy/fixed.c	2007-02-24 00:52:30.000000000 +0100
++++ samsung/drivers/net/phy/fixed.c	2008-07-24 02:42:07.000000000 +0200
+@@ -255,7 +255,7 @@
+ 		goto device_create_fail;
+ 	}
+ 
+-	phydev->irq = -1;
++	phydev->irq = PHY_IGNORE_INTERRUPT;
+ 	phydev->dev.bus = &mdio_bus_type;
+ 
+ 	if(number)
+@@ -342,7 +342,7 @@
+ 	fixed_mdio_register_device(0, 100, 1);
+ #endif
+ 
+-#ifdef CONFIX_FIXED_MII_10_FDX
++#ifdef CONFIG_FIXED_MII_10_FDX
+ 	fixed_mdio_register_device(0, 10, 1);
+ #endif
+ 	return 0;
+--- org/net/ipv4/ipconfig.c	2007-02-24 00:52:30.000000000 +0100
++++ samsung/net/ipv4/ipconfig.c	2008-07-24 02:42:20.000000000 +0200
+@@ -113,7 +113,7 @@
+  */
+ int ic_set_manually __initdata = 0;		/* IPconfig parameters set manually */
+ 
+-static int ic_enable __initdata = 0;		/* IP config enabled? */
++static int ic_enable __initdata = 1;		/* IP config enabled? */
+ 
+ /* Protocol choice */
+ int ic_proto_enabled __initdata = 0
+--- org/net/sched/sch_generic.c	2010-07-07 05:20:28.000000000 +0200
++++ samsung/net/sched/sch_generic.c	2008-07-24 02:42:21.000000000 +0200
+@@ -142,7 +142,7 @@
+ 				int ret;
+ 
+ 				WARN_ON_RT(irqs_disabled());
+-				ret = dev->hard_start_xmit(skb, dev);
++				ret = dev_hard_start_xmit(skb, dev);
+ #ifdef CONFIG_PREEMPT_RT
+ 				if (irqs_disabled()) {
+ 					if (printk_ratelimit())
+--- org/net/ipv4/tcp_input.c	2007-02-24 00:52:30.000000000 +0100
++++ samsung/net/ipv4/tcp_input.c	2008-07-24 02:42:20.000000000 +0200
+@@ -4408,9 +4408,11 @@
+ 			 * But, this leaves one open to an easy denial of
+ 		 	 * service attack, and SYN cookies can't defend
+ 			 * against this problem. So, we drop the data
+-			 * in the interest of security over speed.
++			 * in the interest of security over speed unless
++			 * it's still in use.
+ 			 */
+-			goto discard;
++			kfree_skb(skb);
++			return 0;
+ 		}
+ 		goto discard;
+ 

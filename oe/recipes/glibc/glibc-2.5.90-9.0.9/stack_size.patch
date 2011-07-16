@@ -1,0 +1,28 @@
+# default 2MB stack size change copied from Samsung toolchain SELP.3.2.x-Chelsea.src.tgz,
+# from package released as GPL v2 http://www.samsung.com/global/opensource/files/32B650.zip
+diff -u old/nptl/allocatestack.c new/allocatestack.c
+--- old/nptl/allocatestack.c	2010-06-03 15:59:53.000000000 +0200
++++ new/nptl/allocatestack.c	2010-06-18 14:15:09.000000000 +0200
+@@ -316,6 +316,10 @@
+      use the default we determined at start time.  */
+   size = attr->stacksize ?: __default_stacksize;
+ 
++  // default 2MB stack
++  if (attr->stacksize == 8388608 || (!(attr->stacksize)))
++    size = 2097152;
++
+   /* Get memory for the stack.  */
+   if (__builtin_expect (attr->flags & ATTR_FLAG_STACKADDR, 0))
+     {
+diff -u old/nptl/pthread_create.c new/pthread_create.c
+--- old/nptl/pthread_create.c	2010-06-03 15:59:53.000000000 +0200
++++ new/nptl/pthread_create.c	2010-06-18 14:17:22.000000000 +0200
+@@ -577,7 +577,7 @@
+ 	 implementation.  */
+       new_attr.guardsize = ps;
+       new_attr.stackaddr = NULL;
+-      new_attr.stacksize = 0;
++      new_attr.stacksize = 2097152; // 2MB
+       new_attr.cpuset = NULL;
+ 
+       /* We will pass this value on to the real implementation.  */

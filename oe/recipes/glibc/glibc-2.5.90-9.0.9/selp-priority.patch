@@ -1,0 +1,69 @@
+# set priority chnages copied from Samsung toolchain SELP.3.2.x-Chelsea.src.tgz,
+# from package released as GPL v2 http://www.samsung.com/global/opensource/files/32B650.zip
+diff -ur old/nptl/init.c new/nptl/init.c
+--- old/nptl/init.c	2010-06-03 15:59:53.000000000 +0200
++++ new/nptl/init.c	2010-07-04 11:54:01.000000000 +0200
+@@ -367,6 +367,10 @@
+   limit.rlim_cur = (limit.rlim_cur + pagesz - 1) & -pagesz;
+   __default_stacksize = limit.rlim_cur;
+ 
++  if (setpriority(PRIO_PROCESS, pd->tid, 5)) {
++    perror ("setpriority() is ERROR. System failed 0 priority by default each thread using setpriority()\n");
++    return -1;
++  }
+ #ifdef SHARED
+   /* Transfer the old value from the dynamic linker's internal location.  */
+   *__libc_dl_error_tsd () = *(*GL(dl_error_catch_tsd)) ();
+diff -ur old/nptl/pthread_setschedparam.c new/nptl/pthread_setschedparam.c
+--- old/nptl/pthread_setschedparam.c	2010-06-03 15:59:53.000000000 +0200
++++ new/nptl/pthread_setschedparam.c	2010-07-04 17:36:04.000000000 +0200
+@@ -20,6 +20,9 @@
+ #include <errno.h>
+ #include <sched.h>
+ #include <string.h>
++#include <stdio.h>
++#include <sys/time.h>
++#include <sys/resource.h>
+ #include "pthreadP.h"
+ #include <lowlevellock.h>
+ 
+@@ -30,15 +33,30 @@
+      int policy;
+      const struct sched_param *param;
+ {
++  int result = 0;
++
+   struct pthread *pd = (struct pthread *) threadid;
+ 
++  if (policy == SCHED_OTHER) {
++    int which = PRIO_PROCESS;
++    if (param->sched_priority < -20 && param->sched_priority > 19 ) {
++      printf ("ERROR! Range of priority that you can input is between -20 and 19 \r\n");
++      return errno;
++    }
++    if (setpriority(which, pd->tid, param->sched_priority) ){
++      printf ("setpriority() is ERROR. It seems that System not support setpriority()\n");
++      result = errno;
++    }
++    return result;
++  }
++
++  if (policy == SCHED_FIFO || policy == SCHED_RR) {
++  int result = 0;
+   /* Make sure the descriptor is valid.  */
+   if (INVALID_TD_P (pd))
+     /* Not a valid thread handle.  */
+     return ESRCH;
+ 
+-  int result = 0;
+-
+   /* We have to handle cancellation in the following code since we are
+      locking another threads desriptor.  */
+   pthread_cleanup_push ((void (*) (void *)) lll_unlock_wake_cb, &pd->lock);
+@@ -76,5 +94,6 @@
+   pthread_cleanup_pop (0);
+ 
+   return result;
++  }
+ }
+ strong_alias (__pthread_setschedparam, pthread_setschedparam)

@@ -1,0 +1,631 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<chapter id="chapter_common_use_cases">
+  <title>Common Use-cases/tasks</title>
+
+  <section id="commonuse_new_distro">
+    <title>Creating a new Distribution</title>
+
+    <para>Creating a new distribution is not complicated, however we urge you
+    to try existing distributions first, because it's also very easy to do
+    wrong. The config needs to be created in $OEBASE/openembedded/conf/distro 
+    directory. So what has to be inside? 
+      <itemizedlist>
+        <listitem>
+          <para><command>DISTRO_VERSION</command> so users will know which
+          version of the distribution they are using.</para>
+        </listitem>
+
+        <listitem>
+          <para><command>DISTRO_TYPE</command> (release/debug) variable is
+          used in some recipes to enable/disable some features - for example
+          kernel output on screen for "debug" builds.</para>
+        </listitem>
+
+        <listitem>
+          <para>Type of libc used: will it be glibc
+          (<command>TARGET_OS</command> = "linux") or uclibc
+          (<command>TARGET_OS</command> = "linux-uclibc")?</para>
+        </listitem>
+
+        <listitem>
+          <para>Toolchain versions - for example gcc 3.4.4 based distro will
+          have: <screen>
+PREFERRED_PROVIDERS += " virtual/${TARGET_PREFIX}gcc-initial:gcc-cross-initial"
+PREFERRED_PROVIDERS += " virtual/${TARGET_PREFIX}gcc:gcc-cross"
+PREFERRED_PROVIDERS += " virtual/${TARGET_PREFIX}g++:gcc-cross"
+
+PREFERRED_VERSION_binutils = "2.16"
+PREFERRED_VERSION_binutils-cross = "2.16"
+
+PREFERRED_VERSION_gcc = "3.4.4"
+PREFERRED_VERSION_gcc-cross = "3.4.4"
+PREFERRED_VERSION_gcc-initial-cross = "3.4.4"
+            </screen></para>
+        </listitem>
+
+        <listitem>
+          <para><command>DISTRO_FEATURES</command> which describe which
+          features distro has. More about it in <link
+          linkend="task-base">task-base</link> section.</para>
+        </listitem>
+
+        <listitem>
+          <para>Versions of kernels used for supported devices: <screen>
+PREFERRED_VERSION_linux-omap1_omap5912osk ?= "2.6.18+git"
+PREFERRED_VERSION_linux-openzaurus ?= "2.6.17"
+            </screen></para>
+        </listitem>
+
+        <listitem>
+          <para>To get more stable build it is good to make use of
+          sane-srcdates.inc file which contain working SRCDATE for many of
+          floating recipes. <screen>
+require conf/distro/include/sane-srcdates.inc
+            </screen> It also should have global <command>SRCDATE</command>
+          value set (format is ISO date: YYYYMMDD): <screen>
+SRCDATE = "20061014"
+            </screen></para>
+        </listitem>
+      </itemizedlist></para>
+  </section>
+
+  <section id="commonuse_new_machine">
+    <title>Adding a new Machine</title>
+
+    <para>To be able to build for a device OpenEmbedded has to know about it, 
+    so a machine config file needs to be written. All of the machine 
+    configs are stored in $OEBASE/openembedded/conf/machine/ directory.</para>
+
+    <para>As usual some variables are required: <itemizedlist>
+        <listitem>
+          <para><command>TARGET_ARCH</command> describes which CPU
+          architecture the machine uses.</para>
+        </listitem>
+
+        <listitem>
+          <para><command>MACHINE_FEATURES</command> which describes which
+          features the device has. More about it in <link
+          linkend="task-base">task-base</link> section.</para>
+        </listitem>
+
+        <listitem>
+          <para><command>PREFERRED_PROVIDER_virtual/kernel</command> has to
+          point to the proper kernel recipe for this machine.</para>
+        </listitem>
+      </itemizedlist></para>
+
+    <para>Next the kernel recipe needs to be added if it doesn't already exist.
+    </para>
+  </section>
+
+  <section id="commonuse_new_package">
+    <title>Adding a new Package</title>
+
+    <para>This section is a stub, help us by expanding it.  Learn by example, go through the
+    recipes that are already there and mimic them to do what you want.</para>
+
+    <section>
+        <title>building from unstable source code</title>
+        <para>Building against the latest, bleeding-edge source has some intricacies of its own.
+        For one, it is desirable to pin down a code revision that is known to build to
+        prevent random breakage in OE at the most inopportune time for all OE users.  Here is
+        how to do that properly.
+          <itemizedlist>
+            <listitem><para>for svn: add 'PV = "1.1+svnr${SRCREV}"' to your bb file.</para></listitem>
+            <listitem><para>for cvs: add 'PV = "1.1+cvs${SRCREV}"' to your bb file.</para></listitem>
+          </itemizedlist>
+        Accompany either with an entry to conf/distro/include/sane-srcrevs.inc for a revision that you know
+        builds successfully.  It is also common to define the stable SRCREV 
+        for your package directly in the package recipe.
+        </para>
+        <para>
+        If you really absolutely have to follow the latest commits, you can do that by adding
+        'SRCREV_pn-linux-davinci ?= ${AUTOREV}' to your local.conf, for example.  In this case,
+        you'd build against the most recent and unstable source for the pn-linux-davinci package.
+        </para>
+    </section>
+  </section>
+
+  <section id="commonuse_new_image">
+    <title>Creating your own image</title>
+
+    <para>Creating own image is easy - only few variables need to be set:
+    <itemizedlist>
+        <listitem>
+          <para><command>IMAGE_BASENAME</command> to give a name for your own
+          image</para>
+        </listitem>
+
+        <listitem>
+          <para><command>PACKAGE_INSTALL</command> to give a list of packages
+          to install into the image</para>
+        </listitem>
+
+        <listitem>
+          <para><command>RDEPENDS</command> to give a list of recipes which
+          are needed to be built to create this image</para>
+        </listitem>
+
+        <listitem>
+          <para><command>IMAGE_LINGUAS</command> is an optional list of
+          languages which has to be installed into the image</para>
+        </listitem>
+      </itemizedlist> Then add the <emphasis>image</emphasis> class using:
+    <screen>
+inherit image
+</screen> And the image recipe is ready for usage.</para>
+  </section>
+
+  <section id="commonuse_prebuilt_toolchain">
+    <title>Using a prebuilt toolchain to create your packages</title>
+
+    <para>It might be necessary to integrate a prebuilt toolchain and other
+    libraries but still be use OpenEmbedded to build packages. One of many
+    approaches is shown and discussed here.</para>
+
+    <section>
+      <title>The toolchain</title>
+
+      <para>We assume the toolchain provides a C and C++ compiler, an
+      assembler and other tools to build packages. The list below shows a gcc
+      3.4.4 toolchain for ARM architectures using glibc. We assume that the
+      toolchain is in your <command>PATH</command>.</para>
+
+      <screen>
+$ <command>ls</command> pre-built/cross/bin
+
+arm-linux-g++
+arm-linux-ld
+arm-linux-ranlib
+arm-linux-ar
+arm-linux-g77
+arm-linux-readelf
+arm-linux-as
+arm-linux-gcc
+arm-linux-gcc-3.4.4
+arm-linux-c++
+arm-linux-size
+arm-linux-c++filt
+arm-linux-nm
+arm-linux-strings
+arm-linux-cpp
+arm-linux-objcopy
+arm-linux-strip
+arm-linux-objdump
+</screen>
+    </section>
+
+    <section>
+      <title>The prebuilt libraries</title>
+
+      <para>We need the header files and the libraries itself. The following
+      directory layout is assumed. <command>PRE_BUILT</command> has two
+      subdirectories one is called <emphasis>include</emphasis> and holds the
+      header files and the other directory is called <emphasis>lib</emphasis>
+      and holds the shared and static libraries. Additionally a Qt2 directory
+      is present having a <emphasis>include</emphasis> and
+      <emphasis>lib</emphasis> sub-directory.</para>
+
+      <screen>
+$ <command>ls</command> $PRE_BUILT
+include
+lib
+qt2
+</screen>
+    </section>
+
+    <section>
+      <title>Setting up OpenEmbedded</title>
+
+      <para>OpenEmbedded will be setup here. We assume that your machine and
+      distribution is not part of OpenEmbedded and they will be created ad-hoc
+      in the <emphasis>local.conf</emphasis> file. You will need to have
+      <application>BitBake</application> and a current OpenEmbedded version
+      available.</para>
+
+      <section>
+        <title>Sourceable script</title>
+
+        <para>To ease the usage of OpenEmbedded we start by creating a
+        source-able script. This is actually a small variation from the
+        already seen script. We will name it <emphasis>build_source</emphasis>
+        and you will need to source it.</para>
+
+        <screen>
+BITBAKE_PATH=/where/is/bitbake/bin
+TOOLCHAIN=/where/is/toolchain/bin
+HOST_TOOLS=/where/is/hosttools/bin
+export PRE_BUILT=/where/is/pre-built
+
+export PATH=$BITBAKE_PATH:$TOOLCHAIN:$HOST_TOOLS:$PATH
+export OEDIR=$PWD
+export LOCALDIR=$PWD/secret-isv
+                    </screen>
+
+        <para>Use <command>source build_source</command> to source the script,
+        use <command>env</command> to check that the variables were
+        exported.</para>
+      </section>
+
+      <section>
+        <title>Creating the local.conf</title>
+
+        <para>We will configure OpenEmbedded now, it is very similar to what
+        we have done above.</para>
+
+        <screen>
+DL_DIR = "${OEDIR}/sources"
+BBFILES := "${OEDIR}/openembedded/recipes/*/*.bb ${LOCALDIR}/recipes/*/*.bb"
+BBFILE_COLLECTIONS = "upstream local"
+BBFILE_PATTERN_upstream = "^${OEDIR}/openembedded/recipes/"
+BBFILE_PATTERN_local = "^${LOCALDIR}/recipes/"
+BBFILE_PRIORITY_upstream = "5"
+BBFILE_PRIORITY_local = "10"
+BBMASK = ""
+                    </screen>
+
+        <para>${OEDIR}/openembedded will be a upstream release of
+        OpenEmbedded. Above we have assumed it is in the current working
+        directory. Additionally we have a ${LOCALDIR}, we combine these two
+        directories as a special <link linkend="collections">BitBake
+        Collection</link>.</para>
+
+        <screen>
+#
+# machine stuff
+#
+MACHINE = "secret-killer"
+PACKAGE_EXTRA_ARCHS = "armv4 armv4t armv5te iwmmxt xscale""
+TARGET_CC_ARCH = "-mcpu=xscale -mtune=iwmmxt"
+TARGET_ARCH = "arm"
+PACKAGE_ARCH="xscale"
+                </screen>
+
+        <para>We tell OpenEmbedded that we build for the ARM platform and
+        optimize for xscale and iwmmxt.</para>
+
+        <screen>
+INHERIT += " package_ipk debian"
+TARGET_OS  = "linux"
+TARGET_FPU = "soft"
+DISTRO = "secret-disro"
+DISTRO_NAME = "secret-distro"
+DISTRO_VERSION = "x.y.z"
+DISTRO_TYPE = "release"
+                </screen>
+
+        <para>Create a distribution ad-hoc as well. We tell OpenEmbedded that
+        we build for linux and glibc using soft float as fpu. If your
+        toolchain is a uclibc toolchain you will need to set
+        <command>TARGET_OS</command> to linux-uclibc.</para>
+
+        <screen>
+export CC="${CCACHE}arm-linux-gcc-3.4.4 ${HOST_CC_ARCH}"
+export CXX="${CCACHE}arm-linux-g++ ${HOST_CC_ARCH}"
+export CPP="arm-linux-gcc-3.4.4 -E"
+export LD="arm-linux-ld"
+export AR="arm-linux-ar"
+export AS="arm-linux-as"
+export RANLIB="arm-linux-ranlib"
+export STRIP="arm-linux-strip"
+                </screen>
+
+        <para>The above variables replace the ones from
+        <emphasis>bitbake.conf</emphasis>. This will make OpenEmbedded use the
+        prebuilt toolchain.</para>
+
+        <screen>
+#
+# point OE to the lib and include directory
+#
+TARGET_CPPFLAGS_append = " -I${PRE_BUILT}/include "
+TARGET_LDFLAGS_prepend = " -L${PRE_BUILT}/qt2/lib -L${PRE_BUILT}/lib \
+-Wl,-rpath-link,${PRE_BUILT}/lib -Wl,-rpath-link,${PRE_BUILT}/qt2/lib "
+
+# special to Qt/Qtopia
+QTDIR  = "${PRE_BUILT}/qt2"
+QPEDIR = "${PRE_BUILT}"
+palmtopdir = "/opt/Qtopia"
+palmqtdir  = "/opt/Qtopia"
+                </screen>
+
+        <para>We will add the <command>PRE_BUILT</command> libraries to the
+        include and library paths. And the same is done for the special
+        version of Qt we have in your <command>PRE_BUILT</command>
+        directory.</para>
+
+        <screen>
+ASSUME_PROVIDED += " virtual/${TARGET_PREFIX}gcc "
+ASSUME_PROVIDED += " virtual/libc "
+ASSUME_PROVIDED += " virtual/qte "
+ASSUME_PROVIDED += " virtual/libqpe "
+ASSUME_PROVIDED += " libqpe-opie "
+                </screen>
+
+        <para>Now we have told <application>BitBake</application> that the C
+        library, compiler and Qtopia is already provided. These lines will
+        avoid building binutils, gcc initial, glibc, gcc.</para>
+
+        <screen>
+<command>source</command> build_source
+<command>bitbake</command> your-killer-app
+                </screen>
+
+        <para>You should be able to create the packages you want to using the
+        prebuilt toolchain now.</para>
+      </section>
+    </section>
+
+    <section>
+      <title>Useful hints</title>
+
+      <para>If you have more prebuilt libraries you need to add additional
+      <command>ASSUME_PROVIDED</command> lines to your
+      <emphasis>local.conf</emphasis>. Using <command>bitbake -vvv
+      PACKAGE</command> you can easily see the package names you could
+      <command>ASSUME_PROVIDED</command> if you have some prebuilt.</para>
+    </section>
+
+    <section>
+      <title>Issues with this approach</title>
+
+      <screen>
+NOTE: Couldn't find shared library provider for libqtopia.so.1
+NOTE: Couldn't find shared library provider for libqtopia2.so.2
+NOTE: Couldn't find shared library provider for libqpe.so.1
+NOTE: Couldn't find shared library provider for libpthread.so.0
+NOTE: Couldn't find shared library provider for libstdc++.so.6
+NOTE: Couldn't find shared library provider for libqte.so.2
+NOTE: Couldn't find shared library provider for libgcc_s.so.1
+NOTE: Couldn't find shared library provider for libc.so.6
+NOTE: Couldn't find shared library provider for libm.so.6
+</screen>
+
+      <para>OpenEmbedded tries to automatically add run-time dependencies
+      (RDEPENDS) to generated packages. It is inspecting binaries and
+      libraries and uses the <emphasis><link linkend="shlibs">shlibs</link>
+      </emphasis> system to do add dependencies for the linked libraries,
+      however in this case it was not able to find packages providing these
+      libraries as they were prebuilt.
+      </para>
+
+      <para>One way to resolve this problem is to provide an explicit mapping
+      using the ASSUME_SHLIBS variable in a config file <filename>local.conf</filename>.
+      For example, for the libraries above (partial):
+      <screen>
+ASSUME_SHLIBS = "libqtopia2.so.2:qtopia2_2.4 libc.so.6:libc"
+</screen>
+      The format is shlib_file_name:package[_version]. If a version is specified it will be
+      used as the minimal (>=) version for the dependency.</para>
+    </section>
+  </section>
+
+  <section id="commonuse_new_package_format">
+    <title>Using a new package format</title>
+
+    <para>This section is a stub, help us by expanding it</para>
+  </section>
+
+  <section id="commonuse_qte_sdk">
+    <title>Creating Software Development Kits (SDKs)</title>
+
+    <section>
+        <title>What is provided by a SDK</title>
+
+        <para>The Software Development Kit (SDK) should be easy to install and
+        enable your user-base to create binaries and libraries that work on the
+        target hardware.
+        </para>
+
+        <para>To accomplish this goal OpenEmbedded SDKs contain tools for the
+        host and tools for the target hardware. Among these tools is a cross
+        compiler, libraries and header files for additional dependencies, pkg-config
+        files to allow buildsystems to easily find the dependencies, a file with
+        results for autoconf and a script that can be sourced to setup the
+        environment.
+        </para>
+    </section>
+
+    <section>
+        <title>Creating a SDK with your libraries pre-installed</title>
+
+        <section>
+            <title>Preparing the host side</title>
+            <para>Your SDK might need utilities that will run on the
+            host. These could include scripts, buildsystem software like
+            cmake, or an emulator like qemu. For these dependencies it is
+            imported that they <emphasis>inherit sdk</emphasis> and by
+            convention end with <emphasis>-sdk</emphasis> in the
+            <command>PN</command>.
+            </para>
+
+            <para>A new task should be created that will assure that all
+            host utilities will be installed. Place a file called
+            <filename>task-YOUR-toolchain-host.bb</filename> in the
+            <filename>recipes/tasks</filename> directory and place the
+            following content in it:
+<screen>
+require task-sdk-host.bb
+DESCRIPTION = "Host packages for YOUR SDK"
+LICENSE = "MIT"
+ALLOW_EMPTY = "1"
+RDEPENDS_${PN} += "YOUR-DEPENDENCY-sdk"
+</screen>
+            </para>
+        </section>
+
+        <section>
+            <title>Preparing the target side</title>
+            <para>Your SDK should provide your user with header files and libraries
+            he will need when doing application development. In OpenEmbedded the
+            <command>${PN}-dev</command> is providing the header files, pkg-config
+            files and symbolic links to libraries to allow using the library. The SDK
+            should install these development packages to the SDK.
+            </para>
+
+            <para>To install the development packages you will need to create a
+            new task. Create a new file <filename>task-YOUR-toolchain-target.bb</filename>
+            in the <filename>recipes/tasks</filename> directory and place the
+            following content in it:
+<screen>
+DESCRIPTION = "Target package for YOUR SDK"
+LICENSE = "MIT"
+ALLOW_EMPTY = "1"
+
+PR = "r0"
+
+RDEPENDS_${PN} += "\
+        task-sdk-bare \
+        your-lib-dev \
+        your-data
+        "
+</screen>
+            </para>
+        </section>
+
+        <section>
+            <title>Putting it together</title>
+            <para>In the previous two sections we have prepared the host and
+            target side. One thing that is missing is combining the two newly
+            created tasks and actually creating the SDK. This is what we are 
+            going to do now.</para>
+
+            <para>Create <filename>meta-toolchain-YOU.bb</filename> in the
+            <filename>recipes/meta</filename> directory and place the following
+            content in it:
+<screen>
+PR = "r0"
+TOOLCHAIN_TARGET_TASK = "task-YOUR-toolchain-target"
+TOOLCHAIN_HOST_TASK = "task-YOUR-toolchain-host"
+
+require meta-toolchain.bb
+SDK_SUFFIX = "toolchain-YOUR"
+</screen>
+
+            </para>
+
+            <para>Using <command>bitbake meta-toolchain-YOU</command> the SDK
+            creation should be started and you should find a <filename>sdk</filename>
+            directory inside your deploy directory with a SDK waiting for you. With
+            the above command you still need to have OE configured with your
+            <filename>conf/local.conf</filename> to select the machine and
+            distribution you are targeting.
+            </para>
+
+            <note><para>SDK creation currently does not work with the <emphasis>DISTRO</emphasis>
+            set to <emphasis>micro</emphasis>.</para></note>
+
+            <note><para>If the environment-setup script packaged in the SDK should
+            require more environment look at the <filename>meta-toolchain-qte.bb</filename>
+            to accomplish this.</para></note>
+        </section>
+    </section>
+  </section>
+
+  <section>
+    <title>Creating and Using a Qt Embedded SDK</title>
+
+        <section>
+            <title>Creating the SDK</title>
+
+            <para>The SDK should contain a build of Qt Embedded, but also
+            optional dependencies like directFB, glib-2.0, gstreamer-0.10, tslib
+            and more esoteric dependencies like mysql and postgres. This allows
+            developers to simply start developing using Qt and enables system
+            integrators to easily recompile Qt and base libraries without tracking
+            down extra dependencies.
+            </para>
+
+            <para>OpenEmbedded provides an easy way to create a Qt Embedded
+            SDK. In
+            <filename>recipes/tasks/task-qte-toolchain-host.bb</filename> host
+            tools like moc, uic, rcc, qmake will get installed and in <filename>
+            recipes/tasks/task-qte-toolchain-target.bb</filename> the Qt4 header
+            files and libraries will be installed.
+            </para>
+
+            <para>To build the SDK, setup OpenEmbedded in the usual way by picking
+            a <emphasis>DISTRO</emphasis> and <emphasis>MACHINE</emphasis>. Issue
+            the below command and after the operation finished you should find
+            a SDK in the deployment directory.
+<screen>
+$ <command>bitbake</command> meta-toolchain-qte
+</screen>
+            </para>
+
+            <note><para>The deployment directory depends on the distribution
+            and used C library. In the case of Angstrom and glibc it is
+            located in <filename>tmp/deploy/glibc/sdk</filename>.</para></note>
+
+            <note><para>Change <filename>qt4-embedded.inc</filename> and
+            <filename>qt4.inc</filename> for using different Qt configuration
+            flags. This might include a custom qconfig.h to produce a reduced
+            size build.</para></note>
+
+            <note><para>When distributing the SDK make sure to include a written offer
+            to provide the sourcecode of GPL licensed applications or provide
+            parts of the <filename>sources</filename> folder. The <filename>
+            sources</filename> folder is located right next to the <filename>sdk</filename>
+            one.</para></note>
+        </section>
+
+
+        <section>
+            <title>Using the Qt Embedded SDK</title>
+
+            <para>In this example we are assuming that the target hardware
+            is an armv5t system and the SDK targets the Angstrom Distribution. You
+            should start by downloading the SDK and untar it to the root folder
+            (<filename>/</filename>). Once this operation is finished you will
+            find a new directory <filename>/usr/local/angstrom/arm/</filename> and
+            it contains the <filename>environment-setup</filename> file to setup the
+            <emphasis>QMAKESPEC</emphasis> and various other paths.
+            </para>
+
+<screen>
+Untar the SDK once
+$ <command>tar</command> -C / -xjf angstrom-armv5te-linux-gnueabi-toolchain-qte.tar.bz2
+
+Before using it source the environment
+$ <command>.</command> /usr/local/angstrom/arm/environment-setup
+
+Use qmake2 to build software for the target
+$ <command>qmake2</command>
+</screen>
+
+            <para>Creating and building a simple example. We will create a simple
+            Qt Embedded application and use <command>qmake2</command> and
+            <command>make</command> to cross compile.
+
+<screen>
+$ <command>.</command> /usr/local/angstrom/arm/environment-setup
+$ <command>cd</command> $HOME
+$ <command>mkdir</command> qte-example
+$ <command>cd</command> qte-example
+
+$ <command>echo</command> "TEMPLATE=app
+SOURCES=main.cpp
+" > qte-example.pro
+
+$ <command>echo</command> '#include &lt;QApplication&gt;
+#include &lt;QPushButton&gt;
+
+int main(int argc, char** argv) {
+    QApplication app(argc, argv);
+
+    QPushButton btn("Hello World");
+    btn.show();
+    btn.showMaximized();
+
+    return app.exec();
+}
+' > main.cpp
+
+$ <command>qmake2</command>
+$ <command>make</command>
+</screen>
+            </para>
+
+        </section>
+  </section>
+</chapter>

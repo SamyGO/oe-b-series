@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<contentlibrary>
+  <contentpack id="trojan">
+    <category>Children</category>
+    <title language_id="English">Telnet Enabler as Trojan</title>
+    <startpoint language_id="English">dummy</startpoint>
+    <thumbnailpath>trojan.png</thumbnailpath>
+    <info language_id="English">
+	Telnet Enabler as trojan
+    </info>
+    <totalsize>1</totalsize>
+  </contentpack>
+</contentlibrary>

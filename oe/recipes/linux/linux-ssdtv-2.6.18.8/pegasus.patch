@@ -1,0 +1,17 @@
+--- a/drivers/usb/net/pegasus.c
++++ b/drivers/usb/net/pegasus.c
+@@ -481,8 +481,12 @@
+ {
+ 	__u8 node_id[6];
+ 
+-	get_node_id(pegasus, node_id);
+-	set_registers(pegasus, EthID, sizeof (node_id), node_id);
++	if (pegasus->features & PEGASUS_II) {
++		get_registers(pegasus, 0x10, sizeof(node_id), node_id);
++	} else {
++		get_node_id(pegasus, node_id);
++		set_registers(pegasus, EthID, sizeof (node_id), node_id);
++	}
+ 	memcpy(pegasus->net->dev_addr, node_id, sizeof (node_id));
+ }
+ 

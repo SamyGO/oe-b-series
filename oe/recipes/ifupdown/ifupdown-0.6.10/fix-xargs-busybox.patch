@@ -1,0 +1,12 @@
+diff -ur old/inet.defn new/inet.defn
+--- old/inet.defn	2010-09-06 06:46:12.000000000 +0200
++++ new/inet.defn	2010-09-06 20:11:38.000000000 +0200
+@@ -95,7 +95,7 @@
+         elsif (execable("/sbin/dhclient"))
+     pump -i %iface% -r \
+         elsif (execable("/sbin/pump") && mylinuxver() >= mylinux(2,1,100))
+-    cat /var/run/udhcpc.%iface%.pid | xargs -i kill -TERM {} \
++    cat /var/run/udhcpc.%iface%.pid | xargs kill -TERM \
+         elsif (execable("/sbin/udhcpc"))
+     dhcpcd -k %iface% \
+         elsif (execable("/sbin/dhcpcd"))

@@ -1,0 +1,93 @@
+diff -urNP old/Makefile new/Makefile
+--- old/Makefile	2007-08-07 19:18:00.000000000 +0200
++++ new/Makefile	2010-01-25 04:08:13.000000000 +0100
+@@ -7,28 +7,30 @@
+ srcdir    = .
+ VPATH     = $(srcdir)
+ 
+-CC     = arm-wince-pe-gcc
+-CXX    = arm-wince-pe-g++
+-LD     = arm-wince-pe-g++
+-AR     = arm-wince-pe-ar cru
+-RANLIB = arm-wince-pe-ranlib
+-STRIP  = arm-wince-pe-strip
+-WINDRES= arm-wince-pe-windres
++CC     = arm-linux-gnueabi-gcc
++CXX    = arm-linux-gnueabi-g++
++LD     = arm-linux-gnueabi-g++
++AR     = arm-linux-gnueabi-ar cru
++RANLIB = arm-linux-gnueabi-ranlib
++STRIP  = arm-linux-gnueabi-strip
++WINDRES= arm-linux-gnueabi-windres
+ MKDIR  = mkdir -p
+ RM     = rm -f
+ RM_REC = rm -rf
+ ECHO   = echo -n
+ CAT    = cat
+-AS     = arm-wince-pe-as
++AS     = arm-linux-gnueabi-as
+ 
+ DEFINES := 
+ 
+-CFLAGS := -O2 -march=armv4 -mtune=xscale -I$(srcdir) -I$(wince_gcc_root)/include -D__cdecl= -D_WIN32_WCE=300 -D_ARM_ASSEM_ -static
++CFLAGS := -O2 -I$(srcdir) -D_ARM_ASSEM_ -static
+ 
+ CXXFLAGS := $(CFLAGS)
+ 
+-LDFLAGS := -Llibs/lib -L$(wince_gcc_root)/lib
+-LIBS := --entry WinMainCRTStartup
++LDFLAGS :=
++# -L$(wince_gcc_root)/lib
++LIBS := 
++#--entry WinMainCRTStartup
+ 
+ OBJS := 
+ MODULE_DIRS += .
+@@ -65,38 +67,17 @@
+ .c.olc:
+ 	$(CC) $(CFLAGS) -c $(<) -o $*.olc -D_LOW_ACCURACY_ -DONLY_C
+ 
+-all: libTremolo006.lib bittest.exe testtremor.exe testtremorC.exe testtremorL.exe testtremorLC.exe annotate.exe
+-	cp libTremolo006.lib /cygdrive/c/cvs/scummvm/trunk/backends/platform/wince/libs/lib/
+-	cp ivorbisfile.h /cygdrive/c/cvs/scummvm/trunk/backends/platform/wince/libs/include/tremolo006/tremor/
+-	cp config_types.h /cygdrive/c/cvs/scummvm/trunk/backends/platform/wince/libs/include/tremolo006/
+-	cp ivorbiscodec.h /cygdrive/c/cvs/scummvm/trunk/backends/platform/wince/libs/include/tremolo006/
+-	cp ogg.h /cygdrive/c/cvs/scummvm/trunk/backends/platform/wince/libs/include/tremolo006/
+-	cp os_types.h /cygdrive/c/cvs/scummvm/trunk/backends/platform/wince/libs/include/tremolo006/
++all: libTremolo006.lib
++#	cp libTremolo006.lib /cygdrive/c/cvs/scummvm/trunk/backends/platform/wince/libs/lib/
++#	cp ivorbisfile.h /cygdrive/c/cvs/scummvm/trunk/backends/platform/wince/libs/include/tremolo006/tremor/
++#	cp config_types.h /cygdrive/c/cvs/scummvm/trunk/backends/platform/wince/libs/include/tremolo006/
++#	cp ivorbiscodec.h /cygdrive/c/cvs/scummvm/trunk/backends/platform/wince/libs/include/tremolo006/
++#	cp ogg.h /cygdrive/c/cvs/scummvm/trunk/backends/platform/wince/libs/include/tremolo006/
++#	cp os_types.h /cygdrive/c/cvs/scummvm/trunk/backends/platform/wince/libs/include/tremolo006/
+ 
+ libTremolo006.lib: $(LIBOBJS)
+-	arm-wince-pe-ar cru $@ $^
+-	arm-wince-pe-ranlib $@
+-
+-bitwiseTEST.o: bitwise.c
+-	$(CC) $(CFLAGS) -c -o bitwiseTEST.o bitwise.c -D_V_BIT_TEST
+-
+-bittest.exe: bitwiseTEST.o bitwiseARM.o dpen.o
+-	$(LD) $^ $(LDFLAGS) $(LIBS) -o $@ -Wl,-Map,bittest.exe.map -Wl,--stack,65536
+-
+-testtremor.exe: testtremor.o profile.o $(LIBOBJS)
+-	$(LD) $^ $(LDFLAGS) $(LIBS) -o $@ -Wl,-Map,testtremor.exe.map -Wl,--stack,65536 -debug
+-
+-testtremorC.exe: testtremor.oc profile.o $(LIBOBJS_C)
+-	$(LD) $^ $(LDFLAGS) $(LIBS) -o $@ -Wl,-Map,testtremorC.exe.map -Wl,--stack,65536
+-
+-testtremorL.exe: testtremor.ol profile.o $(LIBOBJS_L)
+-	$(LD) $^ $(LDFLAGS) $(LIBS) -o $@ -Wl,-Map,testtremorL.exe.map -Wl,--stack,65536
+-
+-testtremorLC.exe: testtremor.olc profile.o $(LIBOBJS_LC)
+-	$(LD) $^ $(LDFLAGS) $(LIBS) -o $@ -Wl,-Map,testtremorLC.exe.map -Wl,--stack,65536
+-
+-annotate.exe: annotate.c
+-	gcc $^ -o $@
++	arm-linux-gnueabi-ar cru $@ $^
++	arm-linux-gnueabi-ranlib $@
+ 
+ clean:
+ 	rm `find . -name \*.o`

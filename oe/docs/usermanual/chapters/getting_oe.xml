@@ -1,0 +1,562 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<chapter id="chapter_getting_oe">
+  <title>Getting Started</title>
+
+  <section id="gettingoe_directory_setup">
+    <title>OpenEmbedded Directory Structure</title>
+
+    <para>Before you begin downloading OpenEmbedded, you need to setup your
+    working environment.</para>
+
+	<para>The first step is to decide where on your system you wish to
+    work. This document will use the <varname>$OEBASE</varname> variable to
+    denote the base directory of the OpenEmbedded environment. For
+    example, <varname>$OEBASE</varname> could
+    be <literal>/home/joe/work/oe</literal>.</para>
+
+    <para>The base directory of your OpenEmbedded environment
+    (<varname>$OEBASE</varname>) is the location where sources will be checked
+    out (or unpacked). You must choose a location with <emphasis>no symlinks
+    above it</emphasis>.</para>
+
+	<para>To create the directory structure:
+
+    <screen>
+$ <command>mkdir</command> -p $OEBASE/build/conf
+$ <command>cd</command> $OEBASE</screen>
+
+	The <literal>$OEBASE/build</literal> directory will contain your
+	local configurations and extensions to the OpenEmbedded system which allow
+	you to build your applications and images.
+    </para>
+
+	<para>The <varname>$OEBASE</varname> will also contain both of the
+	<literal>bitbake/</literal> and <literal>openembedded/</literal> directories.
+	These will be discussed in <xref linkend="gettingoe_getting_bitbake"/> and
+	<xref linkend="gettingoe_getting_oe"/>.
+	</para>
+  </section>
+
+  <section id="gettingoe_getting_bitbake">
+    <title>Getting <application>BitBake</application></title>
+
+    <para>Before using OE, you must first obtain the build tool it needs:
+    bitbake.</para>
+
+    <para>It is recommended to run bitbake without installing it, as a sibling
+    directory of <literal>openembedded/</literal>
+    and <literal>build/</literal> directories. Indeed, as bitbake is written
+    in python it does not need compilation for being used. You'll just have to
+    set the <varname>PATH</varname> variable so that the BitBake tools are
+    accessible (see <xref linkend="gettingoe_configuring_oe"/>).</para>
+
+	<section><title>Downloading a <application>BitBake</application> release</title>
+	  <para>Releases are available from the berlios project website. The current
+          release series is <application>BitBake</application> <emphasis>1.8</emphasis>
+          and the current release is <emphasis>1.8.18</emphasis>. To download execute
+	  the following commands:
+		<screen>
+$ <command>cd</command> $OEBASE
+$ <command>wget</command> http://download.berlios.de/bitbake/bitbake-1.8.18.tar.gz
+$ <command>tar</command> -xvzf bitbake-1.8.18.tar.gz
+$ <command>mv</command> bitbake-1.8.18 bitbake
+</screen>
+	  </para>
+
+	  <para><application>BitBake</application> is now downloaded and
+		the <varname>$OEBASE</varname> directory will contain
+		a <literal>bitbake/</literal> subdirectory.</para>
+	</section>
+  </section>
+
+
+  <section id="gettingoe_getting_oe">
+    <title>Getting OpenEmbedded</title>
+
+    <para><emphasis>Note:</emphasis> Once upon a time OpenEmbedded used
+      Monotone for version control. If you have an OE Monotone repository on
+      your computer, you should replace it with the Git repository.</para>
+
+    <para>The OpenEmbedded metadata has a high rate of development, so it's a
+      good idea to stay up to date. You'll need Git to get the metadata and
+      stay up to date. Git is available in most distributions and has binaries
+      at <ulink url="http://git-scm.com/">Git homepage</ulink>.</para>
+
+    <section><title>Checking Out OpenEmbedded With Git</title>
+      <para>Once you have installed Git, checkout the OpenEmbedded repository:
+        <screen>
+$ <command>cd</command> $OEBASE
+$ <command>git</command> clone git://git.openembedded.org/openembedded</screen>
+        The <literal>$OEBASE/openembedded/</literal> directory should now
+        exist.</para>
+    </section>
+
+    <section><title>Updating OpenEmbedded</title>
+      <para>The <literal>org.openembedded.dev</literal> branch of OpenEmbedded
+        is updated very frequently (as much as several times an hour). The
+        distro branches are not updated as much but still fairly often. It
+        seems good practice to update your OpenEmbedded tree at least
+        daily. To do this, run:
+        <screen>
+$ <command>cd</command> $OEBASE/openembedded
+$ <command>git</command> pull</screen>
+      </para>
+    </section>
+    <section><title>Changing Branches</title>
+      <para>Working with multiple branches is very easy to do with Git. The
+        OpenEmbedded repository holds many branches. To list all branches, use this command:
+        <screen>$ <command>git</command> branch -a</screen>
+        Branch names that begin with <literal>origin/</literal> denote
+        branches that exist on the remote server. The name with a * in front
+        of it is the branch currently checked out. If you want to work with a
+        remote branch, you must first create a local copy of it. The following
+        command will create a local copy of a remote branch:
+        <screen>$ <command>git</command> branch &lt;local_name&gt; &lt;remote_name&gt;</screen>
+        To change branches, use this command:
+        <screen>$ <command>git</command> checkout &lt;branch_name&gt;</screen>
+        There are more complicated branch operations that can be done with git,
+        but those are beyond the scope of this document.</para>
+    </section>
+  </section>
+
+  <section id="gettingoe_configuring_oe">
+    <title>Configuring OpenEmbedded</title>
+
+    <para>At this point, your <literal>$OEBASE/</literal> directory should
+      contain at least the following subdirectories:
+      <itemizedlist>
+        <listitem><simpara><literal>build/</literal></simpara></listitem>
+        <listitem><simpara><literal>bitbake/</literal></simpara></listitem>
+        <listitem><simpara><literal>openembedded/</literal></simpara></listitem>
+      </itemizedlist>
+    </para>
+
+    <section><title>Environment Setup</title>
+      <para>There are a few environment variables that you will need to set
+        before you can build software for OpenEmbedded using BitBake. You will
+        need to set these variables every time you open a terminal for
+        development. You can automate this in
+        <filename>~/.profile</filename>, <filename>/etc/profile</filename>, or
+        perhaps use a script to set the necessary variables for using BitBake.
+      </para>
+
+      <para>Since the path to your OpenEmbedded installation will be used in
+        many places, setting it in your environment will allow you to use
+        the <varname>$OEBASE</varname> variable in all paths and make it
+        easier to change in the future should the need arise. To
+        set <varname>$OEBASE</varname> if you use a Bourne like shell
+        <footnote>
+          <para>If you use a CSH like shell (e.g. on a FreeBSD system), you
+            will set environment variables like this:
+            <screen>
+$ <command>setenv</command> VAR_NAME "VAR_VALUE"</screen>
+          </para>
+        </footnote>, do this:
+
+        <screen>
+$ <command>export</command> OEBASE=/path/to/your/oe/installation</screen>
+
+      </para>
+
+      <para>If you followed the recommendation to use BitBake from svn, you
+        will need to add the path to the BitBake executable to
+        your <varname>PATH</varname> environment variable like this:
+
+        <screen>
+$ <command>export</command> PATH=$OEBASE/bitbake/bin:$PATH</screen>
+      </para>
+
+      <para>In order for bitbake to find the configuration files for
+        OpenEmbedded, you will need to set the <varname>BBPATH</varname>
+        variable.
+
+        <screen>
+$ <command>export</command> BBPATH=$OEBASE/build:$OEBASE/openembedded</screen>
+      </para>
+
+      <para>Finally, if you wish to allow BitBake to inherit
+        the <varname>$OEBASE</varname> variable from the environment, you will
+        need to set the <varname>BB_ENV_EXTRAWHITE</varname> variable:
+
+        <screen>
+$ <command>export</command> BB_ENV_EXTRAWHITE="OEBASE"</screen>
+
+        Note the absence of the "$" character which implies that you are
+        setting <varname>BB_ENV_EXTRAWHITE</varname> to the variable name, not
+        the variable value.
+      </para>
+    </section>
+
+    <section><title>Local Configuration</title>
+      <para>It is now time to create your local configuration. While you could
+        copy the default <filename>local.conf.sample</filename> like this:
+
+        <screen>
+$ <command>cd</command> $OEBASE
+$ <command>cp</command> openembedded/conf/local.conf.sample build/conf/local.conf
+$ <command>vi</command> build/conf/local.conf</screen>
+
+        It is actually recommended to start smaller and
+        keep <filename>local.conf.sample</filename> in the background. Add
+        entries from there step-by-step as you understand and need
+        them. Please, do not just edit
+        <filename>build/conf/local.conf.sample</filename> but
+        actually <emphasis>READ</emphasis> it (read it and then edit it).
+      </para>
+
+      <para>For building an <literal>org.openembedded.dev</literal> branch, in
+        your <filename>local.conf</filename> file, you should have at least
+        the following three
+        entries: <varname>BBFILES</varname>, <varname>DISTRO</varname>
+        and <varname>MACHINE</varname>. For example, consider the following
+        minimal <literal>local.conf</literal> file for the &Aring;ngstr&ouml;m
+        distribution and the Openmoko gta01 machine:
+
+        <screen>
+BBFILES = "${OEBASE}/openembedded/recipes/*/*.bb"
+DISTRO = "angstrom-2008.1"
+MACHINE = "om-gta01"</screen>
+      </para>
+    </section>
+  </section>
+
+  <section id="gettingoe_building_software">
+    <title>Building Software</title>
+
+    <para>The primary interface to the build system is
+      the <command>bitbake</command> command (see
+      the <ulink url="http://bitbake.berlios.de/manual/">BitBake
+      users manual</ulink>). BitBake will download and patch files from the
+      internet, so it helps if you are on a well connected machine.
+    </para>
+
+    <para>Note that you should issue all BitBake commands from inside of the
+      <filename>build/</filename> directory, or you should
+      override <varname>TMPDIR</varname> in
+      your <filename>$OEBASE/build/conf/local.conf</filename> to point
+      elsewhere (by default it goes to <filename>tmp/</filename> relative to
+      the directory you run <command>bitbake</command> commands in).
+    </para>
+
+    <note>
+      <para>BitBake might complain that there is a problem with the setting in
+        <filename>/proc/sys/vm/mmap_min_addr</filename>, which needs to be set
+        to zero. You can set it by doing the following as root:
+
+        <screen># echo 0 > /proc/sys/vm/mmap_min_addr</screen>
+
+        Note that you can not use a text editor to do this since files
+        in <filename>/proc</filename> are not real files. Also note that this
+        above change will be lost when you reboot your system. To have the
+        change made automatically when the system boots, some systems provide
+        a <filename>/etc/sysctl.conf</filename> file. Add the following line
+        to that file:
+
+        <screen>vm.mmap_min_addr=0</screen>
+
+        If your system does not provide
+        the <filename>/etc/sysctl.conf</filename> mechanism, you can try adding
+        the above <command>echo</command> command line to
+        your <filename>/etc/rc.local</filename>.  But that's not all.
+
+        On some systems (such as Fedora 11), changing that kernel setting
+        will cause an SELinux violation if you're running SELinux in enforcing
+        mode. If that's the case, you can either disable SELinux or run:
+
+        <screen>$ setsebool -P allow_unconfirmed_mmap_low 1</screen>
+      </para>
+    </note>
+
+    <para>Once BitBake and OpenEmbedded are set up and configured, you can build
+      software and images like this:
+
+      <screen>$ bitbake &lt;recipe_name&gt;</screen>
+
+      A recipe name corresponds to a BitBake <filename>.bb</filename> file.  A
+      BitBake file is a logical unit of tasks to be executed. Normally this is
+      a package to be built. Inter-recipe dependencies are obeyed. The recipes
+      are located by BitBake via the <varname>BBFILES</varname> variable (set
+      in your <filename>$OEBASE/build/conf/local.conf</filename>), which is a
+      space separated list of <filename>.bb</filename> files, and does handle
+      wildcards.
+    </para>
+
+    <para>To build a single package, bypassing the long parse step (and
+      therefore its dependencies -- use with care):
+
+      <screen>$ bitbake -b $OEBASE/openembedded/recipes/blah/blah.bb</screen>
+    </para>
+
+    <para>There are a few groups of special recipes located in subdirectories
+      of the <filename>$OEBASE/openembedded/recipes/</filename>
+      directory. These groups are:
+
+      <variablelist>
+        <varlistentry>
+          <term><filename>tasks/</filename></term>
+          <listitem><para>A collection of meta-packages that depend on real
+              packages to make managing package sets easier.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>meta/</filename></term>
+          <listitem><para>A collection of useful meta tasks and recipes that
+              don't fit in a general category.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>images/</filename></term>
+          <listitem><para>A collection of image targets that depend on
+              packages that will be installed into an image which can be put
+              on the target system.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </para>
+
+    <section><title>Useful Target Recipes</title>
+      <para>Although BitBake can build individual packages, it is often more
+        useful to build a set of packages and combine them into an image. The
+        following recipe names are commonly used to that effect.
+      </para>
+
+      <section><title>Images</title>
+        <para>
+          <variablelist>
+            <varlistentry>
+              <term><literal>helloworld-image</literal></term>
+              <listitem>
+                <para>Builds an image, that if used as a root filesystem, will
+                  start a static executable that prints hello world then
+                  loops infinitely. Can be used to test the Linux boot
+                  procedure into user space (init).
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>bootstrap-image</literal></term>
+              <listitem>
+                <para>Build image contains task-base packages.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>base-image</literal></term>
+              <listitem>
+                <para>Build an image that is the smallest possible image
+                  which allows for ssh access and the ability to install
+                  additional packages using ipkg.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>console-image</literal></term>
+              <listitem>
+                <para>Build an image without the X11, gtk+, or qt windowing
+                  libraries.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>x11-image</literal></term>
+              <listitem>
+                <para>Builds an image with X11.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>beagleboard-demo-image</literal></term>
+              <listitem>
+                <para>Builds the &Aring;ngstr&ouml;m distribution like Koen
+                proposed.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>opie-image</literal></term>
+              <listitem>
+                <para>Build image based on the
+                  <ulink url="http://opie.handhelds.org/">Open Palmtop
+                  Integrated Environment</ulink> (OPIE). OPIE is a completely
+                  Open Source based graphical user environment and suite of
+                  applications for small form-factor devices, such as PDAs,
+                  running Linux.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>opie-kdepim-image</literal></term>
+              <listitem>
+                <para>Build image based on the OPIE and full featured
+                  KDE-based PIM (pi-sync, ko/pi, ka/pi, etc).
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>pivotboot-image</literal></term>
+              <listitem>
+                <para>Build image that is necessary to flash a Sharp SL C3000,
+                  Zaurus. It pivots after booting from the NAND and finalizes
+                  the install to the HD during the first boot.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>twin-image</literal></term>
+              <listitem>
+                <para>A image with task-base plus a couple of editors, nano and
+                  vim (why two?), and a mail reader, mutt.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>uml-image</literal></term>
+              <listitem>
+                <para>A root image for user-mode-linux. Includes task-base,
+                  and parts of opie.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>gpe-image</literal></term>
+              <listitem>
+                <para>Build a <ulink url="http://opie.handhelds.org/">GPE
+                  Palmtop Environment</ulink> based kernel and rootfs. The GPE
+                  provides a user interface environment for palmtop/handheld
+                  computers running the GNU/Linux or any other UNIX-like
+                  operating system.
+                </para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+        </para>
+      </section>
+
+      <section><title>Tasks</title>
+        <para>
+          <variablelist>
+            <varlistentry>
+              <term><literal>task-base</literal></term>
+              <listitem>
+                <para>Build a kernel and core packages for a basic
+                  installation. You won't be able to do much more than ssh to
+                  the machine if this is all that is installed.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>task-dvb</literal></term>
+              <listitem>
+                <para>Meta-package for DVB application (DVB = Digital Video
+                Broadcasting).
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>task-python-everything</literal></term>
+              <listitem>
+                <para>All of python.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>task-sdk-native</literal></term>
+              <listitem>
+                <para>Meta-package for native (on-device) SDK.  i.e. libc, gcc,
+                  make, etc.
+                </para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+        </para>
+      </section>
+
+      <section><title>Meta</title>
+        <para>
+          <variablelist>
+            <varlistentry>
+              <term><literal>meta-opie</literal></term>
+              <listitem>
+                <para>Build all OPIE related packages and some more for OPIE
+                  based usage.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>meta-gpe</literal></term>
+              <listitem>
+                <para>Basic packages to go with gpe-image.
+                </para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+        </para>
+      </section>
+
+      <section><title>Other</title>
+        <para>
+          <variablelist>
+            <varlistentry>
+              <term><literal>helloworld</literal></term>
+              <listitem>
+                <para>Builds a static executable that prints hello
+                  world then loops infinitely.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>world</literal></term>
+              <listitem>
+                <para>Build everything. This takes a long time, a lot
+                  of network bandwidth, and a lot of disc space. Can also
+                  break your toolchain.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>package-index</literal></term>
+              <listitem>
+                <para>Target to update the "feed" files to reflect the current
+                  set of .ipk's that exist in the deploy directory. Commonly
+                  used after building some packages individually to update the
+                  feed and allow them to be installed via a package manager or
+                  the ipkg command line tools.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>virtual/kernel</literal></term>
+              <listitem>
+                <para>Builds the appropriate kernel for your device.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><literal>virtual/bootloader</literal></term>
+              <listitem>
+                <para>Builds the appropriate bootloader for your device.</para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+        </para>
+      </section>
+    </section>
+  </section>
+</chapter>
