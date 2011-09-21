@@ -15,8 +15,7 @@ if [ $0 = "./setup.sh" ]; then
 	exit 1
 fi
 
-OE_BASE=`pwd`
-export OE_BASE=`readlink -f $OE_BASE`
+export OE_BASE=`pwd`
 
 MACHINE=ssdtv
 DISTRO=samygo
