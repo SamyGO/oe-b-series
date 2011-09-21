@@ -19,7 +19,7 @@ export OE_BASE=`pwd`
 
 MACHINE=ssdtv
 DISTRO=samygo
-if [ $1 = "-cl" ] || [ $2 = "-cl"]; then
+if [ "$1" = "-cl" ] || [ "$2" = "-cl" ]; then
 	DISTRO=samygo-cl
 fi
 DL_DIR=${DL_DIR:="$HOME/sources"}
