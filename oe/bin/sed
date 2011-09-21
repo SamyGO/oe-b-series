@@ -31,7 +31,7 @@ exec_real () {
             exec "gsed" "$@"
             ;;
         Linux)
-            exec "sed" "$@"
+            exec "/bin/sed" "$@"
             ;;
     esac
 }
