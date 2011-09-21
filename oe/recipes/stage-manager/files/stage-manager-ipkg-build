@@ -11,6 +11,16 @@ set -e
 
 version=1.0
 
+#LocalChange: added portability changes for tar, also look below for lines with $TAR
+case `uname -s` in
+    Darwin)
+    TAR=gnutar
+    ;;
+    Linux)
+    TAR=tar
+    ;;
+esac
+
 ipkg_extract_value() {
 	sed -e "s/^[^:]*:[[:space:]]*//"
 }
@@ -226,8 +236,8 @@ tmp_dir=$dest_dir/IPKG_BUILD.$$
 mkdir $tmp_dir
 
 echo $CONTROL > $tmp_dir/tarX
-( cd $pkg_dir && tar $ogargs -X $tmp_dir/tarX -czf $tmp_dir/data.tar.gz . )
-( cd $pkg_dir/$CONTROL && tar $ogargs -czf $tmp_dir/control.tar.gz . )
+( cd $pkg_dir && $TAR $ogargs -X $tmp_dir/tarX -czf $tmp_dir/data.tar.gz . )
+( cd $pkg_dir/$CONTROL && $TAR $ogargs -czf $tmp_dir/control.tar.gz . )
 rm $tmp_dir/tarX
 
 echo "2.0" > $tmp_dir/debian-binary
@@ -237,7 +247,7 @@ rm -f $pkg_file
 if [ "$outer" = "ar" ] ; then
   ( cd $tmp_dir && ar -cr $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
 else
-  ( cd $tmp_dir && tar -zcf $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
+  ( cd $tmp_dir && $TAR -zcf $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
 fi
 
 rm $tmp_dir/debian-binary $tmp_dir/data.tar.gz $tmp_dir/control.tar.gz

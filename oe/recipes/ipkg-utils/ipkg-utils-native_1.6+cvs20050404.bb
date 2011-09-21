@@ -7,8 +7,8 @@ inherit native
 
 NATIVE_INSTALL_WORKS = "1"
 
-#LocalChange: added portability patch for 'ar'
-SRC_URI += "file://remove_f_from_ar_param.patch"
+#LocalChange: added portability patch for 'ar' and 'tar'
+SRC_URI += "file://remove_f_from_ar_param.patch file://fix-mac-osx-tar.patch"
 
 # Avoid circular dependencies from package_ipk.bbclass
 PACKAGES = ""
