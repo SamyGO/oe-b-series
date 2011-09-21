@@ -1,11 +1,12 @@
 diff -ur old/scanelf.c new/scanelf.c
 --- old/scanelf.c	2008-11-27 18:52:41.000000000 +0100
 +++ new/scanelf.c	2010-05-13 23:37:57.000000000 +0200
-@@ -14,6 +14,24 @@
+@@ -14,6 +14,26 @@
  
  #define IS_MODIFIER(c) (c == '%' || c == '#' || c == '+')
  
 +#ifdef __APPLE__
++#if __DARWIN_C_LEVEL < 200809L
 +char *strndup(char* str, size_t n) {
 +	size_t len = strlen(str);
 +	if (len <= n)
@@ -21,6 +22,7 @@ diff -ur old/scanelf.c new/scanelf.c
 +
 +	return result;
 +}
++#endif
 +#endif
 +
  /* prototypes */

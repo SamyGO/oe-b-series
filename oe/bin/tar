@@ -1,0 +1,10 @@
+#!/bin/sh
+
+case `uname -s` in
+    Darwin)
+        exec "gnutar" "$@"
+        ;;
+    Linux)
+        exec "tar" "$@"
+        ;;
+esac

@@ -1,0 +1,69 @@
+#!/bin/sh
+#
+# Sed portability notes
+# - SuSv3
+#    - Only -e, -f, and -n are standard options
+# - Linux
+#    - -i argument is of the form -i[ext]
+#    - extended regular expressions argument is -r
+# - Mac OSX
+#    - -i argument is of the form -i [ext]
+#    - extended regular expressions argument is -E
+#
+# Here we support a limited subset of the available sed capabilities,
+# ensuring that all those supported by this script can be utilized
+# regardless of the current platform.
+#
+# We accept -n, -e, -f, and -i with no backup extension.  We support
+# extended regular expressions using the -r argument.  Note that extended
+# regular expressions support may not be retained, depending upon the
+# capabilities of the other platforms we wish to support, and we may need
+# to reimplement -i internally in this script on some platforms.
+
+
+source $(dirname $0)/wrapper.sh
+
+exec_real () {
+    eval set -- "$saved"
+
+    case `uname -s` in
+        Darwin)
+            exec "gsed" "$@"
+            ;;
+        Linux)
+            exec "sed" "$@"
+            ;;
+    esac
+}
+
+inplace_arg="-i"
+extended_re_arg="-r"
+getopt_os="ir"
+
+saved=""
+while getopts ne:f:$getopt_os opt; do
+    case "$opt" in
+        n)
+            save "-$opt"
+            ;;
+        e|f)
+            save "-$opt"
+            save "$OPTARG"
+            ;;
+        i)
+            saved="$saved $inplace_arg"
+            ;;
+        r)
+            saved="$saved $extended_re_arg"
+            ;;
+        \?)
+            exit 1
+            ;;
+    esac
+done
+shift $(($OPTIND - 1))
+for arg; do
+    save "$arg"
+done
+
+exec_real

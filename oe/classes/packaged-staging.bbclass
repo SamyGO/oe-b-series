@@ -157,7 +157,7 @@ staging_helper () {
 		echo "dest root /" >> $conffile
 	elif [ `grep -c " $arch " $conffile` -eq 0 ]; then
 		priority=$(expr `grep -cE "^arch" $conffile` + 1)
-		sed -i -e "/dest/iarch $arch $priority" $conffile
+		sed -e "/dest/iarch $arch $priority" -i $conffile
 	fi
 	if [ ! -e ${TMPDIR}${libdir_native}/opkg/info/ ]; then
 		mkdir -p ${TMPDIR}${libdir_native}/opkg/info/
