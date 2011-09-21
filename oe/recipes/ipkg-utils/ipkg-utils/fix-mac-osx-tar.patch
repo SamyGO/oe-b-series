@@ -1,6 +1,6 @@
 diff -ur old/ipkg-build new/ipkg-build
---- old/ipkg-build	2005-03-30 22:12:27.000000000 +0200
-+++ new/ipkg-build	2011-09-21 14:17:49.000000000 +0200
+--- old/ipkg-build	2011-09-21 15:00:10.000000000 +0200
++++ new/ipkg-build	2011-09-21 15:21:11.629877712 +0200
 @@ -9,6 +9,15 @@
  #   For UID debugging it needs a better "find".
  set -e
@@ -28,12 +28,9 @@ diff -ur old/ipkg-build new/ipkg-build
  rm $tmp_dir/tarX
  
  echo "2.0" > $tmp_dir/debian-binary
-@@ -235,9 +244,9 @@
- pkg_file=$dest_dir/${pkg}_${version}_${arch}.ipk
- rm -f $pkg_file
+@@ -237,7 +246,7 @@
  if [ "$outer" = "ar" ] ; then
--  ( cd $tmp_dir && ar -crf $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
-+  ( cd $tmp_dir && ar -cr $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
+   ( cd $tmp_dir && ar -cr $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
  else
 -  ( cd $tmp_dir && tar -zcf $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
 +  ( cd $tmp_dir && $TAR -zcf $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
