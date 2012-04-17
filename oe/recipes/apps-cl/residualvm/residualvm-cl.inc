@@ -3,7 +3,7 @@ HOMEPAGE = "http://www.residualvm.org"
 SECTION = "games"
 PRIORITY = "optional"
 LICENSE = "GPL"
-DEPENDS = "libsdl-cl libmad-cl zlib-cl"
+DEPENDS = "libsdl-cl libmad-cl zlib-cl freetype-cl"
 PR = "r0"
 
 SRC_URI = "${SOURCEFORGE_MIRROR}/residualvm/residualvm-${PV}.tar.bz2"
