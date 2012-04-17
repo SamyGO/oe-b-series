@@ -50,6 +50,7 @@ do_install() {
 	install -m 0644 ${S}/COPYING ${D}/scummvm/
 	install -m 0644 ${S}/COPYING.BSD ${D}/scummvm/
 	install -m 0644 ${S}/COPYING.LGPL ${D}/scummvm/
+	install -m 0644 ${S}/COPYING.FREETYPE ${D}/scummvm/
 	install -m 0644 ${S}/COPYRIGHT ${D}/scummvm/
 	install -m 0644 ${S}/NEWS ${D}/scummvm/
 	install -m 0644 ${S}/README ${D}/scummvm/
