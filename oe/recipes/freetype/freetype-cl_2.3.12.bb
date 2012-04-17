@@ -2,7 +2,9 @@ DESCRIPTION = "Freetype font rendering library"
 SECTION = "libs"
 LICENSE = "freetype"
 PR = "r2"
-DEPENDS = "zlib"
+DEPENDS = "zlib-cl"
+
+FILESDIR = "${@os.path.dirname(bb.data.getVar('FILE',d,1))}/freetype-${PV}"
 
 SRC_URI = "\
   ${SOURCEFORGE_MIRROR}/freetype/freetype-${PV}.tar.bz2 \
