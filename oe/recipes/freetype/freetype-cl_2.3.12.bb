@@ -21,7 +21,6 @@ inherit autotools pkgconfig binconfig
 
 LIBTOOL = "${HOST_SYS}-libtool"
 EXTRA_OEMAKE = "'LIBTOOL=${LIBTOOL}'"
-EXTRA_OECONF = "--disable-shared"
 
 do_configure() {
 	cd builds/unix
@@ -35,6 +34,11 @@ do_configure() {
 
 do_compile_prepend() {
 	${BUILD_CC} -o objs/apinames src/tools/apinames.c
+}
+
+do_stage() {
+	autotools_stage_all
+	rm ${STAGING_LIBDIR}/libfreetype.so*
 }
 
 BBCLASSEXTEND = "native"
