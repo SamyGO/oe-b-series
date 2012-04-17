@@ -44,7 +44,7 @@ do_install() {
 	install -m 0644 ${S}/COPYING ${D}/residualvm/
 	install -m 0644 ${S}/COPYING.BSD ${D}/residualvm/
 	install -m 0644 ${S}/COPYING.LGPL ${D}/residualvm/
-	install -m 0644 ${S}/COPYING.FREETYPE ${D}/residualvm/
+	install -m 0644 ${S}/COPYING.FREEFONT ${D}/residualvm/
 	install -m 0644 ${S}/COPYRIGHT ${D}/residualvm/
 	install -m 0644 ${S}/NEWS ${D}/residualvm/
 	install -m 0644 ${S}/README ${D}/residualvm/
