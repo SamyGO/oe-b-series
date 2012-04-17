@@ -838,7 +838,7 @@ diff -urNP old/src/video/dummy/SDL_nullvideo.c new/src/video/dummy/SDL_nullvideo
 +
 +int DUMMY_HWFillRect(_THIS, SDL_Surface *dst, SDL_Rect *rect, Uint32 color)
 +{
-+	int (*func_HWFillRect)(SDL_Surface *, SDL_Rect *, Uint32) = (int (*)(SDL_Surface *, SDL_Rect *, Uint32))(dl_y_HWFillRect);
++	int (*func_y_HWFillRect)(SDL_Surface *, SDL_Rect *, Uint32) = (int (*)(SDL_Surface *, SDL_Rect *, Uint32))(dl_y_HWFillRect);
 +
 +	return func_y_HWFillRect(dst, rect, color);
 +}
