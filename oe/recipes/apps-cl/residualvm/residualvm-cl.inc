@@ -38,7 +38,7 @@ do_install() {
 	install -d ${D}/residualvm
 	install -m 0644 ${S}/residualvm.so ${D}/residualvm/libresidualvm.so
 	install -m 0644 ${S}/dists/engine-data/*.lab ${D}/residualvm/
-	install -m 0644 ${S}/gui/themes/residualmodern.zip ${D}/residualvm/
+	install -m 0644 ${S}/gui/themes/modern.zip ${D}/residualvm/
 	install -m 0644 ${S}/backends/vkeybd/packs/vkeybd_default.zip ${D}/residualvm/
 	install -m 0644 ${S}/AUTHORS ${D}/residualvm/
 	install -m 0644 ${S}/COPYING ${D}/residualvm/
