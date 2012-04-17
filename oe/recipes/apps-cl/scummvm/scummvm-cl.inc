@@ -57,4 +57,5 @@ do_install() {
 	install -m 0644 ${S}/dists/samsungtv/clmeta.dat ${D}/scummvm/
 	install -m 0644 ${S}/dists/samsungtv/scummvm.dat ${D}/scummvm/
 	install -m 0644 ${S}/dists/samsungtv/scummvm.png ${D}/scummvm/
+	install -m 0644 ${S}/dists/samsungtv/README-SamsungTV ${D}/scummvm/
 }

@@ -51,4 +51,5 @@ do_install() {
 	install -m 0644 ${S}/dists/samsungtv/clmeta.dat ${D}/residualvm/
 	install -m 0644 ${S}/dists/samsungtv/residualvm.dat ${D}/residualvm/
 	install -m 0644 ${S}/dists/samsungtv/residualvm.png ${D}/residualvm/
+	install -m 0644 ${S}/dists/samsungtv/README-SamsungTV ${D}/residualvm/
 }
