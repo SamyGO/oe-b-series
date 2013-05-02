@@ -2,7 +2,7 @@
 
 # - SamyGO -
 #
-# Copyright (C) 2010 Pawel Kolodziejski (aquadran at users.sourceforge.net)
+# Copyright (C) 2010-2013 Pawel Kolodziejski (aquadran at users.sourceforge.net)
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,15 +28,12 @@ while true; do
 	echo
 	echo "Select proper firmware for your TV:"
 	echo
-	echo "1. T-CHE6AUSC"
-	echo "2. T-CHE7AUSC"
-	echo "3. T-CHEAUSC"
-	echo "4. T-CHL5DAUC"
-	echo "5. T-CHL5DEUC"
-	echo "6. T-CHL7DAUC"
-	echo "7. T-CHL7DEUC"
-	echo "8. T-CHU7DAUC"
-	echo "9. T-CHU7DEUC"
+	echo "1. T-CHE7AUSC"
+	echo "2. T-CHEAUSC"
+	echo "3. T-CHL7DAUC"
+	echo "4. T-CHL7DEUC"
+	echo "5. T-CHU7DAUC"
+	echo "6. T-CHU7DEUC"
 	echo
 
 	read -p "Choice: " sel
@@ -49,55 +46,37 @@ while true; do
 done
 
 case $sel in
-1)	URL="http://downloadcenter.samsung.com/content/FM/200909/20090922132745828/2009_DTV_128M_firmware.exe" # 1012.0
-	FILENAME="2009_DTV_128M_firmware.exe"
-	MD5SUM="532c465c55c3368e7cd9e4ae7a684c6d"
-	TYPE="T-CHE6AUSC"
-	UNCOMP="unzip -qq "
-	;;
-2)	URL="http://downloadcenter.samsung.com/content/FM/200909/20090922135709687/2009_DTV_2G_firmware.exe" # 1013.0
+1)	URL="http://downloadcenter.samsung.com/content/FM/200909/20090922135709687/2009_DTV_2G_firmware.exe" # 1013.0
 	FILENAME="2009_DTV_2G_firmware.exe"
 	MD5SUM="1b3b9752418df97ffef29341f071e568"
 	TYPE="T-CHE7AUSC"
 	UNCOMP="unzip -qq "
 	;;
-3)	URL="http://downloadcenter.samsung.com/content/FM/200909/20090922132250765/2009_DTV_1G_firmware.exe" # 1012.3
+2)	URL="http://downloadcenter.samsung.com/content/FM/200909/20090922132250765/2009_DTV_1G_firmware.exe" # 1012.3
 	FILENAME="2009_DTV_1G_firmware.exe"
 	MD5SUM="4d6618255c5528b18dd4ef3d49e9aa51"
 	TYPE="T-CHEAUSC"
 	UNCOMP="unzip -qq "
 	;;
-4)	URL="http://downloadcenter.samsung.com/content/FM/200908/20090807131039093/T-CHL5DAUC.exe" # 1008.0
-	FILENAME="T-CHL5DAUC.exe"
-	MD5SUM="296e9176826a03ad749f7a361764ee01"
-	TYPE="T-CHL5DAUC"
-	UNCOMP="unzip -qq "
-	;;
-5)	URL="http://downloadcenter.samsung.com/content/FM/200910/20091030222436890/T-CHL5DEUC.exe" # 2008.0
-	FILENAME="T-CHL5DEUC.exe"
-	MD5SUM="e12e145a18c94d6706ba7bbe7b04ac82"
-	TYPE="T-CHL5DEUC"
-	UNCOMP="unrar x -c- "
-	;;
-6)	URL="http://downloadcenter.samsung.com/content/FM/200911/20091127101733312/T-CHL7DAUC.exe" # 2001.1
+3)	URL="http://downloadcenter.samsung.com/content/FM/200911/20091127101733312/T-CHL7DAUC.exe" # 2001.1
 	FILENAME="T-CHL7DAUC.exe"
 	MD5SUM="e2412b2771556c3a77e9601275d283ab"
 	TYPE="T-CHL7DAUC"
 	UNCOMP="unzip -qq "
 	;;
-7)	URL="http://downloadcenter.samsung.com/content/FM/200910/20091030222802906/T-CHL7DEUC.exe" # 2005.0
+4)	URL="http://downloadcenter.samsung.com/content/FM/200910/20091030222802906/T-CHL7DEUC.exe" # 2005.0
 	FILENAME="T-CHL7DEUC.exe"
 	MD5SUM="2cdfe576c619c9ebf6698b22e9965127"
 	TYPE="T-CHL7DEUC"
 	UNCOMP="unrar x -c- "
 	;;
-8)	URL="http://downloadcenter.samsung.com/content/FM/200908/20090806125546515/T-CHU7DAUC.exe" # 1008.0
+5)	URL="http://downloadcenter.samsung.com/content/FM/200908/20090806125546515/T-CHU7DAUC.exe" # 1008.0
 	FILENAME="T-CHU7DAUC.exe"
 	MD5SUM="7432b4087ae1ebb4e62ba9156e1d0ccf"
 	TYPE="T-CHU7DAUC"
 	UNCOMP="unzip -qq "
 	;;
-9)	URL="http://downloadcenter.samsung.com/content/FM/200911/20091124161213125/T-CHU7DEUC.exe" # 3000.G / 3000.0
+6)	URL="http://downloadcenter.samsung.com/content/FM/200911/20091124161213125/T-CHU7DEUC.exe" # 3000.G / 3000.0
 	FILENAME="T-CHU7DEUC.exe"
 	MD5SUM="6240c8dc881383b12f2b075719474456"
 	TYPE="T-CHU7DEUC"
@@ -256,14 +235,7 @@ T-CHE7AUSC|T-CHEAUSC|T-CHL7DAUC|T-CHL7DEUC|T-CHU7DAUC|T-CHU7DEUC)
 		chmod +x ${MTD_EXE}/memalloc
 	fi
 	;;
-T-CHE6AUSC|T-CHL5DAUC|T-CHL5DEUC)
-	unsquashfs -da 32 -fr 32 -dest ${MTD_EXE} ${TYPE}/image/exe.img 1> /dev/null
-	if [ $? != 0 ]; then
-		echo "Error unpack from exe.img!"
-		echo "Exiting..."
-		exit 1
-	fi
-	rm -f ${MTD_EXE}/rc.local*
+*)
 	;;
 esac
 rm -f ${TYPE}/image/exe.img
@@ -280,13 +252,6 @@ if [ $? != 0 ]; then
 fi
 rm -rf ${MTD_APPDATA}/lib
 
-case $TYPE in
-T-CHE6AUSC|T-CHL5DAUC|T-CHL5DEUC)
-	mv ${MTD_APPDATA}/Comp_LIB ${MTD_EXE}/
-	;;
-*)
-	;;
-esac
 rm -rf ${TYPE}
 
 echo "${TYPE}" > ${INFO}
@@ -312,7 +277,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin
 firmware=\`cat \"/.info\"\`
 
 case \$firmware in
-T-CHE6AUSC|T-CHE7AUSC|T-CHEAUSC|T-CHL5DAUC|T-CHL5DEUC|T-CHL7DAUC|T-CHL7DEUC|T-CHU7DAUC|T-CHU7DEUC)
+|T-CHE7AUSC|T-CHEAUSC|T-CHL7DAUC|T-CHL7DEUC|T-CHU7DAUC|T-CHU7DEUC)
 	mkdir -p /mtd_appdata /mtd_boot /mtd_contents /mtd_down /mtd_exe /mtd_ram /mtd_rwarea /mtd_swu /mtd_tlib /mtd_wiselink
 	mkdir -p /mtd_exe/Java
 

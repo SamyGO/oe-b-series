@@ -55,7 +55,7 @@ python package_ipk_install () {
 
 	if (not os.access(os.path.join(ipkdir,"Packages"), os.R_OK) or
 		not os.access(os.path.join(tmpdir, "stamps", "IPK_PACKAGE_INDEX_CLEAN"),os.R_OK)):
-		ret = os.system('ipkg-make-index -p %s %s ' % (os.path.join(ipkdir, "Packages"), ipkdir))
+		ret = os.system('opkg-make-index -p %s %s ' % (os.path.join(ipkdir, "Packages"), ipkdir))
 		if (ret != 0 ):
 			raise bb.build.FuncFailed
 		f = open(os.path.join(tmpdir, "stamps", "IPK_PACKAGE_INDEX_CLEAN"),"w")
@@ -71,7 +71,7 @@ do_package_update_index_ipk[lockfiles] = "${DEPLOY_DIR_IPK}.lock"
 do_package_update_index_ipk[nostamp] = "1"
 do_package_update_index_ipk[recrdeptask] += "do_package_write_ipk"
 do_package_update_index_ipk[recrdeptask] += "do_package_write_ipk"
-do_package_update_index_ipk[depends] += "ipkg-utils-native:do_populate_sysroot"
+do_package_update_index_ipk[depends] += "opkg-utils-native:do_populate_sysroot"
 
 #
 # Update the Packages index files in ${DEPLOY_DIR_IPK}
@@ -87,20 +87,20 @@ do_package_update_index_ipk () {
 
 	mkdir -p ${DEPLOY_DIR_IPK}
 	touch ${DEPLOY_DIR_IPK}/Packages
-	ipkg-make-index -r ${DEPLOY_DIR_IPK}/Packages -p ${DEPLOY_DIR_IPK}/Packages -l ${DEPLOY_DIR_IPK}/Packages.filelist -m ${DEPLOY_DIR_IPK}
+	opkg-make-index -r ${DEPLOY_DIR_IPK}/Packages -p ${DEPLOY_DIR_IPK}/Packages -l ${DEPLOY_DIR_IPK}/Packages.filelist -m ${DEPLOY_DIR_IPK}
 
 	for arch in $ipkgarchs; do
 		if [ -e ${DEPLOY_DIR_IPK}/$arch/ ] ; then 
 			touch ${DEPLOY_DIR_IPK}/$arch/Packages
-			ipkg-make-index -r ${DEPLOY_DIR_IPK}/$arch/Packages -p ${DEPLOY_DIR_IPK}/$arch/Packages -l ${DEPLOY_DIR_IPK}/$arch/Packages.filelist -m ${DEPLOY_DIR_IPK}/$arch/
+			opkg-make-index -r ${DEPLOY_DIR_IPK}/$arch/Packages -p ${DEPLOY_DIR_IPK}/$arch/Packages -l ${DEPLOY_DIR_IPK}/$arch/Packages.filelist -m ${DEPLOY_DIR_IPK}/$arch/
 		fi
 		if [ -e ${DEPLOY_DIR_IPK}/${BUILD_ARCH}-$arch-sdk/ ] ; then 
 			touch ${DEPLOY_DIR_IPK}/${BUILD_ARCH}-$arch-sdk/Packages
-			ipkg-make-index -r ${DEPLOY_DIR_IPK}/${BUILD_ARCH}-$arch-sdk/Packages -p ${DEPLOY_DIR_IPK}/${BUILD_ARCH}-$arch-sdk/Packages -l ${DEPLOY_DIR_IPK}/${BUILD_ARCH}-$arch-sdk/Packages.filelist -m ${DEPLOY_DIR_IPK}/${BUILD_ARCH}-$arch-sdk/
+			opkg-make-index -r ${DEPLOY_DIR_IPK}/${BUILD_ARCH}-$arch-sdk/Packages -p ${DEPLOY_DIR_IPK}/${BUILD_ARCH}-$arch-sdk/Packages -l ${DEPLOY_DIR_IPK}/${BUILD_ARCH}-$arch-sdk/Packages.filelist -m ${DEPLOY_DIR_IPK}/${BUILD_ARCH}-$arch-sdk/
 		fi
 		if [ -e ${DEPLOY_DIR_IPK}/${SDK_SYS}-sdk-$arch/ ] ; then
 			touch ${DEPLOY_DIR_IPK}/${SDK_SYS}-sdk-$arch/Packages
-			ipkg-make-index -r ${DEPLOY_DIR_IPK}/${SDK_SYS}-sdk-$arch/Packages -p ${DEPLOY_DIR_IPK}/${SDK_SYS}-sdk-$arch/Packages -l ${DEPLOY_DIR_IPK}/${SDK_SYS}-sdk-$arch/Packages.filelist -m ${DEPLOY_DIR_IPK}/${SDK_SYS}-sdk-$arch/
+			opkg-make-index -r ${DEPLOY_DIR_IPK}/${SDK_SYS}-sdk-$arch/Packages -p ${DEPLOY_DIR_IPK}/${SDK_SYS}-sdk-$arch/Packages -l ${DEPLOY_DIR_IPK}/${SDK_SYS}-sdk-$arch/Packages.filelist -m ${DEPLOY_DIR_IPK}/${SDK_SYS}-sdk-$arch/
 		fi
 	done
 }
@@ -306,7 +306,7 @@ python do_package_ipk () {
                                                           bb.data.getVar("IPKGBUILDCMD",d,1), pkg, pkgoutdir))
 		if ret != 0:
 			bb.utils.unlockfile(lf)
-			raise bb.build.FuncFailed("ipkg-build execution failed")
+			raise bb.build.FuncFailed("opkg-build execution failed")
 
 		bb.utils.prunedir(controldir)
 		bb.utils.unlockfile(lf)
@@ -315,7 +315,7 @@ python do_package_ipk () {
 python () {
     if bb.data.getVar('PACKAGES', d, True) != '':
         deps = (bb.data.getVarFlag('do_package_write_ipk', 'depends', d) or "").split()
-        deps.append('ipkg-utils-native:do_populate_sysroot')
+        deps.append('opkg-utils-native:do_populate_sysroot')
         deps.append('fakeroot-native:do_populate_sysroot')
         bb.data.setVarFlag('do_package_write_ipk', 'depends', " ".join(deps), d)
 }

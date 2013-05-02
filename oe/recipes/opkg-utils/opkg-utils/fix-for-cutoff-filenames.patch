@@ -1,0 +1,15 @@
+diff -ur old/arfile.py new/arfile.py
+--- old/arfile.py	2011-09-30 09:36:10.000000000 +0200
++++ new/arfile.py	2011-09-30 09:37:35.000000000 +0200
+@@ -83,7 +83,10 @@
+                 l = l[field_len:]
+ #            print descriptor
+             size = int(descriptor[5])
+-            memberName = descriptor[0][:-1]
++            if descriptor[0].endswith("/"):
++                memberName = descriptor[0][:-1]
++            else:
++                memberName = descriptor[0]
+             self.directory[memberName] = descriptor + [self.f.tell()]
+ #            print "read:", memberName
+             if memberName == fname:

@@ -5,7 +5,7 @@ S = "${WORKDIR}/mpfr-${PV}"
 NATIVE_INSTALL_WORKS = "1"
 PR = "${INC_PR}.1"
 
-#MobiAqua: fixed p1.patch
+#LocalChange: fixed p1.patch
 SRC_URI = "http://www.mpfr.org/mpfr-${PV}/mpfr-${PV}.tar.bz2 \
            file://p1.patch"
 
@@ -14,7 +14,7 @@ SRC_URI_append_thumb = " file://long-long-thumb.patch"
 
 EXTRA_OECONF_append_virtclass-native = " --enable-static"
 
-#MobiAqua: added DYLD_LIBRARY_PATH path for conftest with gmp library
+#LocalChange: added DYLD_LIBRARY_PATH path for conftest with gmp library
 do_configure_prepend_build-darwin () {
     export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH}:${STAGING_LIBDIR}"
 }

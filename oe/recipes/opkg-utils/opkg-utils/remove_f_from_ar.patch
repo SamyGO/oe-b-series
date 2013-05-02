@@ -1,0 +1,12 @@
+diff -ur old/opkg-build new/opkg-build
+--- old/opkg-build	2010-11-01 12:52:35.000000000 +0100
++++ new/opkg-build	2011-09-29 19:14:54.000000000 +0200
+@@ -247,7 +247,7 @@
+ 
+ rm -f $pkg_file
+ if [ "$outer" = "ar" ] ; then
+-  ( cd $tmp_dir && ar -crf $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
++  ( cd $tmp_dir && ar -cr $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
+ else
+   ( cd $tmp_dir && tar -zcf $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
+ fi
