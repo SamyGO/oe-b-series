@@ -28,17 +28,14 @@ while true; do
 	echo
 	echo "Select proper firmware for your TV:"
 	echo
-	echo "1. T-CHE7AUSC"
+	echo "1. T-CHL7DEUC"
 	echo "2. T-CHEAUSC"
 	echo "3. T-CHL7DAUC"
-	echo "4. T-CHL7DEUC"
-	echo "5. T-CHU7DAUC"
-	echo "6. T-CHU7DEUC"
 	echo
 
 	read -p "Choice: " sel
 
-	if [ $sel -ge "1" ] && [ $sel -le "9" ]; then
+	if [ $sel -ge "1" ] && [ $sel -le "3" ]; then
 		break
 	else
 		echo "Wrong choice !"
@@ -46,11 +43,11 @@ while true; do
 done
 
 case $sel in
-1)	URL="http://downloadcenter.samsung.com/content/FM/200909/20090922135709687/2009_DTV_2G_firmware.exe" # 1013.0
-	FILENAME="2009_DTV_2G_firmware.exe"
-	MD5SUM="1b3b9752418df97ffef29341f071e568"
-	TYPE="T-CHE7AUSC"
-	UNCOMP="unzip -qq "
+1)	URL="http://downloadcenter.samsung.com/content/FM/200910/20091030222802906/T-CHL7DEUC.exe" # 2005.0
+	FILENAME="T-CHL7DEUC.exe"
+	MD5SUM="2cdfe576c619c9ebf6698b22e9965127"
+	TYPE="T-CHL7DEUC"
+	UNCOMP="unrar x -c- "
 	;;
 2)	URL="http://downloadcenter.samsung.com/content/FM/200909/20090922132250765/2009_DTV_1G_firmware.exe" # 1012.3
 	FILENAME="2009_DTV_1G_firmware.exe"
@@ -63,24 +60,6 @@ case $sel in
 	MD5SUM="e2412b2771556c3a77e9601275d283ab"
 	TYPE="T-CHL7DAUC"
 	UNCOMP="unzip -qq "
-	;;
-4)	URL="http://downloadcenter.samsung.com/content/FM/200910/20091030222802906/T-CHL7DEUC.exe" # 2005.0
-	FILENAME="T-CHL7DEUC.exe"
-	MD5SUM="2cdfe576c619c9ebf6698b22e9965127"
-	TYPE="T-CHL7DEUC"
-	UNCOMP="unrar x -c- "
-	;;
-5)	URL="http://downloadcenter.samsung.com/content/FM/200908/20090806125546515/T-CHU7DAUC.exe" # 1008.0
-	FILENAME="T-CHU7DAUC.exe"
-	MD5SUM="7432b4087ae1ebb4e62ba9156e1d0ccf"
-	TYPE="T-CHU7DAUC"
-	UNCOMP="unzip -qq "
-	;;
-6)	URL="http://downloadcenter.samsung.com/content/FM/200911/20091124161213125/T-CHU7DEUC.exe" # 3000.G / 3000.0
-	FILENAME="T-CHU7DEUC.exe"
-	MD5SUM="6240c8dc881383b12f2b075719474456"
-	TYPE="T-CHU7DEUC"
-	UNCOMP="unrar x -c- "
 	;;
 *)
 	echo "Unknown firmware type!"
@@ -168,7 +147,7 @@ while true; do
 done
 
 case $TYPE in
-T-CHE7AUSC|T-CHEAUSC|T-CHL7DAUC|T-CHL7DEUC|T-CHU7DAUC|T-CHU7DEUC)
+T-CHEAUSC|T-CHL7DAUC|T-CHL7DEUC)
 	if [ ! -e LaunchCLManager.zip ]; then
 		echo "Downloading custom T_Library.swf ..."
 		wget -O LaunchCLManager.zip -c http://sourceforge.net/projects/samygo/files/SamyGO%20OE/LaunchCLManager.zip/download 2> /dev/null
@@ -217,7 +196,7 @@ echo "Unpacking mtd_exe..."
 echo
 
 case $TYPE in
-T-CHE7AUSC|T-CHEAUSC|T-CHL7DAUC|T-CHL7DEUC|T-CHU7DAUC|T-CHU7DEUC)
+T-CHEAUSC|T-CHL7DAUC|T-CHL7DEUC)
 	mkdir -p ${MTD_EXE}
 	mcopy -sQnv -i ${TYPE}/image/exe.img ::* ${MTD_EXE} 2> /dev/null
 	if [ $? != 0 ]; then
@@ -258,7 +237,7 @@ echo "${TYPE}" > ${INFO}
 echo "SamyGO ${TYPE}" > /.version
 
 case $TYPE in
-T-CHE7AUSC|T-CHEAUSC|T-CHL7DAUC|T-CHL7DEUC|T-CHU7DAUC|T-CHU7DEUC)
+T-CHEAUSC|T-CHL7DAUC|T-CHL7DEUC)
 	echo
 	echo "Creating minimal mtd_tlib..."
 	echo
