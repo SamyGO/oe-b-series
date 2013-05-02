@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# ipkg-build -- construct a .ipk from a directory
+# opkg-build -- construct a .ipk from a directory
 # Carl Worth <cworth@east.isi.edu>
 # based on a script by Steve Redler IV, steve@sr-tech.com 5-21-2001
 # 2003-04-25 rea@sr.unh.edu
@@ -11,24 +11,14 @@ set -e
 
 version=1.0
 
-#LocalChange: added portability changes for tar, also look below for lines with $TAR
-case `uname -s` in
-    Darwin)
-    TAR=gnutar
-    ;;
-    Linux)
-    TAR=tar
-    ;;
-esac
-
-ipkg_extract_value() {
+opkg_extract_value() {
 	sed -e "s/^[^:]*:[[:space:]]*//"
 }
 
 required_field() {
 	field=$1
 
-	value=`grep "^$field:" < $CONTROL/control | ipkg_extract_value`
+	value=`grep "^$field:" < $CONTROL/control | opkg_extract_value`
 	if [ -z "$value" ]; then
 		echo "*** Error: $CONTROL/control is missing field $field" >&2
 		return 1
@@ -40,7 +30,7 @@ required_field() {
 disallowed_field() {
 	field=$1
 
-	value=`grep "^$field:" < $CONTROL/control | ipkg_extract_value`
+	value=`grep "^$field:" < $CONTROL/control | opkg_extract_value`
 	if [ -n "$value" ]; then
 		echo "*** Error: $CONTROL/control contains disallowed field $field" >&2
 		return 1
@@ -138,7 +128,7 @@ You probably want to chown these to a system user: " >&2
 		bad_fields=`echo $bad_fields`
 		echo "*** Error: The following fields in $CONTROL/control are missing a ':'" >&2
 		echo "	$bad_fields" >&2
-		echo "ipkg-build: This may be due to a missing initial space for a multi-line field value" >&2
+		echo "opkg-build: This may be due to a missing initial space for a multi-line field value" >&2
 		PKG_ERROR=1
 	fi
 
@@ -163,7 +153,7 @@ You probably want to chown these to a system user: " >&2
 }
 
 ###
-# ipkg-build "main"
+# opkg-build "main"
 ###
 ogargs=""
 outer=ar
@@ -228,7 +218,7 @@ fi
 
 if ! pkg_appears_sane $pkg_dir; then
 	echo >&2
-	echo "ipkg-build: Please fix the above errors and try again." >&2
+	echo "opkg-build: Please fix the above errors and try again." >&2
 	exit 1
 fi
 
@@ -236,8 +226,8 @@ tmp_dir=$dest_dir/IPKG_BUILD.$$
 mkdir $tmp_dir
 
 echo $CONTROL > $tmp_dir/tarX
-( cd $pkg_dir && $TAR $ogargs -X $tmp_dir/tarX -czf $tmp_dir/data.tar.gz . )
-( cd $pkg_dir/$CONTROL && $TAR $ogargs -czf $tmp_dir/control.tar.gz . )
+( cd $pkg_dir && tar $ogargs -X $tmp_dir/tarX -czf $tmp_dir/data.tar.gz . )
+( cd $pkg_dir/$CONTROL && tar $ogargs -czf $tmp_dir/control.tar.gz . )
 rm $tmp_dir/tarX
 
 echo "2.0" > $tmp_dir/debian-binary
@@ -247,7 +237,7 @@ rm -f $pkg_file
 if [ "$outer" = "ar" ] ; then
   ( cd $tmp_dir && ar -cr $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
 else
-  ( cd $tmp_dir && $TAR -zcf $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
+  ( cd $tmp_dir && tar -zcf $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
 fi
 
 rm $tmp_dir/debian-binary $tmp_dir/data.tar.gz $tmp_dir/control.tar.gz

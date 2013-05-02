@@ -15,16 +15,6 @@
 
 set -e
 
-#LocalChange: added portability changes for tar, also look below for lines with $TAR
-case `uname -s` in
-    Darwin)
-    TAR=gnutar
-    ;;
-    Linux)
-    TAR=tar
-    ;;
-esac
-
 # Uncomment for debugging
 #set -x
 
@@ -119,8 +109,13 @@ Valid destinations are directories or one of the dest names from $IPKG_CONF:" >&
 	IPKG_DIR_PREFIX=usr/lib/ipkg
 	IPKG_LISTS_DIR=$IPKG_OFFLINE_ROOT/$IPKG_DIR_PREFIX/lists
 	IPKG_PENDING_DIR=$IPKG_OFFLINE_ROOT/$IPKG_DIR_PREFIX/pending
-	#LocalChange: crossplatform usage of mktemp
-	IPKG_TMP=`mktemp -d /tmp/oe-tmp.XXXXXXXX`
+
+	# test for bsd mktemp and pass -t <prefix> when needed
+	if (mktemp -V) ; then
+		IPKG_TMP=`mktemp -d`
+	else
+		IPKG_TMP=`mktemp -d -t ipkg`
+	fi
 
 	if [ ! -d "$IPKG_TMP" ]; then
 		echo "Error, could not create a temp directory"
@@ -436,7 +431,7 @@ ipkg_status_matching() {
 ipkg_status_installed_sd() {
 	local sd="$1"
 	local pkg="$2"
-	ipkg_status_sd $sd $pkg Status | grep -q "Status: install ok installed"
+	ipkg_status_sd $sd $pkg Status | grep -q "Status: install user installed"
 }
 
 ipkg_status_installed_all() {
@@ -788,7 +783,7 @@ ipkg_install_file_dest() {
 	rm -f $IPKG_TMP/control.tar.gz $IPKG_TMP/control.tar
 	if ! { $pkg_extract_stdout $filename control.tar.gz > $IPKG_TMP/control.tar.gz &&
 	       gzip -d $IPKG_TMP/control.tar.gz &&
-	       $TAR -C $IPKG_TMP/$pkg/control -xf $IPKG_TMP/control.tar ; } ; then
+	       tar -C $IPKG_TMP/$pkg/control -xf $IPKG_TMP/control.tar ; } ; then
 		echo "ipkg_install_file: ERROR unpacking control.tar.gz from $filename"
 		return 1
 	fi
@@ -822,7 +817,7 @@ Status: install ok pending" | ipkg_status_update_sd $sd $pkg
 	rm -f $IPKG_TMP/data.tar.gz $IPKG_TMP/data.tar
 	if ! { $pkg_extract_stdout $filename ./data.tar.gz > $IPKG_TMP/data.tar.gz &&
 	       gzip -d $IPKG_TMP/data.tar.gz &&
-	       $TAR -C $IPKG_TMP/$pkg/data -xf $IPKG_TMP/data.tar ; } ; then
+	       tar -C $IPKG_TMP/$pkg/data -xf $IPKG_TMP/data.tar ; } ; then
 		echo "ipkg_install_file: ERROR unpacking data.tar.gz from $filename"
 		return 1
 	fi
@@ -891,12 +886,12 @@ diff -u $dest/$conffile $IPKG_TMP/$pkg/data/$conffile"
 	fi
 
 	local owd=`pwd`
-	(cd $IPKG_TMP/$pkg/data/; $TAR cf - . | (cd $owd; cd $dest; $TAR xf -))		
+	(cd $IPKG_TMP/$pkg/data/; tar cf - . | (cd $owd; cd $dest; tar xf -))		
 	rm -rf $IPKG_TMP/$pkg/data
 	rmdir $IPKG_TMP/$pkg
 	rm -f $IPKG_TMP/data.tar.gz $IPKG_TMP/data.tar
 	$pkg_extract_stdout $filename ./data.tar.gz > $IPKG_TMP/data.tar.gz
-	$TAR tzf $IPKG_TMP/data.tar.gz | sed -e 's/^\.//' > $info_dir/$pkg.list
+	tar tzf $IPKG_TMP/data.tar.gz | sed -e 's/^\.//' > $info_dir/$pkg.list
 	rm -f $IPKG_TMP/data.tar.gz $IPKG_TMP/data.tar
 
 	if [ -x "$info_dir/$pkg.postinst" ]; then
@@ -1020,7 +1015,7 @@ ipkg_upgrade_pkg() {
 
 			if [ "$avail_ver" = "$inst_ver" ]; then 
 				echo "Package $pkg ($inst_ver) installed in $dest_name is up to date"
-			elif ipkg-compare-versions $avail_ver '>>' $inst_ver; then
+			elif opkg-compare-versions $avail_ver '>>' $inst_ver; then
 				echo "Upgrading $pkg ($dest_name) from $inst_ver to $avail_ver"
 				ipkg_get_install_dest $dest $pkg
 			else
