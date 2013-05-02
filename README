@@ -42,9 +42,3 @@ Shell environment variables for setup OE:
 	Example: MACHINE=ssdtv;DISTRO=samygo;DL_DIR=~/sources
 		 . setup.sh
 
-
-FAQ:
-	Q: Why I get an error on Mac OS X when I try to compile glibc?
-
-	A: OE directory need to be on case-sensitive filesystem.
-
