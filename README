@@ -12,33 +12,20 @@ Background Information:
 
 Usage Information:
 
-	Run ". setup" to setup OE environment.
+	Run ". setup.sh" to setup OE environment.
+	You can pass argument '-cl' if you want build environment for
+	content library apps. Ex: ". setup.sh -cl"
+
 	Then use bitbake command.
+
 	You may use below shell environment variables before run setup.
 	Setup generate two configuration files:
 	a) build-${DISTRO}/conf/local.conf
 	b) build-${DISTRO}/env.source
 
-	Once this two files are created you can setup directly from shell
-	instead run setup.sh:
-	cd build-${DISTRO}; source env.source
-
 
 Shell environment variables for setup OE:
-
-	DISTRO=<distro name>
-		Distribution name.
-		Can be: samygo or samygo-cl
-		Default: samygo
 
 	DL_DIR=<somedir>
 		Directory to store caches source files.
 		Default: $HOME/sources
-
-	MACHINE=<machine name>
-		Target machine name, can be: ssdtv
-		Default: ssdtv
-
-	Example: MACHINE=ssdtv;DISTRO=samygo;DL_DIR=~/sources
-		 . setup.sh
-
