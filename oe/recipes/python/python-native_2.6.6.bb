@@ -1,5 +1,5 @@
 require python.inc
-#MobiAqua: disabled some libs, added gzip-native
+#LocalChange: disabled some libs, added gzip-native
 #DEPENDS = "openssl-native bzip2-full-native zlib-native readline-native sqlite3-native"
 DEPENDS = "zlib-native gzip-native"
 PR = "${INC_PR}.0"
