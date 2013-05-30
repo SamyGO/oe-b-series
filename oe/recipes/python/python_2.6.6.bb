@@ -2,31 +2,29 @@ require python.inc
 DEPENDS = "python-native db gdbm openssl readline sqlite3 tcl zlib\
            ${@base_contains('DISTRO_FEATURES', 'tk', 'tk', '', d)}"
 DEPENDS_sharprom = "python-native db readline zlib gdbm openssl"
-PR = "${INC_PR}.0"
+# set to .0 on every increase of INC_PR
+PR = "${INC_PR}.4"
 
+#MobiAqua: added fixed-system.patch
 SRC_URI = "\
   http://www.python.org/ftp/python/${PV}/Python-${PV}.tar.bz2 \
-  file://00-fix-bindir-libdir-for-cross.patch \
+  file://00-fix-parallel-make.patch \
   file://01-use-proper-tools-for-cross-build.patch \
   file://02-remove-test-for-cross.patch \
   file://03-fix-tkinter-detection.patch \
   file://04-default-is-optimized.patch \
   file://05-enable-ctypes-cross-build.patch \
-  file://06-libffi-enable-default-mips.patch \
-  file://07-export-grammer.patch \
-  file://99-ignore-optimization-flag.patch \
-  file://fixed-system.patch \
-  \
-# not yet pushed forward
-# sitecustomize, sitebranding
-  \
-#  file://05-install.patch \
-#  file://06-fix-urllib-exception.patch \
-#  file://16-bug1179-imageop.patch \
-#  file://13-set-wakeup-fix.patch \
-  \
+  file://06-ctypes-libffi-fix-configure.patch \
+  file://07-linux3-regen-fix.patch \
+  file://ipv6-cross.patch \
+  file://python-module-rpath-fix.patch \
   file://sitecustomize.py \
+  file://pkgconfig-support.patch \
+  file://fixed-system.patch \
 "
+SRC_URI[md5sum] = "cf4e6881bb84a7ce6089e4a307f71f14"
+SRC_URI[sha256sum] = "134c5e0736bae2e5570d0b915693374f11108ded63c35a23a35d282737d2ce83"
+
 S = "${WORKDIR}/Python-${PV}"
 
 inherit autotools
@@ -36,8 +34,12 @@ inherit autotools
 TARGET_CC_ARCH_append_armv6 = " -D__SOFTFP__"
 TARGET_CC_ARCH_append_armv7a = " -D__SOFTFP__"
 
+do_configure_prepend() {
+	autoreconf -Wcross --verbose --install --force --exclude=autopoint Modules/_ctypes/libffi || oenote "_ctypes failed to autoreconf"
+}
+
 #
-# copy config.h and an appropriate Makefile for distutils.sysconfig
+# Copy config.h and an appropriate Makefile for distutils.sysconfig,
 # which laters uses the information out of these to compile extensions
 #
 do_compile_prepend() {
@@ -67,12 +69,7 @@ do_compile() {
 		STAGING_LIBDIR=${STAGING_LIBDIR} \
 		STAGING_INCDIR=${STAGING_INCDIR} \
 		BUILD_SYS=${BUILD_SYS} HOST_SYS=${HOST_SYS} \
-		OPT="${CFLAGS}"
-}
-
-do_stage() {
-	install -m 0644 Include/*.h ${STAGING_INCDIR}/python${PYTHON_MAJMIN}/
-	oe_libinstall -a -so libpython${PYTHON_MAJMIN} ${STAGING_LIBDIR}
+		RUNSHARED= OPT="${CFLAGS}"
 }
 
 do_install() {
@@ -83,7 +80,7 @@ do_install() {
 		STAGING_LIBDIR=${STAGING_LIBDIR} \
 		STAGING_INCDIR=${STAGING_INCDIR} \
 		BUILD_SYS=${BUILD_SYS} HOST_SYS=${HOST_SYS} \
-		DESTDIR=${D} LIBDIR=${libdir} install
+		DESTDIR=${D} LIBDIR=${libdir} RUNSHARED= install
 
 	install -m 0644 ${WORKDIR}/sitecustomize.py ${D}/${libdir}/python${PYTHON_MAJMIN}
 
@@ -91,33 +88,50 @@ do_install() {
 	sed -i -e s,ccache,'$(CCACHE)', ${D}/${libdir}/python${PYTHON_MAJMIN}/config/Makefile
 }
 
+do_install_append() {
+	# remove unecessary files from python-distutils' packages
+	rm ${D}/${libdir}/python${PYTHON_MAJMIN}/config/libpython2.6.a
+	rm ${D}/${libdir}/python${PYTHON_MAJMIN}/distutils/command/win*
+}
+
 require python-${PYTHON_MAJMIN}-manifest.inc
 
 # manual dependency additions
-RPROVIDES_python-core = "python"
-RRECOMMENDS_python-core = "python-readline"
-RRECOMMENDS_python-crypt = "openssl"
+RPROVIDES_${PN}-core = "${PN}"
+RRECOMMENDS_${PN}-core = "${PN}-readline"
+RRECOMMENDS_${PN}-crypt = "openssl"
 
 # add sitecustomize
-FILES_python-core += "${libdir}/python${PYTHON_MAJMIN}/sitecustomize.py"
+FILES_${PN}-core += "${libdir}/python${PYTHON_MAJMIN}/sitecustomize.py"
+# ship 2to3
+FILES_${PN}-core += "${bindir}/2to3"
 
-# 2to3
-FILES_python-core += "${bindir}/2to3"
+# package libpython2
+PACKAGES =+ "lib${PN}2"
+FILES_lib${PN}2 = "${libdir}/libpython*.so.*"
 
-# package libpython
-PACKAGES =+ "libpython2"
-FILES_libpython2 = "${libdir}/libpython*.so.*"
+# additional stuff -dev
+
+FILES_${PN}-dev += "\
+  ${includedir} \
+  ${libdir}/lib*${SOLIBSDEV} \
+  ${libdir}/*.la \
+  ${libdir}/*.a \
+  ${libdir}/*.o \
+  ${libdir}/pkgconfig \
+  ${base_libdir}/*.a \
+  ${base_libdir}/*.o \
+  ${datadir}/aclocal \
+  ${datadir}/pkgconfig \
+"
 
 # catch debug extensions (isn't that already in python-core-dbg?)
-FILES_python-dbg += "${libdir}/python${PYTHON_MAJMIN}/lib-dynload/.debug"
+FILES_${PN}-dbg += "${libdir}/python${PYTHON_MAJMIN}/lib-dynload/.debug"
 
 # catch all the rest (unsorted)
-PACKAGES += "python-misc"
-FILES_python-misc = "${libdir}/python${PYTHON_MAJMIN}"
+PACKAGES += "${PN}-misc"
+FILES_${PN}-misc = "${libdir}/python${PYTHON_MAJMIN}"
 
 # catch manpage
-PACKAGES += "python-man"
-FILES_python-man = "${datadir}/man"
-
-SRC_URI[md5sum] = "e81c2f0953aa60f8062c05a4673f2be0"
-SRC_URI[sha256sum] = "cf153f10ba6312a8303ceb01bed834a2786d28aa89c7d73dba64714f691628f6"
+PACKAGES += "${PN}-man"
+FILES_${PN}-man = "${datadir}/man"
