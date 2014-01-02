@@ -22,3 +22,42 @@ diff -ur old/gcc/toplev.h new/gcc/toplev.h
  # if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
  #  define CLZ_HWI __builtin_clzl
  #  define CTZ_HWI __builtin_ctzl
+diff -ur old/gcc/cp/cfns.gperf new/gcc/cp/cfns.gperf
+--- old/gcc/cp/cfns.gperf	2003-07-25 15:57:43.000000000 +0200
++++ new/gcc/cp/cfns.gperf	2014-01-03 00:42:52.000000000 +0100
+@@ -1,9 +1,9 @@
+ %{
+-#ifdef __GNUC__
++#if 0
+ __inline
+ #endif
+ static unsigned int hash (const char *, unsigned int);
+-#ifdef __GNUC__
++#if 0
+ __inline
+ #endif
+ const char * libc_name_p (const char *, unsigned int);
+diff -ur old/gcc/cp/cfns.h new/gcc/cp/cfns.h
+--- old/gcc/cp/cfns.h	2006-06-06 13:44:09.000000000 +0200
++++ new/gcc/cp/cfns.h	2014-01-03 00:48:24.000000000 +0100
+@@ -30,17 +30,17 @@
+ 
+ #line 1 "../../gcc/gcc/cp/cfns.gperf"
+ 
+-#ifdef __GNUC__
++#if 0
+ __inline
+ #endif
+ static unsigned int hash (const char *, unsigned int);
+-#ifdef __GNUC__
++#if 0
+ __inline
+ #endif
+ const char * libc_name_p (const char *, unsigned int);
+ /* maximum key range = 391, duplicates = 0 */
+ 
+-#ifdef __GNUC__
++#if 0
+ __inline
+ #else
+ #ifdef __cplusplus
