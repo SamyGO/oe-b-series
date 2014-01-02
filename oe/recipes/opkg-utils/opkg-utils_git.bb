@@ -15,6 +15,7 @@ SRC_URI = "git://git.yoctoproject.org/opkg-utils;protocol=git \
            file://fix-for-cutoff-filenames.patch \
            file://remove_f_from_ar.patch \
            file://fix_call.patch \
+           file://fix_tar.patch \
            "
 
 S = "${WORKDIR}/git"

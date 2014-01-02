@@ -25,6 +25,8 @@ SRC_URI = "${GNU_MIRROR}/gcc/gcc-4.2.0/gcc-4.2.0.tar.bz2 \
 	file://cache-amnesia.patch \
 	file://pr34130.patch \
 	file://Makefile.in.patch \
+	file://workaround_cirrus.patch \
+	file://workaround_extern.patch \
 "
 
 SRC_URI[md5sum] = "4798c23548dc791ea12a139e18940684"

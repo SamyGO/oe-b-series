@@ -783,7 +783,7 @@ ipkg_install_file_dest() {
 	rm -f $IPKG_TMP/control.tar.gz $IPKG_TMP/control.tar
 	if ! { $pkg_extract_stdout $filename control.tar.gz > $IPKG_TMP/control.tar.gz &&
 	       gzip -d $IPKG_TMP/control.tar.gz &&
-	       tar -C $IPKG_TMP/$pkg/control -xf $IPKG_TMP/control.tar ; } ; then
+	       deftar -C $IPKG_TMP/$pkg/control -xf $IPKG_TMP/control.tar ; } ; then
 		echo "ipkg_install_file: ERROR unpacking control.tar.gz from $filename"
 		return 1
 	fi
@@ -817,7 +817,7 @@ Status: install ok pending" | ipkg_status_update_sd $sd $pkg
 	rm -f $IPKG_TMP/data.tar.gz $IPKG_TMP/data.tar
 	if ! { $pkg_extract_stdout $filename ./data.tar.gz > $IPKG_TMP/data.tar.gz &&
 	       gzip -d $IPKG_TMP/data.tar.gz &&
-	       tar -C $IPKG_TMP/$pkg/data -xf $IPKG_TMP/data.tar ; } ; then
+	       deftar -C $IPKG_TMP/$pkg/data -xf $IPKG_TMP/data.tar ; } ; then
 		echo "ipkg_install_file: ERROR unpacking data.tar.gz from $filename"
 		return 1
 	fi
@@ -886,12 +886,12 @@ diff -u $dest/$conffile $IPKG_TMP/$pkg/data/$conffile"
 	fi
 
 	local owd=`pwd`
-	(cd $IPKG_TMP/$pkg/data/; tar cf - . | (cd $owd; cd $dest; tar xf -))		
+	(cd $IPKG_TMP/$pkg/data/; deftar cf - . | (cd $owd; cd $dest; deftar xf -))		
 	rm -rf $IPKG_TMP/$pkg/data
 	rmdir $IPKG_TMP/$pkg
 	rm -f $IPKG_TMP/data.tar.gz $IPKG_TMP/data.tar
 	$pkg_extract_stdout $filename ./data.tar.gz > $IPKG_TMP/data.tar.gz
-	tar tzf $IPKG_TMP/data.tar.gz | sed -e 's/^\.//' > $info_dir/$pkg.list
+	deftar tzf $IPKG_TMP/data.tar.gz | sed -e 's/^\.//' > $info_dir/$pkg.list
 	rm -f $IPKG_TMP/data.tar.gz $IPKG_TMP/data.tar
 
 	if [ -x "$info_dir/$pkg.postinst" ]; then

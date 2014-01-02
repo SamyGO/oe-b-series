@@ -1,0 +1,81 @@
+diff -ur old/opkg-build new/opkg-build
+--- old/opkg-build	2014-01-02 20:46:42.000000000 +0100
++++ new/opkg-build	2014-01-02 23:24:52.000000000 +0100
+@@ -163,12 +163,10 @@
+ while getopts "cCg:ho:vO" opt; do
+     case $opt in
+ 	o ) owner=$OPTARG
+-	    ogargs="--owner=$owner"
+ 	    ;;
+ 	O ) opkext=1
+ 	    ;;
+ 	g ) group=$OPTARG
+-	    ogargs="$ogargs --group=$group"
+ 	    ;;
+         c ) outer=tar
+             ;;
+@@ -233,8 +231,8 @@
+ mkdir $tmp_dir
+ 
+ echo $CONTROL > $tmp_dir/tarX
+-( cd $pkg_dir && tar $ogargs -X $tmp_dir/tarX -czf $tmp_dir/data.tar.gz . )
+-( cd $pkg_dir/$CONTROL && tar $ogargs -czf $tmp_dir/control.tar.gz . )
++( cd $pkg_dir && deftar $ogargs -X $tmp_dir/tarX -czf $tmp_dir/data.tar.gz . )
++( cd $pkg_dir/$CONTROL && deftar $ogargs -czf $tmp_dir/control.tar.gz . )
+ rm $tmp_dir/tarX
+ 
+ echo "2.0" > $tmp_dir/debian-binary
+@@ -249,7 +247,7 @@
+ if [ "$outer" = "ar" ] ; then
+   ( cd $tmp_dir && ar -cr $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
+ else
+-  ( cd $tmp_dir && tar -zcf $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
++  ( cd $tmp_dir && deftar -zcf $pkg_file ./debian-binary ./data.tar.gz ./control.tar.gz )
+ fi
+ 
+ rm $tmp_dir/debian-binary $tmp_dir/data.tar.gz $tmp_dir/control.tar.gz
+diff -ur old/opkg-buildpackage new/opkg-buildpackage
+--- old/opkg-buildpackage	2014-01-02 20:46:42.000000000 +0100
++++ new/opkg-buildpackage	2014-01-02 23:08:34.000000000 +0100
+@@ -146,7 +146,7 @@
+ 	mkdir ${pkg_upname}.tmp
+ 	cd ${pkg_upname}.tmp
+ 	echo "unpacking source tarball ${pkg_tarball}"
+-	tar zxf ${pkg_dir_abs}/../${pkg_tarball}
++	deftar zxf ${pkg_dir_abs}/../${pkg_tarball}
+ 	dir=`find . -maxdepth 1 -name "*" -type d`
+ 	cnt=`echo $dir | wc -l`
+ 	if [ ${cnt} != 1 ] ; then
+diff -ur old/opkg-extract-file new/opkg-extract-file
+--- old/opkg-extract-file	2014-01-02 20:46:42.000000000 +0100
++++ new/opkg-extract-file	2014-01-02 23:08:46.000000000 +0100
+@@ -37,11 +37,11 @@
+ mkdir -p $pkgdir/CONTROL
+ 
+ cur_dir=$PWD
+-cd $pkgdir; (ar x $cur_dir/$opkgfilename || tar zxf $cur_dir/$opkgfilename) >& /dev/null
++cd $pkgdir; (ar x $cur_dir/$opkgfilename || deftar zxf $cur_dir/$opkgfilename) >& /dev/null
+ cd $cur_dir
+ 
+-tar xzf $pkgdir/data.tar.gz -C $pkgdir
+-tar xzf $pkgdir/control.tar.gz -C $pkgdir/CONTROL
++deftar xzf $pkgdir/data.tar.gz -C $pkgdir
++deftar xzf $pkgdir/control.tar.gz -C $pkgdir/CONTROL
+ rm -f $pkgdir/control.tar.gz $pkgdir/data.tar.gz $pkgdir/debian-binary
+ 
+ cp $pkgdir/$filename `basename $filename`
+diff -ur old/opkg-unbuild new/opkg-unbuild
+--- old/opkg-unbuild	2014-01-02 20:46:42.000000000 +0100
++++ new/opkg-unbuild	2014-01-02 23:09:01.000000000 +0100
+@@ -17,8 +17,8 @@
+     os.mkdir(pkg)
+     os.mkdir(pkg + '/CONTROL')
+ 
+-    os.system('cd %s; (ar x ../%s || tar zxf ../%s) >& /dev/null' % (pkg, filename, filename))
++    os.system('cd %s; (ar x ../%s || deftar zxf ../%s) >& /dev/null' % (pkg, filename, filename))
+ 
+-    os.system('tar xzf %s/data.tar.gz -C %s' % (pkg, pkg))
+-    os.system('tar xzf %s/control.tar.gz -C %s/CONTROL' % (pkg, pkg))
++    os.system('deftar xzf %s/data.tar.gz -C %s' % (pkg, pkg))
++    os.system('deftar xzf %s/control.tar.gz -C %s/CONTROL' % (pkg, pkg))
+     os.system('rm -f %s/control.tar.gz %s/data.tar.gz %s/debian-binary' % (pkg, pkg, pkg))
