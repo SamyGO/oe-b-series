@@ -79,3 +79,25 @@ diff -ur old/opkg-unbuild new/opkg-unbuild
 +    os.system('deftar xzf %s/data.tar.gz -C %s' % (pkg, pkg))
 +    os.system('deftar xzf %s/control.tar.gz -C %s/CONTROL' % (pkg, pkg))
      os.system('rm -f %s/control.tar.gz %s/data.tar.gz %s/debian-binary' % (pkg, pkg, pkg))
+diff -ur old/opkg-build new/opkg-build
+--- old/opkg-build	2014-01-02 23:25:55.000000000 +0100
++++ new/opkg-build	2014-01-02 23:48:24.000000000 +0100
+@@ -62,12 +62,12 @@
+ 
+ 	large_uid_files=`find . -uid +99 || true`
+ 
+-	if [ "$ogargs" = "" ]  && [ -n "$large_uid_files" ]; then
+-		echo "*** Warning: The following files have a UID greater than 99.
+-You probably want to chown these to a system user: " >&2
+-		ls -ld $large_uid_files
+-		echo >&2
+-	fi
++#	if [ "$ogargs" = "" ]  && [ -n "$large_uid_files" ]; then
++#		echo "*** Warning: The following files have a UID greater than 99.
++#You probably want to chown these to a system user: " >&2
++#		ls -ld $large_uid_files
++#		echo >&2
++#	fi
+ 	    
+ 
+ 	if [ ! -f "$CONTROL/control" ]; then

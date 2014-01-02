@@ -62,12 +62,12 @@ You probably want to remove them: " >&2
 
 	large_uid_files=`find . -uid +99 || true`
 
-	if [ "$ogargs" = "" ]  && [ -n "$large_uid_files" ]; then
-		echo "*** Warning: The following files have a UID greater than 99.
-You probably want to chown these to a system user: " >&2
-		ls -ld $large_uid_files
-		echo >&2
-	fi
+#	if [ "$ogargs" = "" ]  && [ -n "$large_uid_files" ]; then
+#		echo "*** Warning: The following files have a UID greater than 99.
+#You probably want to chown these to a system user: " >&2
+#		ls -ld $large_uid_files
+#		echo >&2
+#	fi
 	    
 
 	if [ ! -f "$CONTROL/control" ]; then
