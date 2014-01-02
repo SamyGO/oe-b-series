@@ -21,7 +21,7 @@
 inherit package
 PACKAGE_DEPENDS += "pax-utils-native desktop-file-utils-native"
 #LocalChange: add some more native tools
-PACKAGE_DEPENDS += "gawk-native sed-native grep-native tar-native gzip-native gettext-native findutils-native"
+PACKAGE_DEPENDS += "gawk-native grep-native gzip-native gettext-native findutils-native"
 PACKAGEFUNCS += " do_package_qa "
 
 
