@@ -37,9 +37,9 @@ def collection_unpack(collection, d):
     from md5 import md5
 
     handlers = {
-        ("tar"): "tar x --no-same-owner -f %s",
-        ("tar.gz", "tgz", "tar.Z"): "tar xz --no-same-owner -f %s",
-        ("tar.bz2", "tbz", "tbz2"): "tar xj --no-same-owner -f %s",
+        ("tar"): "deftar x --no-same-owner -f %s",
+        ("tar.gz", "tgz", "tar.Z"): "deftar xz --no-same-owner -f %s",
+        ("tar.bz2", "tbz", "tbz2"): "deftar xj --no-same-owner -f %s",
         ("zip", "jar"): "unzip -q -o %s",
     }
 

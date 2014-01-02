@@ -15,7 +15,48 @@ if [ $0 = "./setup.sh" ]; then
 	exit 1
 fi
 
-export OE_BASE=`pwd`
+export OE_BASE=`pwd -P`
+
+if [ -e /bin/uname ]; then
+	os=`/bin/uname -s`
+elif [ -e /usr/bin/uname ]; then
+	os=`/usr/bin/uname -s`
+else
+	os=`uname -s`
+fi
+
+rm -f ${OE_BASE}/oe/bin/deftar
+rm -f ${OE_BASE}/oe/bin/tar
+rm -f ${OE_BASE}/oe/bin/sed
+rm -f ${OE_BASE}/oe/bin/readlink
+case $os in
+Darwin)
+	if [ -e /opt/local/bin/gnutar ]; then
+		ln -s /opt/local/bin/gnutar ${OE_BASE}/oe/bin/tar
+	elif [ -e /sw/bin/gtar ]; then
+		ln -s /sw/bin/gtar ${OE_BASE}/oe/bin/tar
+	fi
+	if [ -e /usr/bin/tar ]; then
+		ln -s /usr/bin/tar ${OE_BASE}/oe/bin/deftar
+	fi
+	if [ -e /opt/local/bin/gsed ]; then
+		ln -s /opt/local/bin/gsed ${OE_BASE}/oe/bin/sed
+	elif [ -e /sw/bin/gsed ]; then
+		ln -s /sw/bin/gsed ${OE_BASE}/oe/bin/sed
+	fi
+	if [ -e /opt/local/bin/greadlink ]; then
+		ln -s /opt/local/bin/greadlink ${OE_BASE}/oe/bin/readlink
+	elif [ -e /sw/sbin/greadlink ]; then
+		ln -s /sw/sbin/greadlink ${OE_BASE}/oe/bin/readlink
+	fi
+	;;
+Linux)
+	if [ -e /bin/tar ]; then
+		ln -s /bin/tar ${OE_BASE}/oe/bin/deftar
+	fi
+esac
+
+OE_BASE=`${OE_BASE}/oe/bin/readlink -f "$OE_BASE"`
 
 MACHINE=ssdtv
 DISTRO=samygo
@@ -49,7 +90,7 @@ BB_NUMBER_THREADS = \"2\"" > ${OE_BASE}/build-${DISTRO}/conf/local.conf
 	echo "OE_BASE=\"${OE_BASE}\"
 export BBPATH=\"\${OE_BASE}/oe/:\${OE_BASE}/bb/:\${OE_BASE}/build-${DISTRO}/\"
 if [ ! \`echo \${PATH} | grep \${OE_BASE}/bb/bin\` ]; then
-	export PATH=\${OE_BASE}/bb/bin:\${PATH}
+	export PATH=\${OE_BASE}/bb/bin:\${OE_BASE}/oe/bin:\${PATH}
 fi
 export LD_LIBRARY_PATH=
 export PYTHONPATH=${OE_BASE}/bb/lib

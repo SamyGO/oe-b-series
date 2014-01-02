@@ -2,9 +2,9 @@
 
 case `uname -s` in
     Darwin)
-        exec "gnutar" "$@"
+        exec "gmktemp" "$@"
         ;;
     Linux)
-        exec "/bin/tar" "$@"
+        exec "mktemp" "$@"
         ;;
 esac

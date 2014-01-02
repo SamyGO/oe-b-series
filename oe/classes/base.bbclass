@@ -179,17 +179,17 @@ def oe_unpack_file(file, data, url = None):
 	cmd = None
 	(type, host, path, user, pswd, parm) = bb.decodeurl(url)
 	if file.endswith('.tar'):
-		cmd = 'tar x --no-same-owner -f %s' % file
+		cmd = 'deftar x --no-same-owner -f %s' % file
 	elif file.endswith('.tgz') or file.endswith('.tar.gz') or file.endswith('.tar.Z'):
-		cmd = 'tar xz --no-same-owner -f %s' % file
+		cmd = 'deftar xz --no-same-owner -f %s' % file
 	elif file.endswith('.tbz') or file.endswith('.tbz2') or file.endswith('.tar.bz2'):
-		cmd = 'bzip2 -dc %s | tar x --no-same-owner -f -' % file
+		cmd = 'bzip2 -dc %s | \"%s/oe/bin/deftar\" x --no-same-owner -f -' % (file, bb.data.getVar('OE_BASE', data, 1))
 	elif file.endswith('.gz') or file.endswith('.Z') or file.endswith('.z'):
 		cmd = 'gzip -dc %s > %s' % (file, efile)
 	elif file.endswith('.bz2'):
 		cmd = 'bzip2 -dc %s > %s' % (file, efile)
 	elif file.endswith('.tar.xz'):
-		cmd = 'xz -dc %s | tar x --no-same-owner -f -' % file
+		cmd = 'xz -dc %s | \"%s/oe/bin/deftar\" x --no-same-owner -f -' % (file, bb.data.getVar('OE_BASE', data, 1))
 	elif file.endswith('.xz'):
 		cmd = 'xz -dc %s > %s' % (file, efile)
 	elif file.endswith('.zip') or file.endswith('.jar'):
