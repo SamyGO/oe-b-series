@@ -4,7 +4,7 @@ HOMEPAGE = "http://www.swox.com/gmp/"
 LICENSE = "GPL LGPL"
 INC_PR = "r2"
 
-#MobiAqua: fixed configure.patch by replace echo -n with printf
+#SamyGO: fixed configure.patch by replace echo -n with printf
 SRC_URI = "${GNU_MIRROR}/gmp/gmp-${PV}.tar.bz2;name=gmp \
 	   file://configure.patch \
             file://configure-sdk.patch \
