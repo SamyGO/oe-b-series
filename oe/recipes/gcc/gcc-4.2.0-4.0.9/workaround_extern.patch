@@ -1,0 +1,24 @@
+diff -ur old/gcc/toplev.c new/gcc/toplev.c
+--- old/gcc/toplev.c	2006-10-09 18:27:14.000000000 +0200
++++ new/gcc/toplev.c	2014-01-02 22:49:18.000000000 +0100
+@@ -531,7 +531,7 @@
+    for floor_log2 and exact_log2; see toplev.h.  That construct, however,
+    conflicts with the ISO C++ One Definition Rule.   */
+ 
+-#if GCC_VERSION < 3004 || !defined (__cplusplus)
++#if 1
+ 
+ /* Given X, an unsigned number, return the largest int Y such that 2**Y <= X.
+    If X is 0, return -1.  */
+diff -ur old/gcc/toplev.h new/gcc/toplev.h
+--- old/gcc/toplev.h	2006-02-26 21:23:40.000000000 +0100
++++ new/gcc/toplev.h	2014-01-02 22:49:41.000000000 +0100
+@@ -158,7 +158,7 @@
+ extern int floor_log2                  (unsigned HOST_WIDE_INT);
+ 
+ /* Inline versions of the above for speed.  */
+-#if GCC_VERSION >= 3004
++#if 0
+ # if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
+ #  define CLZ_HWI __builtin_clzl
+ #  define CTZ_HWI __builtin_ctzl
