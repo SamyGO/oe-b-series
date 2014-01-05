@@ -233,7 +233,7 @@ python packagestage_scenefunc () {
         #
         # Copy the stamp files into the main stamps directoy
         #
-        cmd = bb.data.expand("cp -dpR ${WORKDIR}/tstage/stamps/* ${TMPDIR}/stamps/", d)
+        cmd = bb.data.expand("cp -pPR ${WORKDIR}/tstage/stamps/* ${TMPDIR}/stamps/", d)
         ret = os.system(cmd)
         if ret != 0:
             bb.utils.unlockfile(lf)

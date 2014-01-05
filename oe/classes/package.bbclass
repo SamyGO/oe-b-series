@@ -362,6 +362,7 @@ python perform_packagecopy () {
 	# Start by package population by taking a copy of the installed 
 	# files to operate on
 	os.system('rm -rf %s/*' % (dvar))
+	#LocalChange: fixed portability of cp without -d param
 	os.system('cp -pPR %s/* %s/' % (dest, dvar))
 }
 
