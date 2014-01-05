@@ -481,7 +481,7 @@ python do_package_stage () {
     # We need to include the package_stage stamp in the staging package so create one
     bb.build.make_stamp("do_package_stage", d)
     #LocalChange: fixed portability of cp without -d param
-    os.system("cp -pR %s.do_* %s/" % (stampfn, destdir))
+    os.system("cp -pPR %s.do_* %s/" % (stampfn, destdir))
 
     pstage_set_pkgmanager(d)
     bb.build.exec_func("staging_helper", d)
