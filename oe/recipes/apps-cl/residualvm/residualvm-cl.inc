@@ -18,6 +18,7 @@ FILES_${PN} = "/residualvm"
 EXTRA_OECONF = "--host=samsungtv \
 		--backend=sdl \
 		--disable-alsa \
+		--disable-opengl \
 		--prefix=${prefix} \
 		--enable-release --disable-debug \
 		--enable-verbose-build \
