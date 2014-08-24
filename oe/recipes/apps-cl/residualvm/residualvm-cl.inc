@@ -38,16 +38,16 @@ do_install() {
 	install -d ${D}/residualvm
 	install -m 0644 ${S}/residualvm.so ${D}/residualvm/libresidualvm.so
 	install -m 0644 ${S}/dists/engine-data/*.lab ${D}/residualvm/
+	install -m 0644 ${S}/dists/engine-data/*.m4b ${D}/residualvm/
 	install -m 0644 ${S}/gui/themes/modern.zip ${D}/residualvm/
 	install -m 0644 ${S}/backends/vkeybd/packs/vkeybd_default.zip ${D}/residualvm/
 	install -m 0644 ${S}/AUTHORS ${D}/residualvm/
-	install -m 0644 ${S}/COPYING ${D}/residualvm/
-	install -m 0644 ${S}/COPYING.BSD ${D}/residualvm/
-	install -m 0644 ${S}/COPYING.LGPL ${D}/residualvm/
-	install -m 0644 ${S}/COPYING.FREEFONT ${D}/residualvm/
+	install -m 0644 ${S}/COPYING* ${D}/residualvm/
 	install -m 0644 ${S}/COPYRIGHT ${D}/residualvm/
+	install -m 0644 ${S}/KNOWN_BUGS ${D}/residualvm/
 	install -m 0644 ${S}/NEWS ${D}/residualvm/
 	install -m 0644 ${S}/README ${D}/residualvm/
+	install -m 0644 ${S}/doc/QuickStart ${D}/residualvm/
 	install -m 0644 ${S}/dists/samsungtv/clmeta.dat ${D}/residualvm/
 	install -m 0644 ${S}/dists/samsungtv/residualvm.dat ${D}/residualvm/
 	install -m 0644 ${S}/dists/samsungtv/residualvm.png ${D}/residualvm/

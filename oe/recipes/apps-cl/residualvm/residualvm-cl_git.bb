@@ -2,5 +2,5 @@ require residualvm-cl.inc
 
 S = "${WORKDIR}/git"
 
-SRCREV = "b1967abd7db3586481a44344b18df8954d6dc16c"
+SRCREV = "8bbb5a7efea67b17e2914c810fb657a778f4576c"
 SRC_URI = "git://github.com/residualvm/residualvm.git;protocol=git;branch=master"
