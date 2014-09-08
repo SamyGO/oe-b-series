@@ -1,0 +1,10 @@
+.DS_Store
+*.sw?
+*~
+*.pyc
+*.pyo
+/build-*
+oe/bin/sed
+oe/bin/deftar
+oe/bin/tar
+oe/bin/readlink
