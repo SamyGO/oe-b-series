@@ -48,11 +48,14 @@ Darwin)
 		ln -s /opt/local/bin/greadlink ${OE_BASE}/oe/bin/readlink
 	elif [ -e /sw/sbin/greadlink ]; then
 		ln -s /sw/sbin/greadlink ${OE_BASE}/oe/bin/readlink
-	fi
+    fi
 	;;
 Linux)
 	if [ -e /bin/tar ]; then
 		ln -s /bin/tar ${OE_BASE}/oe/bin/deftar
+	fi
+	if [ -e /bin/readlink ]; then
+		ln -s /bin/readlink ${OE_BASE}/oe/bin/readlink
 	fi
 esac
 
