@@ -37,8 +37,8 @@ python __anonymous () {
 RDEPENDS_${PN}-dev = "linux-libc-headers-dev"
 
 SRC_URI = "\
-  ${SOURCEFORGE_MIRROR}/project/samygo/SamyGO%20Open%20Embedded/sources/git_sourceware.org.git.glibc.git_371f84a4dca19f1416c3f28db9980539d2f62905.tar.bz2;name=glibc \
-  ${SOURCEFORGE_MIRROR}/project/samygo/SamyGO%20Open%20Embedded/sources/git_sourceware.org.git.glibc-ports.git_908afa831ca4403a689304a86e2014b4baa66366.tar.bz2;name=ports \
+  ${SAMYGO_MIRROR}/SamyGO%20Open%20Embedded/sources/git_sourceware.org.git.glibc.git_371f84a4dca19f1416c3f28db9980539d2f62905.tar.bz2;name=glibc \
+  ${SAMYGO_MIRROR}/SamyGO%20Open%20Embedded/sources/git_sourceware.org.git.glibc-ports.git_908afa831ca4403a689304a86e2014b4baa66366.tar.bz2;name=ports \
   file://arm-memcpy.patch \
   file://arm-longlong.patch \
   file://fhs-linux-paths.patch \

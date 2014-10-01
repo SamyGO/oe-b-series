@@ -569,6 +569,14 @@ SRC_URI[sha256sum] = &quot;36bdb85c97b39ac604bc58cb7857ee08295242c78a12848ef8a31
       </varlistentry>
 
       <varlistentry>
+        <term>SAMYGO_MIRROR</term>
+
+        <listitem>
+          <para>http://download.samygo.tv</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>GPE_MIRROR</term>
 
         <listitem>

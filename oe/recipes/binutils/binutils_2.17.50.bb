@@ -8,7 +8,7 @@ COMPATIBLE_TARGET_SYS = "."
 
 S = "${WORKDIR}/git"
 
-SRC_URI = "${SOURCEFORGE_MIRROR}/project/samygo/SamyGO%20Open%20Embedded/sources/git_sourceware.org.git.binutils.git_138bc74f170158c175024317a9ccee37aa7cf617.tar.bz2 \
+SRC_URI = "${SAMYGO_MIRROR}/SamyGO%20Open%20Embedded/sources/git_sourceware.org.git.binutils.git_138bc74f170158c175024317a9ccee37aa7cf617.tar.bz2 \
 	file://better_file_error.patch \
 	file://ld_makefile.patch \
 	file://detect-makeinfo.patch\
