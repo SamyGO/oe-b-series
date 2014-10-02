@@ -1,0 +1,11 @@
+--- old/doc/grep.texi	2014-10-04 08:26:21.176758084 +0200
++++ new/doc/grep.texi	2014-10-04 08:25:58.616757480 +0200
+@@ -558,7 +558,7 @@
+ Process a binary file as if it were text;
+ this is equivalent to the @samp{--binary-files=text} option.
+ 
+-@itemx --binary-files=@var{type}
++@item --binary-files=@var{type}
+ @opindex --binary-files
+ @cindex binary files
+ If the first few bytes of a file indicate that the file contains binary data,

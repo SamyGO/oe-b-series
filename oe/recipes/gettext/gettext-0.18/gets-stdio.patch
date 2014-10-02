@@ -1,0 +1,39 @@
+--- old/gettext-runtime/gnulib-lib/stdio.in.h	2010-04-25 11:20:42.000000000 +0200
++++ new/gettext-runtime/gnulib-lib/stdio.in.h	2014-10-03 06:52:19.210224389 +0200
+@@ -137,7 +137,10 @@
+    so any use of gets warrants an unconditional warning.  Assume it is
+    always declared, since it is required by C89.  */
+ #undef gets
++
++#if HAVE_RAW_DECL_GETS 
+ _GL_WARN_ON_USE (gets, "gets is a security hole - use fgets instead");
++#endif
+ 
+ #if @GNULIB_FOPEN@
+ # if @REPLACE_FOPEN@
+--- old/gettext-tools/libgettextpo/stdio.in.h	2010-04-25 11:20:42.000000000 +0200
++++ new/gettext-tools/libgettextpo/stdio.in.h	2014-10-03 06:52:19.210224389 +0200
+@@ -137,7 +137,10 @@
+    so any use of gets warrants an unconditional warning.  Assume it is
+    always declared, since it is required by C89.  */
+ #undef gets
++
++#if HAVE_RAW_DECL_GETS 
+ _GL_WARN_ON_USE (gets, "gets is a security hole - use fgets instead");
++#endif
+ 
+ #if @GNULIB_FOPEN@
+ # if @REPLACE_FOPEN@
+--- old/gettext-tools/gnulib-lib/stdio.in.h	2010-04-25 11:20:42.000000000 +0200
++++ new/gettext-tools/gnulib-lib/stdio.in.h	2014-10-03 06:52:19.210224389 +0200
+@@ -137,7 +137,10 @@
+    so any use of gets warrants an unconditional warning.  Assume it is
+    always declared, since it is required by C89.  */
+ #undef gets
++
++#if HAVE_RAW_DECL_GETS 
+ _GL_WARN_ON_USE (gets, "gets is a security hole - use fgets instead");
++#endif
+ 
+ #if @GNULIB_FOPEN@
+ # if @REPLACE_FOPEN@
