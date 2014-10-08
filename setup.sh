@@ -116,9 +116,13 @@ echo
 echo "--- SamyGO OE configuration finished ---"
 echo
 if [ "${DISTRO}" = "samygo-cl" ]; then
-echo "--- Usage example: bitbake scummvm-cl ---"
+   echo "--- Usage example: bitbake scummvm-cl ---"
 else
-echo "--- Usage example: bitbake externalboot-base ---"
+   echo "--- Usage example: bitbake externalboot-base ---"
 fi
+echo
+echo "--- After building all tools, results are at build-samygo/tmp/deploy/images directory. ---"
+echo
+
 echo
 
