@@ -150,7 +150,7 @@ case $TYPE in
 T-CHEAUSC|T-CHL7DAUC|T-CHL7DEUC)
 	if [ ! -e LaunchCLManager.zip ]; then
 		echo "Downloading custom T_Library.swf ..."
-		wget -O LaunchCLManager.zip -c http://sourceforge.net/projects/samygo/files/SamyGO%20OE/LaunchCLManager.zip/download 2> /dev/null
+		wget -O LaunchCLManager.zip -c "https://www.dropbox.com/s/d3imer2aj7iyb2c/LaunchCLManager.zip?dl=0" 2> /dev/null
 		if [ $? != 0 ]; then
 			echo "Error downloading: LaunchCLManager.zip!"
 			echo "Copy LaunchCLManager.zip to current directory."
