@@ -43,7 +43,7 @@ while true; do
 done
 
 case $sel in
-1)	URL="http://downloadcenter.samsung.com/content/FM/200910/20091030222802906/T-CHL7DEUC.exe" # 2005.0
+1)	URL="https://www.dropbox.com/s/nx4zt3aaby31icp/T-CHL7DEUC.exe?dl=0" # 2005.0
 	FILENAME="T-CHL7DEUC.exe"
 	MD5SUM="2cdfe576c619c9ebf6698b22e9965127"
 	TYPE="T-CHL7DEUC"
@@ -55,7 +55,7 @@ case $sel in
 	TYPE="T-CHEAUSC"
 	UNCOMP="unzip -qq "
 	;;
-3)	URL="http://downloadcenter.samsung.com/content/FM/200911/20091127101733312/T-CHL7DAUC.exe" # 2001.1
+3)	URL="https://www.dropbox.com/s/ivb6ma21x3dnm8n/T-CHL7DAUC.exe?dl=0" # 2001.1
 	FILENAME="T-CHL7DAUC.exe"
 	MD5SUM="e2412b2771556c3a77e9601275d283ab"
 	TYPE="T-CHL7DAUC"
