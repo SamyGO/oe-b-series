@@ -117,8 +117,10 @@ bitbake() {
 
 if [ "${DISTRO}" = "samygo-cl" ]; then
 	COMMAND="scummvm-cl"
+	RESULT_DIR = "ipk"
 else
 	COMMAND="externalboot-base"
+	RESULT_DIR = "images"
 fi
 
 echo
@@ -126,6 +128,6 @@ echo "--- SamyGO OE configuration finished ---"
 echo
 echo "--- Usage example: bitbake ${COMMAND} ---"
 echo
-echo "--- After building all tools, results are at build-${DISTRO}/tmp/deploy/images directory. ---"
+echo "--- After building all tools, results are at build-${DISTRO}/tmp/deploy/${RESULT_DIR} directory. ---"
 echo
 
