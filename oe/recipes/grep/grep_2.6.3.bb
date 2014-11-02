@@ -6,6 +6,7 @@ PR = "r2"
 do_unpack[depends] += "xz-native:do_populate_sysroot"
 
 SRC_URI = "${GNU_MIRROR}/grep/grep-${PV}.tar.xz \
+           file://grep-doc.patch \
            file://uclibc-fix.patch"
 
 inherit autotools gettext

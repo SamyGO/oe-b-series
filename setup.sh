@@ -54,6 +54,9 @@ Linux)
 	if [ -e /bin/tar ]; then
 		ln -s /bin/tar ${OE_BASE}/oe/bin/deftar
 	fi
+	if [ -e /bin/readlink ]; then
+		ln -s /bin/readlink ${OE_BASE}/oe/bin/readlink
+	fi
 esac
 
 OE_BASE=`${OE_BASE}/oe/bin/readlink -f "$OE_BASE"`
@@ -112,13 +115,19 @@ bitbake() {
 	cd ${OE_BASE}/build-${DISTRO} && source env.source && ${OE_BASE}/bb/bin/bitbake $@
 }
 
+if [ "${DISTRO}" = "samygo-cl" ]; then
+	COMMAND="scummvm-cl"
+	RESULT_DIR = "ipk"
+else
+	COMMAND="externalboot-base"
+	RESULT_DIR = "images"
+fi
+
 echo
 echo "--- SamyGO OE configuration finished ---"
 echo
-if [ "${DISTRO}" = "samygo-cl" ]; then
-echo "--- Usage example: bitbake scummvm-cl ---"
-else
-echo "--- Usage example: bitbake externalboot-base ---"
-fi
+echo "--- Usage example: bitbake ${COMMAND} ---"
+echo
+echo "--- After building all tools, results are at build-${DISTRO}/tmp/deploy/${RESULT_DIR} directory. ---"
 echo
 

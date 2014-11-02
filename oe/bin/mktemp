@@ -5,6 +5,6 @@ case `uname -s` in
         exec "gmktemp" "$@"
         ;;
     Linux)
-        exec "mktemp" "$@"
+        exec "/bin/mktemp" "$@"
         ;;
 esac

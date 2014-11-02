@@ -4,6 +4,7 @@ PR = "${INC_PR}.1"
 
 SRC_URI += "file://f13-compile.patch \
 	    file://m4-uclibc-sched_param-def.patch \
+	    file://gets-stdio.patch \
 	   "
 
 SRC_URI[archive.md5sum] = "e6fb7d08d50d87e796069cff12a52a93"
