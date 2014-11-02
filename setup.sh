@@ -117,7 +117,7 @@ bitbake() {
 
 if [ "${DISTRO}" = "samygo-cl" ]; then
 	COMMAND="scummvm-cl"
-	RESULT_DIR = "ipk"
+	RESULT_DIR = "ipk/armv6"
 else
 	COMMAND="externalboot-base"
 	RESULT_DIR = "images"
