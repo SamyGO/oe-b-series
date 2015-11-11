@@ -1,18 +1,15 @@
 #!/bin/sh
 
-is_root=`id | grep root`
-if [ "$is_root" ]; then
-	echo
-	echo "* ERROR * You are with 'root' privileges ! Aborting."
-	echo
-	exit 1
-fi
+[ "x$0" = "x./setup.sh" ] && echo "* ERROR *  You must run via '. setup.sh [-cl] [-f]'" && return 1
 
-if [ $0 = "./setup.sh" ]; then
-	echo
-	echo "* ERROR * You must run via '. setup.sh [-cl] [-f]'"
-	echo
-	exit 1
+[ $EUID -eq 0 ] && echo "* ERROR *  Script running with superuser privileges! Aborting." &&  return 1
+
+[ -z "$BASH_VERSION" ] && echo "* ERROR *  Script NOT running in 'bash' shell" && return 1
+
+python_ver=`/usr/bin/env python --version 2>&1 | grep "Python 3"`
+if [ "${python_ver}" != "" ]; then
+	echo "* ERROR *  Python v3 is not compatible please install v2"
+	return 1
 fi
 
 export OE_BASE=`pwd -P`
@@ -48,6 +45,19 @@ Darwin)
 		ln -s /opt/local/bin/greadlink ${OE_BASE}/oe/bin/readlink
 	elif [ -e /sw/sbin/greadlink ]; then
 		ln -s /sw/sbin/greadlink ${OE_BASE}/oe/bin/readlink
+	fi
+
+	if [ ! -e ${OE_BASE}/oe/bin/tar ]; then
+	    echo "* ERROR *  Missing GNU tar! Please install missing tool"
+	    return 1
+	fi
+	if [ ! -e ${OE_BASE}/oe/bin/sed ]; then
+	    echo "* ERROR *  Missing GNU sed! Please install missing tool"
+	    return 1
+	fi
+	if [ ! -e ${OE_BASE}/oe/bin/readlink ]; then
+	    echo "* ERROR *  Missing GNU readlink! Please install missing tool"
+	    return 1
 	fi
 	;;
 Linux)
