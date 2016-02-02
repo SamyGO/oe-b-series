@@ -1,0 +1,12 @@
+diff -urp old/gas/config/tc-arm.c new/gas/config/tc-arm.c
+--- old/gas/config/tc-arm.c	2016-02-01 17:05:04.000000000 +0100
++++ new/gas/config/tc-arm.c	2016-02-01 18:27:43.000000000 +0100
+@@ -6940,7 +6940,7 @@ parse_operands (char *str, const unsigne
+ 
+ /* Functions for operand encoding.  ARM, then Thumb.  */
+ 
+-#define rotate_left(v, n) (v << n | v >> (32 - n))
++#define rotate_left(v, n) (v << (n & 31) | v >> ((32 - n) & 31))
+ 
+ /* If VAL can be encoded in the immediate field of an ARM instruction,
+    return the encoded form.  Otherwise, return FAIL.  */
