@@ -34,7 +34,7 @@ After building all tools, results are at *build-samygo/tmp/deploy/images* direct
 
 ## Background Information:
 
-OpenEmbedded: http://en.wikipedia.org/wiki/OpenEmbedded
+OpenEmbedded: http://openembedded.org
 
-SamyGO: http://samygo.sourceforge.net
+SamyGO: https://www.samygo.tv
 
