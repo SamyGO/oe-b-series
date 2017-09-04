@@ -137,7 +137,7 @@ unset GCONF_SCHEMA_INSTALL_SOURCE
 
 
 		echo "source ${OE_BASE}/build-${DISTRO}/env.source
-if [ ! \`echo \${PATH} | grep ${ARMDIR}/bin\` ]; then
+if [ ! \`echo \${PATH} | grep armv6/bin\` ]; then
 	export PATH=${OE_BASE}/${PATH_TO_TOOLS}/armv6/bin:${OE_BASE}/${PATH_TO_TOOLS}/bin:\${PATH}
 fi
 export CROSS_COMPILE=arm-linux-gnueabi-
