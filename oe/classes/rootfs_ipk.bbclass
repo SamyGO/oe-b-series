@@ -41,21 +41,12 @@ fakeroot rootfs_ipk_do_rootfs () {
 	for i in ${BAD_RECOMMENDATIONS}; do
 		echo "Package: $i" >> $STATUS
 		echo "Architecture: ${TARGET_ARCH}" >> $STATUS
-		echo "Status: deinstall ok not-installed" >> $STATUS
+		echo "Status: deinstall hold not-installed" >> $STATUS
 		echo >> $STATUS
 	done
 
 	opkg-cl ${IPKG_ARGS} update
 
-	# Uclibc builds don't provide this stuff...
-	if [ x${TARGET_OS} = "xlinux" ] || [ x${TARGET_OS} = "xlinux-gnueabi" ] ; then 
-		if [ ! -z "${LINGUAS_INSTALL}" ]; then
-			opkg-cl ${IPKG_ARGS} install glibc-localedata-i18n
-			for i in ${LINGUAS_INSTALL}; do
-				opkg-cl ${IPKG_ARGS} install $i 
-			done
-		fi
-	fi
 	if [ ! -z "${PACKAGE_INSTALL}" ]; then
 		opkg-cl ${IPKG_ARGS} install ${PACKAGE_INSTALL}
 	fi
@@ -92,24 +83,62 @@ fakeroot rootfs_ipk_do_rootfs () {
 	${ROOTFS_POSTPROCESS_COMMAND}
 
 	if [ "${ONLINE_PACKAGE_MANAGEMENT}" != "none" ]; then
-		if [ "${ONLINE_PACKAGE_MANAGEMENT}" == "add" ]; then
+		if [ "${ONLINE_PACKAGE_MANAGEMENT}" = "add" ]; then
 			rm -f ${IMAGE_ROOTFS}${libdir}/opkg/status
 			rm -f ${IMAGE_ROOTFS}${libdir}/opkg/*/*
 		else
 			rm -f ${IMAGE_ROOTFS}${libdir}/opkg/lists/*
 		fi
-	
+
+		# Remove lists, but leave SHR's tmp dir if it exists.
+		rm -f ${IMAGE_ROOTFS}/var/lib/opkg/* || true
+
 		# Keep these lines until package manager selection is implemented
 		ln -s opkg ${IMAGE_ROOTFS}${sysconfdir}/ipkg
 		ln -s opkg ${IMAGE_ROOTFS}${libdir}/ipkg
 	else
 		rm -rf ${IMAGE_ROOTFS}${libdir}/opkg
 		rm -rf ${IMAGE_ROOTFS}/usr/lib/opkg
+		rm -rf ${IMAGE_ROOTFS}/var/lib/opkg
 	fi
-	
+
 	log_check rootfs 	
 	rm -rf ${IPKG_TMP_DIR}
+
+	if [ "${ONLINE_PACKAGE_MANAGEMENT}" != "none" ]; then
+		rootfs_ipk_insert_feed_uris
+	fi
 }
+
+rootfs_ipk_insert_feed_uris () {
+
+	echo "Building feeds for [${DISTRO}].."
+
+	for line in ${FEED_URIS}
+	do
+		# strip leading and trailing spaces/tabs, then split into name and uri
+		line_clean="`echo "$line"|sed 's/^[ \t]*//;s/[ \t]*$//'`"
+		feed_name="`echo "$line_clean" | sed -n 's/\(.*\)##\(.*\)/\1/p'`"
+		feed_uri="`echo "$line_clean" | sed -n 's/\(.*\)##\(.*\)/\2/p'`"
+
+		echo "Added $feed_name feed with URL $feed_uri"
+
+		# insert new feed-sources
+		echo "src/gz $feed_name $feed_uri" >> ${IMAGE_ROOTFS}/etc/opkg/${feed_name}-feed.conf
+	done
+
+	# Allow to use package deploy directory contents as quick devel-testing
+	# feed. This creates individual feed configs for each arch subdir of those
+	# specified as compatible for the current machine.
+	# NOTE: Development-helper feature, NOT a full-fledged feed.
+	if [ -n "${FEED_DEPLOYDIR_BASE_URI}" ]; then
+	    for arch in ${PACKAGE_ARCHS}
+	    do
+		echo "src/gz local-$arch ${FEED_DEPLOYDIR_BASE_URI}/$arch" >> ${IMAGE_ROOTFS}/etc/opkg/local-$arch-feed.conf
+	    done
+	fi
+}
+
 
 rootfs_ipk_log_check() {
 	target="$1"

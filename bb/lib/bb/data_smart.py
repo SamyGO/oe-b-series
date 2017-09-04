@@ -64,10 +64,9 @@ class DataSmart:
                 return match.group()
 
         def python_sub(match):
-            import bb
             code = match.group()[3:-1]
-            locals()['d'] = self
-            s = eval(code)
+            codeobj = compile(code.strip(), varname or "<expansion>", "eval")
+            s = utils.better_eval(codeobj, {"d": self})
             if type(s) == types.IntType: s = str(s)
             return s
 
@@ -171,14 +170,15 @@ class DataSmart:
         Rename the variable key to newkey 
         """
         val = self.getVar(key, 0)
-        if val is None:
-            return
-
-        self.setVar(newkey, val)
+        if val is not None:
+            self.setVar(newkey, val)
 
         for i in ('_append', '_prepend'):
+            src = self.getVarFlag(key, i)
+            if src is None:
+                continue
+
             dest = self.getVarFlag(newkey, i) or []
-            src = self.getVarFlag(key, i) or []
             dest.extend(src)
             self.setVarFlag(newkey, i, dest)
             
@@ -218,7 +218,7 @@ class DataSmart:
         if not var in self.dict:
             self._makeShadowCopy(var)
 
-        for i in flags.keys():
+        for i in flags:
             if i == "content":
                 continue
             self.dict[var][i] = flags[i]
@@ -228,7 +228,7 @@ class DataSmart:
         flags = {}
 
         if local_var:
-            for i in local_var.keys():
+            for i in local_var:
                 if i == "content":
                     continue
                 flags[i] = local_var[i]

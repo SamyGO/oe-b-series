@@ -25,15 +25,60 @@ IMAGE_KEEPROOTFS ?= ""
 IMAGE_KEEPROOTFS[doc] = "Set to non-empty to keep ${IMAGE_ROOTFS} around after image creation."
 
 IMAGE_BOOT ?= "${IMAGE_INITSCRIPTS} \
-${IMAGE_DEV_MANAGER} \
-${IMAGE_INIT_MANAGER} \
-${IMAGE_LOGIN_MANAGER} "
+               ${IMAGE_DEV_MANAGER} \
+               ${IMAGE_INIT_MANAGER} \
+               ${IMAGE_LOGIN_MANAGER}"
 
-RDEPENDS += "${IMAGE_INSTALL} ${IMAGE_BOOT}"
+# some default locales
+IMAGE_LINGUAS ?= "de-de fr-fr en-gb"
+IMAGE_LINGUAS[type] = "list"
+
+LINGUAS_INSTALL = ""
+LINGUAS_INSTALL_linux = "${@base_ifelse(d.getVar('IMAGE_LINGUAS', True), \
+                                        'glibc-localedata-i18n', '')}"
+LINGUAS_INSTALL_linux += "${@' '.join(map(lambda s: 'locale-base-%s' % s, '${IMAGE_LINGUAS}'.split()))}"
+LINGUAS_INSTALL_linux-gnueabi = "${LINGUAS_INSTALL_linux}"
+
+PACKAGE_INSTALL = "${@' '.join(oe.packagegroup.required_packages('${IMAGE_FEATURES}'.split(), d))}"
+PACKAGE_INSTALL_ATTEMPTONLY = "${@' '.join(oe.packagegroup.optional_packages('${IMAGE_FEATURES}'.split(), d))}"
+RDEPENDS += "${@' '.join(oe.packagegroup.active_packages('${IMAGE_FEATURES}'.split(), d))}"
+
+
+IMAGE_FEATURES ?= ""
+IMAGE_FEATURES[type] = "list"
+IMAGE_FEATURES_prepend = "image_base "
+
+# Define our always included package group
+PACKAGE_GROUP_image_base = "${IMAGE_INSTALL} ${IMAGE_BOOT} ${LINGUAS_INSTALL}"
+
+# The following package groups allow one to add debugging, development, and
+# documentation files for all packages installed in the image.
+
+def string_set(iterable):
+    return ' '.join(set(iterable))
+
+def image_features_noextras(d):
+    for f in d.getVar("IMAGE_FEATURES", True).split():
+        if not f in ('dbg', 'dev', 'doc'):
+            yield f
+
+def dbg_packages(d):
+    from itertools import chain
+
+    features = image_features_noextras(d)
+    return string_set("%s-dbg" % pkg
+                      for pkg in chain(oe.packagegroup.active_packages(features, d),
+                                       oe.packagegroup.active_recipes(features, d)))
+
+PACKAGE_GROUP_dbg = "${@dbg_packages(d)}"
+PACKAGE_GROUP_dbg[optional] = "1"
+PACKAGE_GROUP_dev = "${@string_set('%s-dev' % pn for pn in oe.packagegroup.active_recipes(image_features_noextras(d), d))}"
+PACKAGE_GROUP_dev[optional] = "1"
+PACKAGE_GROUP_doc = "${@string_set('%s-doc' % pn for pn in oe.packagegroup.active_recipes(image_features_noextras(d), d))}"
+PACKAGE_GROUP_doc[optional] = "1"
 
 # "export IMAGE_BASENAME" not supported at this time
 IMAGE_BASENAME[export] = "1"
-export PACKAGE_INSTALL ?= "${IMAGE_INSTALL} ${IMAGE_BOOT}"
 
 # We need to recursively follow RDEPENDS and RRECOMMENDS for images
 do_rootfs[recrdeptask] += "do_deploy do_populate_sysroot"
@@ -42,6 +87,7 @@ do_rootfs[recrdeptask] += "do_deploy do_populate_sysroot"
 EXCLUDE_FROM_WORLD = "1"
 
 USE_DEVFS ?= "0"
+USE_DEVFS[type] = "boolean"
 
 PID = "${@os.getpid()}"
 
@@ -61,6 +107,7 @@ python () {
     bb.data.setVarFlag('do_rootfs', 'depends', deps, d)
 
     runtime_mapping_rename("PACKAGE_INSTALL", d)
+    runtime_mapping_rename("PACKAGE_INSTALL_ATTEMPTONLY", d)
 }
 
 #
@@ -93,19 +140,17 @@ def get_imagecmds(d):
         cmd  = "\t#Code for image type " + type + "\n"
         cmd += "\t${IMAGE_CMD_" + type + "}\n"
         cmd += "\tcd ${DEPLOY_DIR_IMAGE}/\n"
-        cmd += "\trm -f ${DEPLOY_DIR_IMAGE}/${IMAGE_LINK_NAME}." + type + "\n"
-        cmd += "\tln -s ${IMAGE_NAME}.rootfs." + type + " ${DEPLOY_DIR_IMAGE}/${IMAGE_LINK_NAME}." + type + "\n\n"
+        cmd += "\tif [ -f ${IMAGE_NAME}.rootfs." + type + " ]; then\n"
+        cmd += "\tln -fs ${IMAGE_NAME}.rootfs." + type + " ${DEPLOY_DIR_IMAGE}/${IMAGE_LINK_NAME}." + type + "\n"
+        cmd += "\telif [ -f ${IMAGE_NAME}." + type + ".img ]; then\n"
+        cmd += "\tln -fs ${IMAGE_NAME}." + type + ".img ${DEPLOY_DIR_IMAGE}/${IMAGE_LINK_NAME}." + type + "\n"
+        cmd += "\tfi\n\n"
         cmds += bb.data.expand(cmd, localdata)
     return cmds
 
 IMAGE_POSTPROCESS_COMMAND ?= ""
 MACHINE_POSTPROCESS_COMMAND ?= ""
 ROOTFS_POSTPROCESS_COMMAND ?= ""
-
-# some default locales
-IMAGE_LINGUAS ?= "de-de fr-fr en-gb"
-
-LINGUAS_INSTALL = "${@" ".join(map(lambda s: "locale-base-%s" % s, bb.data.getVar('IMAGE_LINGUAS', d, 1).split()))}"
 
 do_rootfs[nostamp] = "1"
 do_rootfs[dirs] = "${TOPDIR}"
@@ -131,15 +176,13 @@ fakeroot do_rootfs () {
 
 	rootfs_${IMAGE_PKGTYPE}_do_rootfs
 
-	insert_feed_uris
-
 	${IMAGE_PREPROCESS_COMMAND}
 
 	ROOTFS_SIZE=`du -ks ${IMAGE_ROOTFS}|awk '{size = ${IMAGE_EXTRA_SPACE} + $1; print (size > ${IMAGE_ROOTFS_SIZE} ? size : ${IMAGE_ROOTFS_SIZE}) }'`
 	${@get_imagecmds(d)}
 
 	${IMAGE_POSTPROCESS_COMMAND}
-	
+
 	${MACHINE_POSTPROCESS_COMMAND}
 	${@['rm -rf ${IMAGE_ROOTFS}', ''][bool(d.getVar("IMAGE_KEEPROOTFS", 1))]}
 }
@@ -152,43 +195,14 @@ do_deploy_to () {
 	cp "${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.rootfs.${IMAGE_FSTYPES}" ${DEPLOY_TO}
 }
 
-insert_feed_uris () {
-	
-	echo "Building feeds for [${DISTRO}].."
-
-	for line in ${FEED_URIS}
-	do
-		# strip leading and trailing spaces/tabs, then split into name and uri
-		line_clean="`echo "$line"|sed 's/^[ \t]*//;s/[ \t]*$//'`"
-		feed_name="`echo "$line_clean" | sed -n 's/\(.*\)##\(.*\)/\1/p'`"
-		feed_uri="`echo "$line_clean" | sed -n 's/\(.*\)##\(.*\)/\2/p'`"
-		
-		echo "Added $feed_name feed with URL $feed_uri"
-		
-		# insert new feed-sources
-		echo "src/gz $feed_name $feed_uri" >> ${IMAGE_ROOTFS}/etc/opkg/${feed_name}-feed.conf
-	done
-
-	# Allow to use package deploy directory contents as quick devel-testing
-	# feed. This creates individual feed configs for each arch subdir of those
-	# specified as compatible for the current machine.
-	# NOTE: Development-helper feature, NOT a full-fledged feed.
-	if [ -n "${FEED_DEPLOYDIR_BASE_URI}" ]; then
-	    for arch in ${PACKAGE_ARCHS}
-	    do
-		echo "src/gz local-$arch ${FEED_DEPLOYDIR_BASE_URI}/$arch" >> ${IMAGE_ROOTFS}/etc/opkg/local-$arch-feed.conf
-	    done
-	fi
-}
-
 log_check() {
 	set +x
 	for target in $*
 	do
 		lf_path="${WORKDIR}/temp/log.do_$target.${PID}"
-		
+
 		echo "log_check: Using $lf_path as logfile"
-		
+
 		if test -e "$lf_path"
 		then
 			rootfs_${IMAGE_PKGTYPE}_log_check $target $lf_path
@@ -207,7 +221,7 @@ log_check() {
 zap_root_password () {
 	sed 's%^root:[^:]*:%root::%' < ${IMAGE_ROOTFS}/etc/passwd >${IMAGE_ROOTFS}/etc/passwd.new
 	mv ${IMAGE_ROOTFS}/etc/passwd.new ${IMAGE_ROOTFS}/etc/passwd
-} 
+}
 
 create_etc_timestamp() {
 	date +%2m%2d%2H%2M%Y >${IMAGE_ROOTFS}/etc/timestamp
@@ -234,7 +248,7 @@ set_image_autologin () {
         sed -i 's%^AUTOLOGIN=\"false"%AUTOLOGIN="true"%g' ${IMAGE_ROOTFS}/etc/sysconfig/gpelogin
 }
 
-# Can be use to create /etc/timestamp during image construction to give a reasonably 
+# Can be use to create /etc/timestamp during image construction to give a reasonably
 # sane default time setting
 rootfs_update_timestamp () {
 	date "+%m%d%H%M%Y" >${IMAGE_ROOTFS}/etc/timestamp
@@ -245,25 +259,29 @@ install_linguas() {
 if [ -e ${IMAGE_ROOTFS}/usr/bin/opkg-cl ] ; then
 	OPKG="opkg-cl ${IPKG_ARGS}"
 
-	${OPKG} update || true
-	${OPKG} list_installed | awk '{print $1}' |sort | uniq > /tmp/installed-packages
+	mkdir -p ${IMAGE_ROOTFS}/tmp-locale
 
-	for i in $(cat /tmp/installed-packages | grep -v locale) ; do
+	${OPKG} update || true
+	${OPKG} list_installed | awk '{print $1}' |sort | uniq > ${IMAGE_ROOTFS}/tmp-locale/installed-packages
+
+	for i in $(cat ${IMAGE_ROOTFS}/tmp-locale/installed-packages | grep -v locale) ; do
 		for translation in ${IMAGE_LINGUAS}; do
 			translation_split=$(echo ${translation} | awk -F '-' '{print $1}')
 			echo ${i}-locale-${translation}
 			echo ${i}-locale-${translation_split}
 		done
-	done | sort | uniq > /tmp/wanted-locale-packages
+	done | sort | uniq > ${IMAGE_ROOTFS}/tmp-locale/wanted-locale-packages
 
-	${OPKG} list | awk '{print $1}' |grep locale |sort | uniq > /tmp/available-locale-packages
+	${OPKG} list | awk '{print $1}' |grep locale |sort | uniq > ${IMAGE_ROOTFS}/tmp-locale/available-locale-packages
 
-	cat /tmp/wanted-locale-packages /tmp/available-locale-packages | sort | uniq -d > /tmp/pending-locale-packages
+	cat ${IMAGE_ROOTFS}/tmp-locale/wanted-locale-packages ${IMAGE_ROOTFS}/tmp-locale/available-locale-packages | sort | uniq -d > ${IMAGE_ROOTFS}/tmp-locale/pending-locale-packages
 
-	if [ -s /tmp/pending-locale-packages ] ; then
-		cat /tmp/pending-locale-packages | xargs ${OPKG} -nodeps install
+	if [ -s ${IMAGE_ROOTFS}/tmp-locale/pending-locale-packages ] ; then
+		cat ${IMAGE_ROOTFS}/tmp-locale/pending-locale-packages | xargs ${OPKG} -nodeps install
 	fi
 	rm -f ${IMAGE_ROOTFS}${libdir}/opkg/lists/*
+
+	rm -rf ${IMAGE_ROOTFS}/tmp-locale
 
     for i in ${IMAGE_ROOTFS}${libdir}/opkg/info/*.preinst; do
         if [ -f $i ] && ! sh $i; then

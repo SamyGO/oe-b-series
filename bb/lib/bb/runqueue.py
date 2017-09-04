@@ -26,6 +26,7 @@ from bb import msg, data, event, mkdirhier, utils
 import bb, os, sys
 import signal
 import stat
+import fcntl
 
 class TaskFailure(Exception):
     """Exception raised when a task in a runqueue fails"""
@@ -37,19 +38,37 @@ class RunQueueStats:
     """
     Holds statistics on the tasks handled by the associated runQueue
     """
-    def __init__(self):
+    def __init__(self, total):
         self.completed = 0
         self.skipped = 0
         self.failed = 0
+        self.active = 0
+        self.total = total
 
     def taskFailed(self):
+        self.active = self.active - 1
         self.failed = self.failed + 1
 
     def taskCompleted(self, number = 1):
+        self.active = self.active - number
         self.completed = self.completed + number
 
     def taskSkipped(self, number = 1):
+        self.active = self.active + number
         self.skipped = self.skipped + number
+
+    def taskActive(self):
+        self.active = self.active + 1
+
+# These values indicate the next step due to be run in the 
+# runQueue state machine
+runQueuePrepare = 2
+runQueueRunInit = 3
+runQueueRunning = 4
+runQueueFailed = 6
+runQueueCleanUp = 7
+runQueueComplete = 8
+runQueueChildProcess = 9
 
 class RunQueueScheduler:
     """
@@ -142,9 +161,9 @@ class RunQueue:
         self.cooker = cooker
         self.dataCache = dataCache
         self.taskData = taskData
+        self.cfgData = cfgData
         self.targets = targets
 
-        self.cfgdata = cfgData
         self.number_tasks = int(bb.data.getVar("BB_NUMBER_THREADS", cfgData, 1) or 1)
         self.multi_provider_whitelist = (bb.data.getVar("MULTI_PROVIDER_WHITELIST", cfgData, 1) or "").split()
         self.scheduler = bb.data.getVar("BB_SCHEDULER", cfgData, 1) or "speed"
@@ -152,11 +171,20 @@ class RunQueue:
         self.stampwhitelist = bb.data.getVar("BB_STAMP_WHITELIST", cfgData, 1) or ""
 
     def reset_runqueue(self):
-
         self.runq_fnid = []
         self.runq_task = []
         self.runq_depends = []
         self.runq_revdeps = []
+        self.state = runQueuePrepare
+
+    def runq_depends_names(self, ids):
+        import re
+        ret = []
+        for id in self.runq_depends[ids]:
+            nam = os.path.basename(self.get_user_idstring(id))
+            nam = re.sub("_[^,]*,", ",", nam)
+            ret.extend([nam])
+        return ret
 
     def get_user_idstring(self, task):
         fn = self.taskData.fn_index[self.runq_fnid[task]]
@@ -228,7 +256,7 @@ class RunQueue:
                         valid_chains.append(new_chain)
                         msgs.append("Dependency loop #%d found:\n" % len(valid_chains))
                         for dep in new_chain:
-                            msgs.append("  Task %s (%s) (depends: %s)\n" % (dep, self.get_user_idstring(dep), self.runq_depends[dep]))
+                            msgs.append("  Task %s (%s) (dependent Tasks %s)\n" % (dep, self.get_user_idstring(dep), self.runq_depends_names(dep)))
                         msgs.append("\n")
                     if len(valid_chains) > 10:
                         msgs.append("Aborted dependency loops search after 10 matches.\n")
@@ -321,9 +349,10 @@ class RunQueue:
         to optimise the execution order.
         """
 
-        depends = []
         runq_build = []
         recursive_tdepends = {}
+        runq_recrdepends = []
+        tdepends_fnid = {}
 
         taskData = self.taskData
 
@@ -335,19 +364,50 @@ class RunQueue:
 
         # Step A - Work out a list of tasks to run
         #
-        # Taskdata gives us a list of possible providers for a every target 
-        # ordered by priority (build_targets, run_targets). It also gives
-        # information on each of those providers.
+        # Taskdata gives us a list of possible providers for every build and run
+        # target ordered by priority. It also gives information on each of those 
+        # providers.
         #
         # To create the actual list of tasks to execute we fix the list of 
         # providers and then resolve the dependencies into task IDs. This 
         # process is repeated for each type of dependency (tdepends, deptask, 
         # rdeptast, recrdeptask, idepends).
 
+        def add_build_dependencies(depids, tasknames, depends):
+            for depid in depids:
+                # Won't be in build_targets if ASSUME_PROVIDED
+                if depid not in taskData.build_targets:
+                    continue
+                depdata = taskData.build_targets[depid][0]
+                if depdata is None:
+                    continue
+                dep = taskData.fn_index[depdata]
+                for taskname in tasknames:
+                    taskid = taskData.gettask_id(dep, taskname, False)
+                    if taskid is not None:
+                        depends.append(taskid)
+
+        def add_runtime_dependencies(depids, tasknames, depends):
+            for depid in depids:
+                if depid not in taskData.run_targets:
+                    continue
+                depdata = taskData.run_targets[depid][0]
+                if depdata is None:
+                    continue
+                dep = taskData.fn_index[depdata]
+                for taskname in tasknames:
+                    taskid = taskData.gettask_id(dep, taskname, False)
+                    if taskid is not None:
+                        depends.append(taskid)
+
         for task in range(len(taskData.tasks_name)):
+            depends = []
+            recrdepends = []
             fnid = taskData.tasks_fnid[task]
             fn = taskData.fn_index[fnid]
             task_deps = self.dataCache.task_deps[fn]
+
+            bb.msg.debug(2, bb.msg.domain.RunQueue, "Processing %s:%s" %(fn, taskData.tasks_name[task]))
 
             if fnid not in taskData.failed_fnids:
 
@@ -362,14 +422,7 @@ class RunQueue:
                 # (makes sure sometask runs after someothertask of all DEPENDS)
                 if 'deptask' in task_deps and taskData.tasks_name[task] in task_deps['deptask']:
                     tasknames = task_deps['deptask'][taskData.tasks_name[task]].split()
-                    for depid in taskData.depids[fnid]:
-                        # Won't be in build_targets if ASSUME_PROVIDED
-                        if depid in taskData.build_targets:
-                            depdata = taskData.build_targets[depid][0]
-                            if depdata is not None:
-                                dep = taskData.fn_index[depdata]
-                                for taskname in tasknames:
-                                    depends.append(taskData.gettask_id(dep, taskname))
+                    add_build_dependencies(taskData.depids[fnid], tasknames, depends)
 
                 # Resolve 'rdeptask' dependencies 
                 #
@@ -377,17 +430,14 @@ class RunQueue:
                 # (makes sure sometask runs after someothertask of all RDEPENDS)
                 if 'rdeptask' in task_deps and taskData.tasks_name[task] in task_deps['rdeptask']:
                     taskname = task_deps['rdeptask'][taskData.tasks_name[task]]
-                    for depid in taskData.rdepids[fnid]:
-                        if depid in taskData.run_targets:
-                            depdata = taskData.run_targets[depid][0]
-                            if depdata is not None:
-                                dep = taskData.fn_index[depdata]
-                                depends.append(taskData.gettask_id(dep, taskname))
+                    add_runtime_dependencies(taskData.rdepids[fnid], [taskname], depends)
 
                 # Resolve inter-task dependencies 
                 #
                 # e.g. do_sometask[depends] = "targetname:do_someothertask"
                 # (makes sure sometask runs after targetname's someothertask)
+                if fnid not in tdepends_fnid:
+                    tdepends_fnid[fnid] = set()
                 idepends = taskData.tasks_idepends[task]
                 for (depid, idependtask) in idepends:
                     if depid in taskData.build_targets:
@@ -395,122 +445,24 @@ class RunQueue:
                         depdata = taskData.build_targets[depid][0]
                         if depdata is not None:
                             dep = taskData.fn_index[depdata]
-                            depends.append(taskData.gettask_id(dep, idependtask))
+                            taskid = taskData.gettask_id(dep, idependtask, False)
+                            if taskid is None:
+                                bb.msg.fatal(bb.msg.domain.RunQueue, "Task %s in %s depends upon nonexistant task %s in %s" % (taskData.tasks_name[task], fn, idependtask, dep))
+                            depends.append(taskid)
+                            if depdata != fnid:
+                                tdepends_fnid[fnid].add(taskid)
 
-                # Create a list of recursive dependent tasks (from tdepends) and cache
-                def get_recursive_tdepends(task):
-                    if not task:
-                        return []
-                    if task in recursive_tdepends:
-                        return recursive_tdepends[task]
 
-                    fnid = taskData.tasks_fnid[task]
-                    taskids = taskData.gettask_ids(fnid)
-
-                    rectdepends = taskids
-                    nextdeps = taskids
-                    while len(nextdeps) != 0:
-                        newdeps = []
-                        for nextdep in nextdeps:
-                            for tdepend in taskData.tasks_tdepends[nextdep]:
-                                if tdepend not in rectdepends:
-                                    rectdepends.append(tdepend)
-                                    newdeps.append(tdepend)
-                        nextdeps = newdeps
-                    recursive_tdepends[task] = rectdepends
-                    return rectdepends
-
-                # Using the list of tdepends for this task create a list of 
-                # the recursive idepends we have
-                def get_recursive_idepends(task):
-                    if not task:
-                        return []
-                    rectdepends = get_recursive_tdepends(task)
-
-                    recidepends = []
-                    for tdepend in rectdepends:
-                        for idepend in taskData.tasks_idepends[tdepend]:
-                            recidepends.append(idepend)
-                    return recidepends
-
-                def add_recursive_build(depid, depfnid):
-                    """
-                    Add build depends of depid to depends
-                    (if we've not see it before)
-                    (calls itself recursively)
-                    """
-                    if str(depid) in dep_seen:
-                        return
-                    dep_seen.append(depid)
-                    if depid in taskData.build_targets:
-                        depdata = taskData.build_targets[depid][0]
-                        if depdata is not None:
-                            dep = taskData.fn_index[depdata]
-                            # Need to avoid creating new tasks here
-                            taskid = taskData.gettask_id(dep, taskname, False)
-                            if taskid is not None:
-                                depends.append(taskid)
-                                fnid = taskData.tasks_fnid[taskid]
-                                #print "Added %s (%s) due to %s" % (taskid, taskData.fn_index[fnid], taskData.fn_index[depfnid])
-                            else:
-                                fnid = taskData.getfn_id(dep)
-                            for nextdepid in taskData.depids[fnid]:
-                                if nextdepid not in dep_seen:
-                                    add_recursive_build(nextdepid, fnid)
-                            for nextdepid in taskData.rdepids[fnid]:
-                                if nextdepid not in rdep_seen:
-                                    add_recursive_run(nextdepid, fnid)
-                            for (idependid, idependtask) in get_recursive_idepends(taskid):
-                                if idependid not in dep_seen:
-                                    add_recursive_build(idependid, fnid)
-
-                def add_recursive_run(rdepid, depfnid):
-                    """
-                    Add runtime depends of rdepid to depends
-                    (if we've not see it before)
-                    (calls itself recursively)
-                    """
-                    if str(rdepid) in rdep_seen:
-                        return
-                    rdep_seen.append(rdepid)
-                    if rdepid in taskData.run_targets:
-                        depdata = taskData.run_targets[rdepid][0]
-                        if depdata is not None:
-                            dep = taskData.fn_index[depdata]
-                            # Need to avoid creating new tasks here
-                            taskid = taskData.gettask_id(dep, taskname, False)
-                            if taskid is not None:
-                                depends.append(taskid)
-                                fnid = taskData.tasks_fnid[taskid]
-                                #print "Added %s (%s) due to %s" % (taskid, taskData.fn_index[fnid], taskData.fn_index[depfnid])
-                            else:
-                                fnid = taskData.getfn_id(dep)
-                            for nextdepid in taskData.depids[fnid]:
-                                if nextdepid not in dep_seen:
-                                    add_recursive_build(nextdepid, fnid)
-                            for nextdepid in taskData.rdepids[fnid]:
-                                if nextdepid not in rdep_seen:
-                                    add_recursive_run(nextdepid, fnid)
-                            for (idependid, idependtask) in get_recursive_idepends(taskid):
-                                if idependid not in dep_seen:
-                                    add_recursive_build(idependid, fnid)
-
-                # Resolve recursive 'recrdeptask' dependencies 
+                # Resolve recursive 'recrdeptask' dependencies (A)
                 #
                 # e.g. do_sometask[recrdeptask] = "do_someothertask"
                 # (makes sure sometask runs after someothertask of all DEPENDS, RDEPENDS and intertask dependencies, recursively)
+                # We cover the recursive part of the dependencies below
                 if 'recrdeptask' in task_deps and taskData.tasks_name[task] in task_deps['recrdeptask']:
                     for taskname in task_deps['recrdeptask'][taskData.tasks_name[task]].split():
-                        dep_seen = []
-                        rdep_seen = []
-                        idep_seen = []
-                        for depid in taskData.depids[fnid]:
-                            add_recursive_build(depid, fnid)
-                        for rdepid in taskData.rdepids[fnid]:
-                            add_recursive_run(rdepid, fnid)
-                        deptaskid = taskData.gettask_id(fn, taskname, False)
-                        for (idependid, idependtask) in get_recursive_idepends(deptaskid):
-                            add_recursive_build(idependid, fnid)
+                        recrdepends.append(taskname)
+                        add_build_dependencies(taskData.depids[fnid], [taskname], depends)
+                        add_runtime_dependencies(taskData.rdepids[fnid], [taskname], depends)
 
                 # Rmove all self references
                 if task in depends:
@@ -521,13 +473,54 @@ class RunQueue:
                           newdep.append(dep)
                     depends = newdep
 
-
             self.runq_fnid.append(taskData.tasks_fnid[task])
             self.runq_task.append(taskData.tasks_name[task])
             self.runq_depends.append(set(depends))
             self.runq_revdeps.append(set())
 
             runq_build.append(0)
+            runq_recrdepends.append(recrdepends)
+
+        #
+        # Build a list of recursive cumulative dependencies for each fnid
+        # We do this by fnid, since if A depends on some task in B
+        # we're interested in later tasks B's fnid might have but B itself 
+        # doesn't depend on
+        #
+        # Algorithm is O(tasks) + O(tasks)*O(fnids)
+        #
+        reccumdepends = {}
+        for task in range(len(self.runq_fnid)):
+            fnid = self.runq_fnid[task]
+            if fnid not in reccumdepends:
+                if fnid in tdepends_fnid:
+                    reccumdepends[fnid] = tdepends_fnid[fnid]
+                else:
+                    reccumdepends[fnid] = set()
+            reccumdepends[fnid].update(self.runq_depends[task])
+        for task in range(len(self.runq_fnid)):
+            taskfnid = self.runq_fnid[task]
+            for fnid in reccumdepends:
+                if task in reccumdepends[fnid]:
+                    reccumdepends[fnid].add(task)
+                    if taskfnid in reccumdepends:
+                        reccumdepends[fnid].update(reccumdepends[taskfnid])
+
+
+        # Resolve recursive 'recrdeptask' dependencies (B)
+        #
+        # e.g. do_sometask[recrdeptask] = "do_someothertask"
+        # (makes sure sometask runs after someothertask of all DEPENDS, RDEPENDS and intertask dependencies, recursively)
+        for task in range(len(self.runq_fnid)):
+            if len(runq_recrdepends[task]) > 0:
+                taskfnid = self.runq_fnid[task]
+                for dep in reccumdepends[taskfnid]:
+                    # Ignore self references 
+                    if dep == task:
+                        continue
+                    for taskname in runq_recrdepends[task]:
+                        if taskData.tasks_name[dep] == taskname:
+                            self.runq_depends[task].add(dep)
 
         # Step B - Mark all active tasks
         #
@@ -607,7 +600,7 @@ class RunQueue:
         if len(self.runq_fnid) == 0:
             if not taskData.abort:
                 bb.msg.fatal(bb.msg.domain.RunQueue, "All buildable tasks have been run but the build is incomplete (--continue mode). Errors for the tasks that failed will have been printed above.")
-            else:		
+            else:
                 bb.msg.fatal(bb.msg.domain.RunQueue, "No active tasks and not in --continue mode?! Please report this bug.")
 
         bb.msg.note(2, bb.msg.domain.RunQueue, "Pruned %s inactive tasks, %s left" % (delcount, len(self.runq_fnid)))
@@ -643,7 +636,6 @@ class RunQueue:
                     bb.msg.fatal(bb.msg.domain.RunQueue, "Task %s (%s) has circular dependency on %s (%s)" % (taskData.fn_index[self.runq_fnid[dep]], self.runq_task[dep] , taskData.fn_index[self.runq_fnid[listid]], self.runq_task[listid]))
 
         bb.msg.note(2, bb.msg.domain.RunQueue, "Compute totals (have %s endpoint(s))" % len(endpoints))
-
 
         # Calculate task weights 
         # Check of higher length circular dependencies
@@ -690,6 +682,8 @@ class RunQueue:
         self.stampfnwhitelist = stampfnwhitelist
 
         #self.dump_data(taskData)
+
+        self.state = runQueueRunInit
 
     def check_stamps(self):
         unchecked = {}
@@ -834,45 +828,61 @@ class RunQueue:
         (if the abort on failure configuration option isn't set)
         """
 
-        failures = 0
-        while 1:
-            failed_fnids = []
-            try:
-                self.execute_runqueue_internal()
-            finally:
-                if self.master_process:
-                    failed_fnids = self.finish_runqueue()
-            if len(failed_fnids) == 0:
-                return failures
-            if not self.taskData.tryaltconfigs:
-                raise bb.runqueue.TaskFailure(failed_fnids)
-            for fnid in failed_fnids:
-                #print "Failure: %s %s %s" % (fnid, self.taskData.fn_index[fnid],  self.runq_task[fnid])
-                self.taskData.fail_fnid(fnid)
-                failures = failures + 1
-            self.reset_runqueue()
+        if self.state is runQueuePrepare:
             self.prepare_runqueue()
+
+        if self.state is runQueueRunInit:
+            bb.msg.note(1, bb.msg.domain.RunQueue, "Executing runqueue")
+            self.execute_runqueue_initVars()
+
+        if self.state is runQueueRunning:
+            self.execute_runqueue_internal()
+
+        if self.state is runQueueCleanUp:
+            self.finish_runqueue()
+
+        if self.state is runQueueFailed:
+            if not self.taskData.tryaltconfigs:
+                raise bb.runqueue.TaskFailure(self.failed_fnids)
+            for fnid in self.failed_fnids:
+                self.taskData.fail_fnid(fnid)
+            self.reset_runqueue()
+
+        if self.state is runQueueComplete:
+            # All done
+            bb.msg.note(1, bb.msg.domain.RunQueue, "Tasks Summary: Attempted %d tasks of which %d didn't need to be rerun and %d failed." % (self.stats.completed, self.stats.skipped, self.stats.failed))
+            return False
+
+        if self.state is runQueueChildProcess:
+            print "Child process"
+            return False
+
+        # Loop
+        return True
 
     def execute_runqueue_initVars(self):
 
-        self.stats = RunQueueStats()
+        self.stats = RunQueueStats(len(self.runq_fnid))
 
-        self.active_builds = 0
         self.runq_buildable = []
         self.runq_running = []
         self.runq_complete = []
         self.build_pids = {}
+        self.build_pipes = {}
         self.failed_fnids = []
-        self.master_process = True
 
         # Mark initial buildable tasks
-        for task in range(len(self.runq_fnid)):
+        for task in range(self.stats.total):
             self.runq_running.append(0)
             self.runq_complete.append(0)
             if len(self.runq_depends[task]) == 0:
                 self.runq_buildable.append(1)
             else:
                 self.runq_buildable.append(0)
+
+        self.state = runQueueRunning
+
+        event.fire(bb.event.StampUpdate(self.target_pairs, self.dataCache.stamp), self.cfgData)
 
     def task_complete(self, task):
         """
@@ -896,26 +906,32 @@ class RunQueue:
                 taskname = self.runq_task[revdep]
                 bb.msg.debug(1, bb.msg.domain.RunQueue, "Marking task %s (%s, %s) as buildable" % (revdep, fn, taskname))
 
+    def task_fail(self, task, exitcode):
+        """
+        Called when a task has failed
+        Updates the state engine with the failure
+        """
+        bb.msg.error(bb.msg.domain.RunQueue, "Task %s (%s) failed with %s" % (task, self.get_user_idstring(task), exitcode))
+        self.stats.taskFailed()
+        fnid = self.runq_fnid[task]
+        self.failed_fnids.append(fnid)
+        bb.event.fire(runQueueTaskFailed(task, self.stats, self), self.cfgData)
+        if self.taskData.abort:
+            self.state = runQueueCleanUp
+
     def execute_runqueue_internal(self):
         """
         Run the tasks in a queue prepared by prepare_runqueue
         """
 
-        bb.msg.note(1, bb.msg.domain.RunQueue, "Executing runqueue")
-
-        self.execute_runqueue_initVars()
-
-        if len(self.runq_fnid) == 0:
+        if self.stats.total == 0:
             # nothing to do
-            return []
-
-        def sigint_handler(signum, frame):
-            raise KeyboardInterrupt
-
-        event.fire(bb.event.StampUpdate(self.target_pairs, self.dataCache.stamp, self.cfgdata))
+            self.state = runQueueCleanUp
 
         while True:
-            task = self.sched.next()
+            task = None
+            if self.stats.active < self.number_tasks:
+                task = self.sched.next()
             if task is not None:
                 fn = self.taskData.fn_index[self.runq_fnid[task]]
 
@@ -923,107 +939,154 @@ class RunQueue:
                 if self.check_stamp_task(task):
                     bb.msg.debug(2, bb.msg.domain.RunQueue, "Stamp current task %s (%s)" % (task, self.get_user_idstring(task)))
                     self.runq_running[task] = 1
+                    self.runq_buildable[task] = 1
                     self.task_complete(task)
                     self.stats.taskCompleted()
                     self.stats.taskSkipped()
                     continue
 
-                bb.msg.note(1, bb.msg.domain.RunQueue, "Running task %d of %d (ID: %s, %s)" % (self.stats.completed + self.active_builds + 1, len(self.runq_fnid), task, self.get_user_idstring(task)))
                 sys.stdout.flush()
                 sys.stderr.flush()
-                try: 
+                try:
+                    pipein, pipeout = os.pipe()
                     pid = os.fork() 
                 except OSError, e: 
                     bb.msg.fatal(bb.msg.domain.RunQueue, "fork failed: %d (%s)" % (e.errno, e.strerror))
                 if pid == 0:
-                    # Bypass master process' handling
-                    self.master_process = False
-                    # Stop Ctrl+C being sent to children
-                    # signal.signal(signal.SIGINT, signal.SIG_IGN)
+                    os.close(pipein)
+                    # Save out the PID so that the event can include it the
+                    # events
+                    bb.event.worker_pid = os.getpid()
+                    bb.event.worker_pipe = pipeout
+
+                    self.state = runQueueChildProcess
                     # Make the child the process group leader
                     os.setpgid(0, 0)
+                    # No stdin
                     newsi = os.open('/dev/null', os.O_RDWR)
                     os.dup2(newsi, sys.stdin.fileno())
-                    self.cooker.configuration.cmd = taskname[3:]
+                    # Stdout to a logfile
+                    #logout = data.expand("${TMPDIR}/log/stdout.%s" % os.getpid(), self.cfgData, True)
+                    #mkdirhier(os.path.dirname(logout))
+                    #newso = open(logout, 'w')
+                    #os.dup2(newso.fileno(), sys.stdout.fileno())
+                    #os.dup2(newso.fileno(), sys.stderr.fileno())
+
+                    bb.event.fire(runQueueTaskStarted(task, self.stats, self), self.cfgData)
+                    bb.msg.note(1, bb.msg.domain.RunQueue,
+                                "Running task %d of %d (ID: %s, %s)" % (self.stats.completed + self.stats.active + 1,
+                                                                        self.stats.total,
+                                                                        task,
+                                                                        self.get_user_idstring(task)))
+
                     bb.data.setVar("__RUNQUEUE_DO_NOT_USE_EXTERNALLY", self, self.cooker.configuration.data)
+                    bb.data.setVar("__RUNQUEUE_DO_NOT_USE_EXTERNALLY2", fn, self.cooker.configuration.data)
                     try:
-                        self.cooker.tryBuild(fn)
+                        self.cooker.tryBuild(fn, taskname[3:])
                     except bb.build.EventException:
                         bb.msg.error(bb.msg.domain.Build, "Build of " + fn + " " + taskname + " failed")
-                        sys.exit(1)
+                        os._exit(1)
                     except:
                         bb.msg.error(bb.msg.domain.Build, "Build of " + fn + " " + taskname + " failed")
-                        raise
-                    sys.exit(0)
+                        os._exit(1)
+                    os._exit(0)
+
                 self.build_pids[pid] = task
+                self.build_pipes[pid] = runQueuePipe(pipein, pipeout, self.cfgData)
                 self.runq_running[task] = 1
-                self.active_builds = self.active_builds + 1
-                if self.active_builds < self.number_tasks:
+                self.stats.taskActive()
+                if self.stats.active < self.number_tasks:
                     continue
-            if self.active_builds > 0:
-                result = os.waitpid(-1, 0)
-                self.active_builds = self.active_builds - 1
+
+            for pipe in self.build_pipes:
+                self.build_pipes[pipe].read()
+
+            if self.stats.active > 0:
+                result = os.waitpid(-1, os.WNOHANG)
+                if result[0] is 0 and result[1] is 0:
+                    return
                 task = self.build_pids[result[0]]
+                del self.build_pids[result[0]]
+                self.build_pipes[result[0]].close()
+                del self.build_pipes[result[0]]
                 if result[1] != 0:
-                    del self.build_pids[result[0]]
-                    bb.msg.error(bb.msg.domain.RunQueue, "Task %s (%s) failed" % (task, self.get_user_idstring(task)))
-                    self.failed_fnids.append(self.runq_fnid[task])
-                    self.stats.taskFailed()
-                    if not self.taskData.abort:
-                        continue
-                    break
+                    self.task_fail(task, result[1])
+                    return
                 self.task_complete(task)
                 self.stats.taskCompleted()
-                del self.build_pids[result[0]]
+                bb.event.fire(runQueueTaskCompleted(task, self.stats, self), self.cfgData)
                 continue
+
+            if len(self.failed_fnids) != 0:
+                self.state = runQueueFailed
+                return
+
+            # Sanity Checks
+            for task in range(self.stats.total):
+                if self.runq_buildable[task] == 0:
+                    bb.msg.error(bb.msg.domain.RunQueue, "Task %s never buildable!" % task)
+                if self.runq_running[task] == 0:
+                    bb.msg.error(bb.msg.domain.RunQueue, "Task %s never ran!" % task)
+                if self.runq_complete[task] == 0:
+                    bb.msg.error(bb.msg.domain.RunQueue, "Task %s never completed!" % task)
+            self.state = runQueueComplete
             return
 
-    def finish_runqueue(self):
+    def finish_runqueue_now(self):
+        bb.msg.note(1, bb.msg.domain.RunQueue, "Sending SIGINT to remaining %s tasks" % self.stats.active)
+        for k, v in self.build_pids.iteritems():
+             try:
+                 os.kill(-k, signal.SIGINT)
+             except:
+                 pass
+        for pipe in self.build_pipes:
+            self.build_pipes[pipe].read()
+
+    def finish_runqueue(self, now = False):
+        self.state = runQueueCleanUp
+
+        for pipe in self.build_pipes:
+            self.build_pipes[pipe].read()
+
+        if now:
+            self.finish_runqueue_now()
         try:
-            while self.active_builds > 0:
-                bb.msg.note(1, bb.msg.domain.RunQueue, "Waiting for %s active tasks to finish" % self.active_builds)
-                tasknum = 1
-                for k, v in self.build_pids.iteritems():
-                     bb.msg.note(1, bb.msg.domain.RunQueue, "%s: %s (%s)" % (tasknum, self.get_user_idstring(v), k))
-                     tasknum = tasknum + 1
-                result = os.waitpid(-1, 0)
+            while self.stats.active > 0:
+                bb.event.fire(runQueueExitWait(self.stats.active), self.cfgData)
+                #bb.msg.note(1, bb.msg.domain.RunQueue, "Waiting for %s active tasks to finish" % self.stats.active)
+                #tasknum = 1
+                #for k, v in self.build_pids.iteritems():
+                #    bb.msg.note(1, bb.msg.domain.RunQueue, "%s: %s (pid %s)" % (tasknum, self.get_user_idstring(v), k))
+                #    tasknum = tasknum + 1
+                result = os.waitpid(-1, os.WNOHANG)
+                if result[0] is 0 and result[1] is 0:
+                    return
                 task = self.build_pids[result[0]]
-                if result[1] != 0:
-                     bb.msg.error(bb.msg.domain.RunQueue, "Task %s (%s) failed" % (task, self.get_user_idstring(task)))
-                     self.failed_fnids.append(self.runq_fnid[task])
-                     self.stats.taskFailed()
                 del self.build_pids[result[0]]
-                self.active_builds = self.active_builds - 1
-            bb.msg.note(1, bb.msg.domain.RunQueue, "Tasks Summary: Attempted %d tasks of which %d didn't need to be rerun and %d failed." % (self.stats.completed, self.stats.skipped, self.stats.failed))
-            return self.failed_fnids
-        except KeyboardInterrupt:
-            bb.msg.note(1, bb.msg.domain.RunQueue, "Sending SIGINT to remaining %s tasks" % self.active_builds)
-            for k, v in self.build_pids.iteritems():
-                 try:
-                     os.kill(-k, signal.SIGINT)
-                 except:
-                     pass
+                self.build_pipes[result[0]].close()
+                del self.build_pipes[result[0]]
+                if result[1] != 0:
+                    self.task_fail(task, result[1])
+                else:
+                    self.stats.taskCompleted()
+                    bb.event.fire(runQueueTaskCompleted(task, self.stats, self), self.cfgData)
+        except:
+            self.finish_runqueue_now()
             raise
 
-        # Sanity Checks
-        for task in range(len(self.runq_fnid)):
-            if self.runq_buildable[task] == 0:
-                bb.msg.error(bb.msg.domain.RunQueue, "Task %s never buildable!" % task)
-            if self.runq_running[task] == 0:
-                bb.msg.error(bb.msg.domain.RunQueue, "Task %s never ran!" % task)
-            if self.runq_complete[task] == 0:
-                bb.msg.error(bb.msg.domain.RunQueue, "Task %s never completed!" % task)
+        if len(self.failed_fnids) != 0:
+            self.state = runQueueFailed
+            return
 
-        bb.msg.note(1, bb.msg.domain.RunQueue, "Tasks Summary: Attempted %d tasks of which %d didn't need to be rerun and %d failed." % (self.stats.completed, self.stats.skipped, self.stats.failed))
-
-        return self.failed_fnids
+        self.state = runQueueComplete
+        return
 
     def dump_data(self, taskQueue):
         """
         Dump some debug information on the internal data structures
         """
         bb.msg.debug(3, bb.msg.domain.RunQueue, "run_tasks:")
-        for task in range(len(self.runq_fnid)):
+        for task in range(len(self.runq_task)):
                 bb.msg.debug(3, bb.msg.domain.RunQueue, " (%s)%s - %s: %s   Deps %s RevDeps %s" % (task, 
                         taskQueue.fn_index[self.runq_fnid[task]], 
                         self.runq_task[task], 
@@ -1032,7 +1095,7 @@ class RunQueue:
                         self.runq_revdeps[task]))
 
         bb.msg.debug(3, bb.msg.domain.RunQueue, "sorted_tasks:")
-        for task1 in range(len(self.runq_fnid)):
+        for task1 in range(len(self.runq_task)):
             if task1 in self.prio_map:
                 task = self.prio_map[task1]
                 bb.msg.debug(3, bb.msg.domain.RunQueue, " (%s)%s - %s: %s   Deps %s RevDeps %s" % (task, 
@@ -1043,11 +1106,96 @@ class RunQueue:
                         self.runq_revdeps[task]))
 
 
+class TaskFailure(Exception):
+    """
+    Exception raised when a task in a runqueue fails
+    """
+    def __init__(self, x): 
+        self.args = x
+
+
+class runQueueExitWait(bb.event.Event):
+    """
+    Event when waiting for task processes to exit
+    """
+
+    def __init__(self, remain):
+        self.remain = remain
+        self.message = "Waiting for %s active tasks to finish" % remain
+        bb.event.Event.__init__(self)
+
+class runQueueEvent(bb.event.Event):
+    """
+    Base runQueue event class
+    """
+    def __init__(self, task, stats, rq):
+        self.taskid = task
+        self.taskstring = rq.get_user_idstring(task)
+        self.stats = stats
+        bb.event.Event.__init__(self)
+
+class runQueueTaskStarted(runQueueEvent):
+    """
+    Event notifing a task was started
+    """
+    def __init__(self, task, stats, rq):
+        runQueueEvent.__init__(self, task, stats, rq)
+        self.message = "Running task %s (%d of %d) (%s)" % (task, stats.completed + stats.active + 1, self.stats.total, self.taskstring)
+
+class runQueueTaskFailed(runQueueEvent):
+    """
+    Event notifing a task failed
+    """
+    def __init__(self, task, stats, rq):
+        runQueueEvent.__init__(self, task, stats, rq)
+        self.message = "Task %s failed (%s)" % (task, self.taskstring)
+
+class runQueueTaskCompleted(runQueueEvent):
+    """
+    Event notifing a task completed
+    """
+    def __init__(self, task, stats, rq):
+        runQueueEvent.__init__(self, task, stats, rq)
+        self.message = "Task %s completed (%s)" % (task, self.taskstring)
+
 def check_stamp_fn(fn, taskname, d):
     rq = bb.data.getVar("__RUNQUEUE_DO_NOT_USE_EXTERNALLY", d)
+    fn = bb.data.getVar("__RUNQUEUE_DO_NOT_USE_EXTERNALLY2", d)
     fnid = rq.taskData.getfn_id(fn)
     taskid = rq.get_task_id(fnid, taskname)
     if taskid is not None:
         return rq.check_stamp_task(taskid)
     return None
+
+class runQueuePipe():
+    """
+    Abstraction for a pipe between a worker thread and the server
+    """
+    def __init__(self, pipein, pipeout, d):
+        self.fd = pipein
+        os.close(pipeout)
+        fcntl.fcntl(self.fd, fcntl.F_SETFL, fcntl.fcntl(self.fd, fcntl.F_GETFL) | os.O_NONBLOCK)
+        self.queue = ""
+        self.d = d
+
+    def read(self):
+        start = len(self.queue)
+        try:
+            self.queue = self.queue + os.read(self.fd, 1024)
+        except OSError:
+            pass
+        end = len(self.queue)
+        index = self.queue.find("</event>")
+        while index != -1:
+            bb.event.fire_from_worker(self.queue[:index+8], self.d)
+            self.queue = self.queue[index+8:]
+            index = self.queue.find("</event>")
+        return (end > start)
+
+    def close(self):
+        while self.read():
+            continue
+        if len(self.queue) > 0:
+            print "Warning, worker left partial message"
+        os.close(self.fd)
 

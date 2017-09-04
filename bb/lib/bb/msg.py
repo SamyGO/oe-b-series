@@ -22,10 +22,11 @@ Message handling infrastructure for bitbake
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import sys, os, re, bb
-from bb import utils, event
+import sys, bb
+from bb import event
+from collections import defaultdict
 
-debug_level = {}
+debug_level = defaultdict(int)
 
 verbose = False
 
@@ -47,9 +48,9 @@ domain = bb.utils.Enum(
 class MsgBase(bb.event.Event):
     """Base class for messages"""
 
-    def __init__(self, msg, d ):
+    def __init__(self, msg):
         self._message = msg
-        event.Event.__init__(self, d)
+        event.Event.__init__(self)
 
 class MsgDebug(MsgBase):
     """Debug Message"""
@@ -97,33 +98,29 @@ def set_debug_domains(domains):
 #
 
 def debug(level, domain, msg, fn = None):
-    bb.event.fire(MsgDebug(msg, None))
     if not domain:
         domain = 'default'
     if debug_level[domain] >= level:
-        print 'DEBUG: ' + msg
+        bb.event.fire(MsgDebug(msg), None)
 
 def note(level, domain, msg, fn = None):
-    bb.event.fire(MsgNote(msg, None))
     if not domain:
         domain = 'default'
     if level == 1 or verbose or debug_level[domain] >= 1:
-        print 'NOTE: ' + msg
+        bb.event.fire(MsgNote(msg), None)
 
 def warn(domain, msg, fn = None):
-    bb.event.fire(MsgWarn(msg, None))
-    print 'WARNING: ' + msg
+    bb.event.fire(MsgWarn(msg), None)
 
 def error(domain, msg, fn = None):
-    bb.event.fire(MsgError(msg, None))
+    bb.event.fire(MsgError(msg), None)
     print 'ERROR: ' + msg
 
 def fatal(domain, msg, fn = None):
-    bb.event.fire(MsgFatal(msg, None))
-    print 'ERROR: ' + msg
+    bb.event.fire(MsgFatal(msg), None)
+    print 'FATAL: ' + msg
     sys.exit(1)
 
 def plain(msg, fn = None):
-    bb.event.fire(MsgPlain(msg, None))
-    print msg
+    bb.event.fire(MsgPlain(msg), None)
 

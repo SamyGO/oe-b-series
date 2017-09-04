@@ -4,17 +4,19 @@
 
 inherit package
 
-BOOTSTRAP_EXTRA_RDEPENDS += "dpkg"
-DISTRO_EXTRA_RDEPENDS += "dpkg"
+BOOTSTRAP_EXTRA_RDEPENDS += "apt"
+DISTRO_EXTRA_RDEPENDS += "apt"
 IMAGE_PKGTYPE ?= "deb"
 
 # Map TARGET_ARCH to Debian's ideas about architectures
-DPKG_ARCH ?= "${TARGET_ARCH}" 
+DPKG_ARCH ?= "${TARGET_ARCH}"
 DPKG_ARCH_x86 ?= "i386"
 DPKG_ARCH_i486 ?= "i386"
 DPKG_ARCH_i586 ?= "i386"
 DPKG_ARCH_i686 ?= "i386"
 DPKG_ARCH_pentium ?= "i386"
+DPKG_ARCH_linux-gnueabi ?= "armel"
+DPKG_ARCH_linux-uclibceabi ?= "armel"
 
 python package_deb_fn () {
     bb.data.setVar('PKGFN', bb.data.getVar('PKG',d), d)
@@ -144,11 +146,14 @@ python do_package_deb () {
             raise bb.build.FuncFailed("unable to open control file for writing.")
 
         fields = []
+	version = bb.data.getVar('PKGV', d, 1)
+	if re.match('[^0-9]+$', version):
+		version = '%s0' % version
         pe = bb.data.getVar('PE', d, 1)
         if pe and int(pe) > 0:
-            fields.append(["Version: %s:%s-%s%s\n", ['PE', 'PV', 'PR', 'DISTRO_PR']])
+            fields.append(["Version: %%s:%s-%%s\n" % version, ['PE', 'PKGR']])
         else:
-            fields.append(["Version: %s-%s%s\n", ['PV', 'PR', 'DISTRO_PR']])
+            fields.append(["Version: %s-%%s\n" % version, ['PKGR']])
         fields.append(["Description: %s\n", ['DESCRIPTION']])
         fields.append(["Section: %s\n", ['SECTION']])
         fields.append(["Priority: %s\n", ['PRIORITY']])
@@ -271,3 +276,31 @@ python do_package_write_deb () {
 do_package_write_deb[dirs] = "${D}"
 addtask package_write_deb before do_package_write after do_package
 
+do_package_update_index_deb[lockfiles] = "${DEPLOY_DIR_DEB}.lock"
+do_package_update_index_deb[nostamp] = "1"
+do_package_update_index_deb[recrdeptask] += "do_package_write_deb"
+do_package_update_index_deb[depends] += "dpkg-native:do_populate_sysroot"
+
+do_package_update_index_deb () {
+	set -x
+
+	if [ ! -z "${DEPLOY_KEEP_PACKAGES}" ]; then
+		return
+	fi
+
+	cd "${DEPLOY_DIR_DEB}"
+	for arch in ${PACKAGE_ARCHS}; do
+		if [ -e "$arch" ] ; then
+			dpkg-scanpackages "$arch" | gzip > "$arch/Packages.gz"
+		fi
+		if [ -e "${BUILD_ARCH}-$arch-sdk" ] ; then
+			dpkg-scanpackages "${BUILD_ARCH}-$arch-sdk" | gzip > "${BUILD_ARCH}-$arch-sdk/Packages.gz"
+		fi
+		if [ -e "${SDK_SYS}-sdk-$arch" ] ; then
+			dpkg-scanpackages "${SDK_SYS}-sdk-$arch" | gzip > "${SDK_SYS}-sdk-$arch/Packages.gz"
+		fi
+	done
+	cd -
+}
+
+addtask package_update_index_deb before do_rootfs

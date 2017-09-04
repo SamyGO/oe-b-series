@@ -36,6 +36,8 @@ CFLAGS = "${BUILDSDK_CFLAGS}"
 CXXFLAGS = "${BUILDSDK_CFLAGS}"
 LDFLAGS = "${BUILDSDK_LDFLAGS}"
 
+TOOLCHAIN_OPTIONS = ""
+
 # Change to place files in SDKPATH
 prefix = "${SDKPATH}"
 exec_prefix = "${SDKPATH}"
@@ -52,11 +54,11 @@ export PKG_CONFIG_SYSROOT_DIR = "${STAGING_DIR_HOST}"
 ORIG_DEPENDS := "${DEPENDS}"
 DEPENDS_virtclass-nativesdk ?= "${ORIG_DEPENDS}"
 
-OVERRIDES .= ":virtclass-nativesdk"
+OVERRIDES =. "virtclass-nativesdk:"
 
 python __anonymous () {
     pn = bb.data.getVar("PN", d, True)
-    depends = bb.data.getVar("DEPENDS_virtclass-nativesdk", d, True)
+    depends = bb.data.getVar("DEPENDS_virtclass-nativesdk", d, True) or ""
     deps = bb.utils.explode_deps(depends)
     newdeps = []
     for dep in deps:

@@ -1,43 +1,8 @@
+import subprocess
+import os
 import oe.path
-
-class NotFoundError(Exception):
-    def __init__(self, path):
-        self.path = path
-
-    def __str__(self):
-        return "Error: %s not found." % self.path
-
-class CmdError(Exception):
-    def __init__(self, exitstatus, output):
-        self.status = exitstatus
-        self.output = output
-
-    def __str__(self):
-        return "Command Error: exit status: %d  Output:\n%s" % (self.status, self.output)
-
-
-def runcmd(args, dir = None):
-    import commands
-
-    if dir:
-        olddir = os.path.abspath(os.curdir)
-        if not os.path.exists(dir):
-            raise NotFoundError(dir)
-        os.chdir(dir)
-        # print("cwd: %s -> %s" % (olddir, dir))
-
-    try:
-        args = [ commands.mkarg(str(arg)) for arg in args ]
-        cmd = " ".join(args)
-        # print("cmd: %s" % cmd)
-        (exitstatus, output) = commands.getstatusoutput(cmd)
-        if exitstatus != 0:
-            raise CmdError(exitstatus >> 8, output)
-        return output
-
-    finally:
-        if dir:
-            os.chdir(olddir)
+import oe.process
+import bb.fetch, bb.data
 
 class PatchError(Exception):
     def __init__(self, msg):
@@ -56,6 +21,7 @@ class PatchSet(object):
         self.d = d
         self.patches = []
         self._current = None
+        self.env = {"PATH": d.getVar("PATH", True)}
 
     def current(self):
         return self._current
@@ -108,24 +74,15 @@ class PatchTree(PatchSet):
         self.patches.insert(i, patch)
 
     def _applypatch(self, patch, force = False, reverse = False, run = True):
-        shellcmd = ["cat", patch['file'], "|", "patch", "-p", patch['strippath']]
+        shellcmd = ["patch", "-p%s" % patch['strippath'], "-f"]
         if reverse:
             shellcmd.append('-R')
 
         if not run:
-            return "sh" + "-c" + " ".join(shellcmd)
+            return subprocess.list2cmdline(shellcmd)
 
-        if not force:
-            shellcmd.append('--dry-run')
-
-        output = runcmd(["sh", "-c", " ".join(shellcmd)], self.dir)
-
-        if force:
-            return
-
-        shellcmd.pop(len(shellcmd) - 1)
-        output = runcmd(["sh", "-c", " ".join(shellcmd)], self.dir)
-        return output
+        patch = open(patch['file'], "r")
+        return oe.process.run(shellcmd, cwd=self.dir, env=self.env, stdin=patch)
 
     def Push(self, force = False, all = False, run = True):
         if all:
@@ -166,17 +123,18 @@ class GitApplyTree(PatchTree):
         shellcmd.append(patch['file'])
 
         if not run:
-            return "sh" + "-c" + " ".join(shellcmd)
+            return subprocess.list2cmdline(shellcmd)
 
-        return runcmd(["sh", "-c", " ".join(shellcmd)], self.dir)
+        return oe.process.run(shellcmd, cwd=self.dir, env=self.env)
 
 
 class QuiltTree(PatchSet):
     def _runcmd(self, args, run = True):
-        quiltrc = bb.data.getVar('QUILTRCFILE', self.d, 1)
+        quiltrc = bb.data.getVar('QUILTRCFILE', self.d, 1) or '-'
+        cmdline = ["quilt", "--quiltrc=%s" % quiltrc] + args
         if not run:
-            return ["quilt"] + ["--quiltrc"] + [quiltrc] + args
-        runcmd(["quilt"] + ["--quiltrc"] + [quiltrc] + args, self.dir)
+            return subprocess.list2cmdline(cmdline)
+        oe.process.run(cmdline, cwd=self.dir, env=self.env)
 
     def _quiltpatchpath(self, file):
         return os.path.join(self.dir, "patches", os.path.basename(file))
@@ -192,6 +150,7 @@ class QuiltTree(PatchSet):
     def Clean(self):
         try:
             self._runcmd(["pop", "-a", "-f"])
+            oe.path.remove(os.path.join(self.dir, "patches","series"))
         except Exception:
             pass
         self.initialized = True
@@ -215,13 +174,11 @@ class QuiltTree(PatchSet):
 
             # determine which patches are applied -> self._current
             try:
-                output = runcmd(["quilt", "applied"], self.dir)
-            except CmdError:
-                import sys
-                if sys.exc_value.output.strip() == "No patches applied":
-                    return
-                else:
-                    raise sys.exc_value
+                output = oe.process.run(["quilt", "applied"], cwd=self.dir, \
+                                        env=self.env)
+            except oe.process.ExecutionError, exc:
+                if exc.stdout.strip() != "No patches applied":
+                    raise
             output = [val for val in output.split('\n') if not val.startswith('#')]
             for patch in self.patches:
                 if os.path.basename(patch["quiltfile"]) == output[-1]:
@@ -345,11 +302,11 @@ class UserResolver(Resolver):
         os.chdir(self.patchset.dir)
         try:
             self.patchset.Push(False)
-        except CmdError, v:
+        except oe.process.CmdError:
             # Patch application failed
             patchcmd = self.patchset.Push(True, False, False)
 
-            t = bb.data.getVar('T', d, 1)
+            t = bb.data.getVar('T', self.patchset.d, 1)
             if not t:
                 bb.msg.fatal(bb.msg.domain.Build, "T not set")
             bb.mkdirhier(t)
@@ -361,16 +318,16 @@ class UserResolver(Resolver):
             f.write("echo 'Run \"quilt refresh\" when patch is corrected, press CTRL+D to exit.'\n")
             f.write("echo ''\n")
             f.write(" ".join(patchcmd) + "\n")
-            f.write("#" + bb.data.getVar('TERMCMDRUN', d, 1))
+            f.write("#" + bb.data.getVar('TERMCMDRUN', self.patchset.d, 1))
             f.close()
             os.chmod(rcfile, 0775)
 
             os.environ['TERMWINDOWTITLE'] = "Bitbake: Please fix patch rejects manually"
             os.environ['TERMRCFILE'] = rcfile
-            rc = os.system(bb.data.getVar('TERMCMDRUN', d, 1))
+            rc = os.system(bb.data.getVar('TERMCMDRUN', self.patchset.d, 1))
             if os.WIFEXITED(rc) and os.WEXITSTATUS(rc) != 0:
                 bb.msg.fatal(bb.msg.domain.Build, ("Cannot proceed with manual patch resolution - '%s' not found. " \
-                    + "Check TERMCMDRUN variable.") % bb.data.getVar('TERMCMDRUN', d, 1))
+                    + "Check TERMCMDRUN variable.") % bb.data.getVar('TERMCMDRUN', self.patchset.d, 1))
 
             # Construct a new PatchSet after the user's changes, compare the
             # sets, checking patches for modifications, and doing a remote

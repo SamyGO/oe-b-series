@@ -1,7 +1,16 @@
+import bb.data
+
+def uniq(iterable):
+    seen = set()
+    for i in iterable:
+        if i not in seen:
+            yield i
+        seen.add(i)
+
 def read_file(filename):
     try:
-        f = file( filename, "r" )
-    except IOError, reason:
+        f = file(filename, "r")
+    except IOError:
         return "" # WARNING: can't raise an error now because of the new RDEPENDS handling. This is a bit ugly. :M:
     else:
         return f.read().strip()
@@ -26,7 +35,7 @@ def less_or_equal(variable, checkvalue, truevalue, falsevalue, d):
         return falsevalue
 
 def version_less_or_equal(variable, checkvalue, truevalue, falsevalue, d):
-    result = bb.vercmp(bb.data.getVar(variable,d,True), checkvalue)
+    result = bb.utils.vercmp_string(bb.data.getVar(variable,d,True), checkvalue)
     if result <= 0:
         return truevalue
     else:
@@ -53,7 +62,7 @@ def both_contain(variable1, variable2, checkvalue, d):
         return ""
 
 def prune_suffix(var, suffixes, d):
-    # See if var ends with any of the suffixes listed and 
+    # See if var ends with any of the suffixes listed and
     # remove it if found
     for suffix in suffixes:
         if var.endswith(suffix):
@@ -78,3 +87,7 @@ def param_bool(cfg, field, dflt = None):
     elif strvalue in ('no', 'n', 'false', 'f', '0'):
         return False
     raise ValueError("invalid value for boolean parameter '%s': '%s'" % (field, value))
+
+def inherits(d, *classes):
+    """Return True if the metadata inherits any of the specified classes"""
+    return any(bb.data.inherits_class(cls, d) for cls in classes)

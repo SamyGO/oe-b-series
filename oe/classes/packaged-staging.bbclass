@@ -6,6 +6,10 @@
 #
 # INHERIT += "packaged-staging"
 #
+# To use the prebuilt pstage packages, save them away..
+# $ rsync --delete -a tmp/pstage/ /there/oe/build/pstage_mirror
+# .. and use it as mirror in your conf/local.conf:
+# PSTAGE_MIRROR = "file:///there/oe/build/pstage_mirror"
 
 
 #
@@ -23,23 +27,14 @@ PSTAGE_SCAN_CMD ?= "find ${PSTAGE_TMPDIR_STAGE} \( -name "*.la" -o -name "*-conf
 
 PSTAGE_NATIVEDEPENDS = "\
     shasum-native \
-    stagemanager-native \
     "
 
 BB_STAMP_WHITELIST = "${PSTAGE_NATIVEDEPENDS}"
 
 python __anonymous() {
     pstage_allowed = True
-
-    # We need PSTAGE_PKGARCH to contain information about the target.
-    if bb.data.inherits_class('cross', d):
-        bb.data.setVar('PSTAGE_PKGARCH', "${HOST_SYS}-${PACKAGE_ARCH}-${TARGET_OS}", d)
-
-    # These classes encode staging paths data files so we must mangle them
-    # for reuse.
-    if bb.data.inherits_class('native', d) or bb.data.inherits_class('nativesdk', d) or bb.data.inherits_class('cross', d) or bb.data.inherits_class('crosssdk', d) or bb.data.inherits_class('sdk', d):
-        scan_cmd = "grep -Irl ${STAGING_DIR} ${PSTAGE_TMPDIR_STAGE}"
-        bb.data.setVar('PSTAGE_SCAN_CMD', scan_cmd, d)
+    pstage_host_mangle = False
+    pstage_is_cross = False
 
     # PSTAGE_NATIVEDEPENDS lists the packages we need before we can use
     # packaged staging. There will always be some packages we depend on.
@@ -59,13 +54,30 @@ python __anonymous() {
     if localdata.getVar('PSTAGING_DISABLED', True) == "1":
         pstage_allowed = False
 
+    # libtool-cross does not inherit cross.
+    if localdata.getVar('PN', True).startswith("libtool-cross"):
+        pstage_host_mangle = True
+        pstage_is_cross = True
+
+    # We need PSTAGE_PKGARCH to contain information about the target.
+    if bb.data.inherits_class('cross', d):
+        pstage_host_mangle = True
+
+    if pstage_host_mangle:
+        bb.data.setVar('PSTAGE_PKGARCH', "${HOST_SYS}-${PACKAGE_ARCH}-${TARGET_OS}", d)
+
+    # These classes encode staging paths data files so we must mangle them
+    # for reuse.
+    if bb.data.inherits_class('native', d) or bb.data.inherits_class('nativesdk', d) or bb.data.inherits_class('cross', d) or bb.data.inherits_class('crosssdk', d) or bb.data.inherits_class('sdk', d):
+        pstage_is_cross = True
+
+    if pstage_is_cross:
+        scan_cmd = "grep -Irl ${TMPDIR} ${PSTAGE_TMPDIR_STAGE}"
+        bb.data.setVar('PSTAGE_SCAN_CMD', scan_cmd, d)
+
     # Add task dependencies if we're active, otherwise mark packaged staging
     # as inactive.
     if pstage_allowed:
-        deps = bb.data.getVarFlag('do_setscene', 'depends', d) or ""
-        deps += " stagemanager-native:do_populate_sysroot"
-        bb.data.setVarFlag('do_setscene', 'depends', deps, d)
-
         policy = bb.data.getVar("BB_STAMP_POLICY", d, True)
         if policy == "whitelist" or policy == "full":
            deps = bb.data.getVarFlag('do_setscene', 'recrdeptask', d) or ""
@@ -94,7 +106,7 @@ def pstage_manualclean(srcname, destvarname, d):
 	dest = bb.data.getVar(destvarname, d, True)
 
 	for walkroot, dirs, files in os.walk(src):
-		bb.debug("rm %s" % walkroot)
+		bb.debug(2, "rm %s" % walkroot)
 		for file in files:
 			# Avoid breaking the held lock
 			if (file == "staging.lock"):
@@ -112,25 +124,26 @@ def pstage_set_pkgmanager(d):
 
 
 def pstage_cleanpackage(pkgname, d):
-	path = bb.data.getVar("PATH", d, 1)
-	pstage_set_pkgmanager(d)
-	list_cmd = bb.data.getVar("PSTAGE_LIST_CMD", d, True)
+    pstage_set_pkgmanager(d)
+    list_cmd = bb.data.getVar("PSTAGE_LIST_CMD", d, True)
 
-	bb.debug(2, "Checking if staging package installed")
-	lf = bb.utils.lockfile(bb.data.expand("${SYSROOT_LOCK}", d))
-	ret = os.system("PATH=\"%s\" %s | grep %s" % (path, list_cmd, pkgname))
-	if ret == 0:
-		bb.debug(1, "Uninstalling package from staging...")
-		removecmd = bb.data.getVar("PSTAGE_REMOVE_CMD", d, 1)
-		ret = os.system("PATH=\"%s\" %s %s" % (path, removecmd, pkgname))
-		if ret != 0:
-			bb.note("Failure removing staging package")
-	else:
-		bb.debug(1, "Manually removing any installed files from staging...")
-		pstage_manualclean("sysroots", "STAGING_DIR", d)
-		pstage_manualclean("deploy", "DEPLOY_DIR", d)
+    bb.debug(2, "Checking if staging package installed")
+    lf = bb.utils.lockfile(bb.data.expand("${SYSROOT_LOCK}", d))
+    try:
+        oe_run(d, "%s | grep %s" % (list_cmd, pkgname))
+    except RuntimeError:
+        bb.debug(1, "Manually removing any installed files from staging...")
+        pstage_manualclean("sysroots", "STAGING_DIR", d)
+        pstage_manualclean("deploy", "DEPLOY_DIR", d)
+    else:
+        bb.debug(1, "Uninstalling package from staging...")
+        removecmd = bb.data.getVar("PSTAGE_REMOVE_CMD", d, 1)
+        try:
+            oe_run(d, "%s %s" % (removecmd, pkgname))
+        except RuntimeError:
+            bb.note("Failure removing staging package")
 
-	bb.utils.unlockfile(lf)
+    bb.utils.unlockfile(lf)
 
 do_clean_prepend() {
 	"""
@@ -157,7 +170,7 @@ staging_helper () {
 		echo "dest root /" >> $conffile
 	elif [ `grep -c " $arch " $conffile` -eq 0 ]; then
 		priority=$(expr `grep -cE "^arch" $conffile` + 1)
-		sed -e "/dest/iarch $arch $priority" -i $conffile
+		sed -i -e "/dest/iarch $arch $priority" $conffile
 	fi
 	if [ ! -e ${TMPDIR}${libdir_native}/opkg/info/ ]; then
 		mkdir -p ${TMPDIR}${libdir_native}/opkg/info/
@@ -176,17 +189,24 @@ def staging_fetch(stagepkg, d):
         pd = d.createCopy()
         dldir = bb.data.expand("${PSTAGE_DIR}/${PSTAGE_PKGPATH}", pd)
         mirror = bb.data.expand("${PSTAGE_MIRROR}/${PSTAGE_PKGPATH}/", pd)
-        srcuri = mirror + os.path.basename(stagepkg)
+        bn = os.path.basename(stagepkg)
+        srcuri = mirror + bn
         bb.data.setVar('DL_DIR', dldir, pd)
         bb.data.setVar('SRC_URI', srcuri, pd)
 
         # Try a fetch from the pstage mirror, if it fails just return and
         # we will build the package
+        bb.debug(1, "Attempting to fetch staging package %s" % (bn))
         try:
             bb.fetch.init([srcuri], pd)
             bb.fetch.go(pd, [srcuri])
-        except:
-            return
+            stagepkg = bb.fetch.localpath(srcuri, pd)
+        except Exception, ex:
+	    bb.debug(1, "Failed to fetch staging package %s: %s" % (bn, ex))
+        else:
+	    bb.debug(1, "Fetched staging package %s" % bn)
+
+        return stagepkg
 
 PSTAGE_TASKS_COVERED = "fetch unpack munge patch configure qa_configure rig_locales compile sizecheck install deploy package populate_sysroot package_write_deb package_write_ipk package_write package_stage qa_staging"
 
@@ -205,10 +225,9 @@ python packagestage_scenefunc () {
 
     stagepkg = bb.data.expand("${PSTAGE_PKG}", d)
     if not os.path.exists(stagepkg):
-        staging_fetch(stagepkg, d)
+        stagepkg = staging_fetch(stagepkg, d)
 
     if os.path.exists(stagepkg):
-        path = bb.data.getVar("PATH", d, 1)
         pstage_set_pkgmanager(d)
         file = bb.data.getVar("FILE", d, True)
         bb.debug(2, "Packaged staging active for %s\n" % file)
@@ -216,11 +235,12 @@ python packagestage_scenefunc () {
         #
         # Install the staging package somewhere temporarily so we can extract the stamp files
         #
-        bb.mkdirhier(bb.data.expand("${WORKDIR}/tstage/${libdir_native}/opkg/info/ ", d))
+        bb.mkdirhier(bb.data.expand("${WORKDIR}/tstage/${libdir_native}/opkg/info/", d))
         cmd = bb.data.expand("${PSTAGE_PKGMANAGER} -f ${PSTAGE_MACHCONFIG} -force-depends -o ${WORKDIR}/tstage install", d)
-        ret = os.system("PATH=\"%s\" %s %s" % (path, cmd, stagepkg))
-        if ret != 0:
-            bb.fatal("Couldn't install the staging package to a temp directory")
+        try:
+            oe_run(d, "%s %s" % (cmd, stagepkg))
+        except RuntimeError, exc:
+            bb.fatal("Couldn't install the staging package to a temp directory: %s" % exc)
 
         #
         # Grab the staging lock now so that we don't have other threads try and
@@ -233,15 +253,16 @@ python packagestage_scenefunc () {
         #
         # Copy the stamp files into the main stamps directoy
         #
-        cmd = bb.data.expand("cp -pPR ${WORKDIR}/tstage/stamps/* ${TMPDIR}/stamps/", d)
-        ret = os.system(cmd)
-        if ret != 0:
+        cmd = bb.data.expand("cp -PpR ${WORKDIR}/tstage/stamps/* ${TMPDIR}/stamps/", d)
+        try:
+            ret = oe_run(d, cmd)
+        except RuntimeError, exc:
             bb.utils.unlockfile(lf)
-            bb.fatal("Couldn't copy the staging package stamp files")
+            bb.fatal("Couldn't copy the staging package stamp files: %s" % exc)
 
         #
         # Iterate over the stamps seeing if they're valid. If we find any that
-        # are invalid or the task wasn't in the taskgraph, assume caution and 
+        # are invalid or the task wasn't in the taskgraph, assume caution and
         # do a rebuild.
         #
         # FIXME - some tasks are safe to ignore in the task graph. e.g. package_write_*
@@ -268,10 +289,12 @@ python packagestage_scenefunc () {
         if stageok:
             bb.note("Staging package found, using it for %s." % file)
             installcmd = bb.data.getVar("PSTAGE_INSTALL_CMD", d, 1)
-            ret = os.system("PATH=\"%s\" %s %s" % (path, installcmd, stagepkg))
-            bb.utils.unlockfile(lf)
-            if ret != 0:
+            try:
+                ret = oe_run(d, "%s %s" % (installcmd, stagepkg))
+            except RuntimeError:
                 bb.note("Failure installing prestage package")
+            finally:
+                bb.utils.unlockfile(lf)
 
             bb.build.exec_func("staging_package_libtoolhack", d)
 
@@ -324,11 +347,9 @@ populate_sysroot_postamble () {
 }
 
 packagedstaging_fastpath () {
-	if [ "$PSTAGING_ACTIVE" = "1" ]; then
-		mkdir -p ${PSTAGE_TMPDIR_STAGE}/sysroots/
-		#LocalChange: fixed portable of 'true' cmd
-		cp -fpPR ${SYSROOT_DESTDIR}/${STAGING_DIR}/* ${PSTAGE_TMPDIR_STAGE}/sysroots/ || true
-	fi
+	mkdir -p ${PSTAGE_TMPDIR_STAGE}/sysroots/
+	#MobiAqua: fixed portable of 'true' cmd
+	cp -fpPR ${SYSROOT_DESTDIR}/${STAGING_DIR}/* ${PSTAGE_TMPDIR_STAGE}/sysroots/ || true
 }
 
 do_populate_sysroot[dirs] =+ "${PSTAGE_DIR}"
@@ -353,10 +374,10 @@ staging_packager () {
 	echo "Priority: Optional"               >> ${PSTAGE_TMPDIR_STAGE}/CONTROL/control
 	echo "Maintainer: ${MAINTAINER}"        >> ${PSTAGE_TMPDIR_STAGE}/CONTROL/control
 	echo "Architecture: ${PSTAGE_PKGARCH}"  >> ${PSTAGE_TMPDIR_STAGE}/CONTROL/control
-	
+
 	# Protect against empty SRC_URI
 	srcuri="${SRC_URI}"
-	if [ "$srcuri" == "" ]; then
+	if [ "$srcuri" = "" ]; then
 		srcuri="OpenEmbedded"
 	fi
 	echo "Source: $srcuri"               >> ${PSTAGE_TMPDIR_STAGE}/CONTROL/control
@@ -369,7 +390,7 @@ staging_packager () {
                 sed -i -e s:${STAGING_DIR}:FIXMESTAGINGDIR:g $i
                 echo $i | sed -e 's:${PSTAGE_TMPDIR_STAGE}/::' >> ${PSTAGE_TMPDIR_STAGE}/sysroots/fixmepath
         done
-        
+
 	${PSTAGE_BUILD_CMD} ${PSTAGE_TMPDIR_STAGE} ${PSTAGE_DIR}/${PSTAGE_PKGPATH}
 }
 
@@ -404,12 +425,14 @@ python staging_package_libtoolhack () {
             fixmefd.close()
             oe.path.remove(fixmefn)
             for file in fixmefiles:
-                os.system("sed -i -e s:FIXMESTAGINGDIR:%s:g %s" % (staging, tmpdir + '/' + file))
+                oe_run(d, "sed -i -e s:FIXMESTAGINGDIR:%s:g %s" % (staging, tmpdir + '/' + file))
         except IOError:
             pass
 }
 
 python do_package_stage () {
+    import oe.packagedata
+
     if bb.data.getVar("PSTAGING_ACTIVE", d, 1) != "1":
         return
 
@@ -438,15 +461,17 @@ python do_package_stage () {
             pr = bb.data.getVar('PR_%s' % pkg, d, 1)
             if not pr:
                 pr = bb.data.getVar('PR', d, 1)
-            if not packaged(pkg, d):
+            pkgv = bb.data.getVar('PKGV_%s' % pkg, d, 1)
+            if not pkgv:
+                pkgv = bb.data.getVar('PKGV', d, 1)
+            if not oe.packagedata.packaged(pkg, d):
                 continue
             if bb.data.inherits_class('package_ipk', d):
-                srcname = bb.data.expand(pkgname + "_${PV}-" + pr + "${DISTRO_PR}" + "_" + arch + ".ipk", d)
+                srcname = bb.data.expand(pkgname + "_" + pkgv + "-" + pr + "${DISTRO_PR}" + "_" + arch + ".ipk", d)
                 srcfile = bb.data.expand("${DEPLOY_DIR_IPK}/" + arch + "/" + srcname, d)
                 if os.path.exists(srcfile):
                     destpath = ipkpath + "/" + arch + "/"
                     bb.mkdirhier(destpath)
-		    print destpath
                     bb.copyfile(srcfile, destpath + srcname)
 
             if bb.data.inherits_class('package_deb', d):
@@ -456,7 +481,7 @@ python do_package_stage () {
                     srcname = bb.data.expand(pkgname + "_${PV}-" + pr + "${DISTRO_PR}" + "_${DPKG_ARCH}.deb", d)
                 srcfile = bb.data.expand("${DEPLOY_DIR_DEB}/" + arch + "/" + srcname, d)
                 if os.path.exists(srcfile):
-                    destpath = debpath + "/" + arch + "/" 
+                    destpath = debpath + "/" + arch + "/"
                     bb.mkdirhier(destpath)
                     bb.copyfile(srcfile, destpath + srcname)
 
@@ -467,7 +492,7 @@ python do_package_stage () {
                 srcname = bb.data.expand(pkgname + "-${RPMPV}-" + pr + "${DISTRO_PR}" + ".${TARGET_ARCH}.rpm", d)
                 srcfile = bb.data.expand("${DEPLOY_DIR_RPM}/" + arch + "/" + srcname, d)
                 if os.path.exists(srcfile):
-                    destpath = rpmpath + "/" + arch + "/" 
+                    destpath = rpmpath + "/" + arch + "/"
                     bb.mkdirhier(destpath)
                     bb.copyfile(srcfile, destpath + srcname)
 
@@ -480,8 +505,7 @@ python do_package_stage () {
     bb.mkdirhier(destdir)
     # We need to include the package_stage stamp in the staging package so create one
     bb.build.make_stamp("do_package_stage", d)
-    #LocalChange: fixed portability of cp without -d param
-    os.system("cp -pPR %s.do_* %s/" % (stampfn, destdir))
+    oe_run(d, "cp -PpR %s.do_* %s/" % (stampfn, destdir))
 
     pstage_set_pkgmanager(d)
     bb.build.exec_func("staging_helper", d)

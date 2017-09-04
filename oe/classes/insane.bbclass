@@ -19,9 +19,8 @@
 # The package.bbclass can help us here.
 #
 inherit package
-PACKAGE_DEPENDS += "pax-utils-native desktop-file-utils-native"
-#LocalChange: add some more native tools
-PACKAGE_DEPENDS += "gawk-native grep-native gzip-native gettext-native findutils-native"
+#MobiAqua: added findutils-native
+PACKAGE_DEPENDS += "pax-utils-native desktop-file-utils-native findutils-native"
 PACKAGEFUNCS += " do_package_qa "
 
 
@@ -50,8 +49,11 @@ def package_qa_get_machine_dict():
                         "m68k":       (    4,     0,    0,          False,         True),
                         "mips":       (    8,     0,    0,          False,         True),
                         "mipsel":     (    8,     0,    0,          True,          True),
+                        "mips64":     (    8,     0,    0,          False,         False),
+                        "mips64el":   (    8,     0,    0,          True,          False),
                         "nios2":      (  113,     0,    0,          True,          True),
                         "powerpc":    (   20,     0,    0,          False,         True),
+                        "powerpc64":  (   21,     0,    0,          False,         False),
                         "s390":       (   22,     0,    0,          False,         True),
                         "sh4":        (   42,     0,    0,          True,          True),
                         "sparc":      (    2,     0,    0,          False,         True),
@@ -67,8 +69,11 @@ def package_qa_get_machine_dict():
                         "x86_64":     (   62,     0,    0,          True,          False),
                         "mips":       (    8,     0,    0,          False,         True),
                         "mipsel":     (    8,     0,    0,          True,          True),
+                        "mips64":     (    8,     0,    0,          False,         False),
+                        "mips64el":   (    8,     0,    0,          True,          False),
                         "nios2":      (  113,     0,    0,          True,          True),
                         "powerpc":    (   20,     0,    0,          False,         True),
+                        "powerpc64":  (   21,     0,    0,          False,         False),
                         "sh4":        (   42,     0,    0,          True,          True),
                       },
             "uclinux-uclibc" : {
@@ -114,7 +119,7 @@ def package_qa_make_fatal_error(error_class, name, path,d):
 
     TODO: Load a whitelist of known errors
     """
-    return not error_class in [0, 5, 7]
+    return not error_class in [0, 1, 5, 7]
 
 def package_qa_write_error(error_class, name, path, d):
     """
@@ -126,7 +131,7 @@ def package_qa_write_error(error_class, name, path, d):
 
     ERROR_NAMES =[
         "non dev contains .so",
-        "package contains RPATH",
+        "package contains RPATH (security issue!)",
         "package depends on debug package",
         "non dbg contains .debug",
         "wrong architecture",
@@ -143,10 +148,16 @@ def package_qa_write_error(error_class, name, path, d):
              (ERROR_NAMES[error_class], name, package_qa_clean_path(path,d))
     f.close()
 
+# Returns False is there was a fatal problem and True if we did not hit a fatal
+# error
 def package_qa_handle_error(error_class, error_msg, name, path, d):
-    bb.error("QA Issue with %s: %s" % (name, error_msg))
+    fatal = package_qa_make_fatal_error(error_class, name, path, d)
     package_qa_write_error(error_class, name, path, d)
-    return not package_qa_make_fatal_error(error_class, name, path, d)
+    if fatal:
+        bb.error("QA Issue with %s: %s" % (name, error_msg))
+    else:
+        bb.warn("QA Issue with %s: %s" % (name, error_msg))
+    return not fatal
 
 def package_qa_check_rpath(file,name,d, elf):
     """
@@ -158,20 +169,21 @@ def package_qa_check_rpath(file,name,d, elf):
     import bb, os
     sane = True
     scanelf = os.path.join(bb.data.getVar('STAGING_BINDIR_NATIVE',d,True),'scanelf')
-    bad_dir = bb.data.getVar('TMPDIR', d, True) + "/work"
+    bad_dirs = [bb.data.getVar('TMPDIR', d, True) + "/work", bb.data.getVar('STAGING_DIR_TARGET', d, True)]
     bad_dir_test = bb.data.getVar('TMPDIR', d, True)
     if not os.path.exists(scanelf):
         bb.fatal("Can not check RPATH, scanelf (part of pax-utils-native) not found")
 
-    if not bad_dir in bb.data.getVar('WORKDIR', d, True):
+    if not bad_dirs[0] in bb.data.getVar('WORKDIR', d, True):
         bb.fatal("This class assumed that WORKDIR is ${TMPDIR}/work... Not doing any check")
 
     output = os.popen("%s -B -F%%r#F '%s'" % (scanelf,file))
     txt    = output.readline().split()
     for line in txt:
-        if bad_dir in line:
-            error_msg = "package %s contains bad RPATH %s in file %s" % (name, line, file)
-            sane = package_qa_handle_error(1, error_msg, name, file, d)
+        for dir in bad_dirs:
+            if dir in line:
+                error_msg = "package %s contains bad RPATH %s in file %s, this is a security issue" % (name, line, file)
+                sane = package_qa_handle_error(1, error_msg, name, file, d)
 
     return sane
 
@@ -331,16 +343,16 @@ def package_qa_check_staged(path,d):
             pkgconfigcheck = workdir
             iscrossnative = True
 
-    # find all .la and .pc files
-    # read the content
-    # and check for stuff that looks wrong
+    # Grab the lock, find all .la and .pc files, read the content and check for
+    # stuff that looks wrong
+    lf = bb.utils.lockfile(bb.data.expand("${STAGING_DIR}/staging.lock", d))
     for root, dirs, files in os.walk(path):
         for file in files:
             path = os.path.join(root,file)
             if file.endswith(".la"):
                 file_content = open(path).read()
                 # Don't check installed status for native/cross packages
-                if not iscrossnative:
+                if not iscrossnative and bb.data.getVar('LIBTOOL_HAS_SYSROOT', d, True) is "no":
                     if installed in file_content:
                         error_msg = "%s failed sanity test (installed) in path %s" % (file,root)
                         sane = package_qa_handle_error(5, error_msg, "staging", path, d)
@@ -352,6 +364,7 @@ def package_qa_check_staged(path,d):
                 if pkgconfigcheck in file_content:
                     error_msg = "%s failed sanity test (tmpdir) in path %s" % (file,root)
                     sane = package_qa_handle_error(6, error_msg, "staging", path, d)
+    bb.utils.unlockfile(lf)
 
     return sane
 
@@ -425,6 +438,10 @@ python do_package_qa () {
     if not packages:
         return
 
+    # MobiAqua: workaround for omap4 firmware files
+    if bb.data.getVar('INSANE_SKIP', d, True):
+        return
+
     checks = [package_qa_check_rpath, package_qa_check_dev,
               package_qa_check_perm, package_qa_check_arch,
               package_qa_check_desktop, package_qa_hash_style,
@@ -450,7 +467,7 @@ python do_package_qa () {
 
 
 # The Staging Func, to check all staging
-addtask qa_staging after do_populate_sysroot before do_build
+addtask qa_staging after do_populate_sysroot before do_package_stage
 python do_qa_staging() {
     bb.debug(2, "QA checking staging")
 
@@ -464,6 +481,8 @@ python do_qa_configure() {
     configs = []
     bb.debug(1, "Checking sanity of the config.log file")
     for root, dirs, files in os.walk(bb.data.getVar('WORKDIR', d, True)):
+        if ".pc" in root:
+            continue
         statement = "grep 'CROSS COMPILE Badness:' %s > /dev/null" % \
                     os.path.join(root,"config.log")
         if "config.log" in files:
@@ -489,5 +508,5 @@ Rerun configure task after fixing this. The path was '%s'""" % root)
               gnu = "grep \"^[[:space:]]*AM_GNU_GETTEXT\" %s >/dev/null" % config
               if os.system(gnu) == 0:
                  bb.note("""Gettext required but not in DEPENDS for file %s.
-Missing inherit gettext?""" % config)
+Missing 'inherit gettext' in recipe?""" % config)
 }

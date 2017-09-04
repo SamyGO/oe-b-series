@@ -25,18 +25,17 @@ BitBake build tools.
 #
 # Based on functions from the base bb module, Copyright 2003 Holger Schurig
 
-import os, re
+import os
 import bb
 from   bb import data
 from   bb.fetch import Fetch
 from   bb.fetch import FetchError
-from   bb.fetch import uri_replace
 
 class Wget(Fetch):
     """Class to fetch urls via 'wget'"""
     def supports(self, url, ud, d):
         """
-        Check to see if a given url can be fetched with cvs.
+        Check to see if a given url can be fetched with wget.
         """
         return ud.type in ['http','https','ftp']
 
@@ -95,7 +94,7 @@ class Wget(Fetch):
 
             # Sanity check since wget can pretend it succeed when it didn't
             # Also, this used to happen if sourceforge sent us to the mirror page
-            if not os.path.exists(ud.localpath):
+            if not os.path.exists(ud.localpath) and not checkonly:
                 bb.msg.debug(2, bb.msg.domain.Fetcher, "The fetch command for %s returned success but %s doesn't exist?..." % (uri, ud.localpath))
                 return False
 
@@ -105,23 +104,8 @@ class Wget(Fetch):
         data.setVar('OVERRIDES', "wget:" + data.getVar('OVERRIDES', localdata), localdata)
         data.update_data(localdata)
 
-        premirrors = [ i.split() for i in (data.getVar('PREMIRRORS', localdata, 1) or "").split('\n') if i ]
-        for (find, replace) in premirrors:
-            newuri = uri_replace(uri, find, replace, d)
-            if newuri != uri:
-                if fetch_uri(newuri, ud, localdata):
-                    return True
-
         if fetch_uri(uri, ud, localdata):
             return True
-
-        # try mirrors
-        mirrors = [ i.split() for i in (data.getVar('MIRRORS', localdata, 1) or "").split('\n') if i ]
-        for (find, replace) in mirrors:
-            newuri = uri_replace(uri, find, replace, d)
-            if newuri != uri:
-                if fetch_uri(newuri, ud, localdata):
-                    return True
 
         raise FetchError(uri)
 

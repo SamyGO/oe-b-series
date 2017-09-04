@@ -7,6 +7,8 @@ EXCLUDE_FROM_WORLD = "1"
 
 PACKAGES = ""
 PACKAGES_virtclass-native = ""
+PACKAGES_DYNAMIC = ""
+PACKAGES_DYNAMIC_virtclass-native = ""
 PACKAGE_ARCH = "${BUILD_ARCH}"
 
 BASE_PACKAGE_ARCH = "${BUILD_ARCH}"
@@ -37,6 +39,8 @@ CXXFLAGS = "${BUILD_CFLAGS}"
 LDFLAGS = "${BUILD_LDFLAGS}"
 LDFLAGS_build-darwin = "-L${STAGING_LIBDIR_NATIVE} "
 
+TOOLCHAIN_OPTIONS = ""
+
 STAGING_BINDIR = "${STAGING_BINDIR_NATIVE}"
 STAGING_BINDIR_CROSS = "${STAGING_BINDIR_NATIVE}"
 
@@ -62,7 +66,8 @@ export STRIP = "${HOST_PREFIX}strip"
 base_prefix = "${STAGING_DIR_NATIVE}"
 prefix = "${STAGING_DIR_NATIVE}${prefix_native}"
 exec_prefix = "${STAGING_DIR_NATIVE}${prefix_native}"
-
+libdir = ${base_prefix}${libdir_native}
+base_libdir = ${base_prefix}${base_libdir_native}
 # Since we actually install these into situ there is no staging prefix
 STAGING_DIR_HOST = ""
 STAGING_DIR_TARGET = ""
@@ -72,7 +77,7 @@ PKG_CONFIG_DIR = "${libdir}/pkgconfig"
 do_stage_native () {
 	# If autotools is active, use the autotools staging function, else 
 	# use our "make install" equivalent
-	if [ "${AUTOTOOLS_NATIVE_STAGE_INSTALL}" == "1" ]
+	if [ "${AUTOTOOLS_NATIVE_STAGE_INSTALL}" = "1" ]
 	then
 		autotools_stage_all
 	else
@@ -91,11 +96,11 @@ ORIG_DEPENDS := "${DEPENDS}"
 
 DEPENDS_virtclass-native ?= "${ORIG_DEPENDS}"
 
-def native_virtclass_add_override(d):
+def native_virtclass_override(d):
     if "native" in (bb.data.getVar('BBCLASSEXTEND', d, True) or ""):
-        bb.data.setVar("OVERRIDES", bb.data.getVar("OVERRIDES", d, False) + ":virtclass-native", d)
+        return 'virtclass-native:'
 
-OVERRIDES .= "${@native_virtclass_add_override(d)}"
+OVERRIDES =. "${@native_virtclass_override(d)}"
 
 python __anonymous () {
     # If we've a legacy native do_stage, we need to neuter do_install
@@ -110,7 +115,7 @@ python __anonymous () {
 
     if "native" in (bb.data.getVar('BBCLASSEXTEND', d, True) or ""):
         pn = bb.data.getVar("PN", d, True)
-        depends = bb.data.getVar("DEPENDS_virtclass-native", d, True)
+        depends = bb.data.getVar("DEPENDS_virtclass-native", d, True) or ""
         deps = bb.utils.explode_deps(depends)
         newdeps = []
         for dep in deps:

@@ -26,7 +26,7 @@ BitBake build tools.
 #Based on functions from the base bb module, Copyright 2003 Holger Schurig
 #
 
-import os, re
+import os
 import bb
 from   bb import data
 from   bb.fetch import Fetch
@@ -41,7 +41,7 @@ class Cvs(Fetch):
         """
         Check to see if a given url can be fetched with cvs.
         """
-        return ud.type in ['cvs', 'pserver']
+        return ud.type in ['cvs']
 
     def localpath(self, url, ud, d):
         if not "module" in ud.parm:
@@ -76,11 +76,6 @@ class Cvs(Fetch):
         return False
 
     def go(self, loc, ud, d):
-
-        # try to use the tarball stash
-        if not self.forcefetch(loc, ud, d) and Fetch.try_mirror(d, ud.localfile):
-            bb.msg.debug(1, bb.msg.domain.Fetcher, "%s already exists or was mirrored, skipping cvs checkout." % ud.localpath)
-            return
 
         method = "pserver"
         if "method" in ud.parm:

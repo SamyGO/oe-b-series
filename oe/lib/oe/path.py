@@ -1,6 +1,7 @@
+import os
+
 def join(*paths):
     """Like os.path.join but doesn't treat absolute RHS specially"""
-    import os.path
     return os.path.normpath("/".join(paths))
 
 def relative(src, dest):
@@ -15,7 +16,6 @@ def relative(src, dest):
     >>> relative("/tmp", "/tmp/foo/bar")
     foo/bar
     """
-    import os.path
 
     if hasattr(os.path, "relpath"):
         return os.path.relpath(dest, src)
@@ -43,13 +43,13 @@ def format_display(path, metadata):
     else:
         return rel
 
-def remove(path):
+def remove(path, recurse=True):
     """Equivalent to rm -f or rm -rf"""
     import os, errno, shutil
     try:
         os.unlink(path)
     except OSError, exc:
-        if exc.errno == errno.EISDIR:
+        if recurse and exc.errno == errno.EISDIR:
             shutil.rmtree(path)
         elif exc.errno != errno.ENOENT:
             raise
@@ -64,3 +64,11 @@ def symlink(source, destination, force=False):
     except OSError, e:
         if e.errno != errno.EEXIST or os.readlink(destination) != source:
             raise
+
+def find(dir, **walkoptions):
+    """ Given a directory, recurses into that directory,
+    returning all files as absolute paths. """
+
+    for root, dirs, files in os.walk(dir, **walkoptions):
+        for file in files:
+            yield os.path.join(root, file)

@@ -25,7 +25,7 @@ This implementation is for svk. It is based on the svn implementation
 #
 # Based on functions from the base bb module, Copyright 2003 Holger Schurig
 
-import os, re
+import os
 import bb
 from   bb import data
 from   bb.fetch import Fetch
@@ -36,7 +36,7 @@ class Svk(Fetch):
     """Class to fetch a module or modules from svk repositories"""
     def supports(self, url, ud, d):
         """
-        Check to see if a given url can be fetched with cvs.
+        Check to see if a given url can be fetched with svk.
         """
         return ud.type in ['svk']
 
@@ -61,9 +61,6 @@ class Svk(Fetch):
 
     def go(self, loc, ud, d):
         """Fetch urls"""
-
-        if not self.forcefetch(loc, ud, d) and Fetch.try_mirror(d, ud.localfile):
-            return
 
         svkroot = ud.host + ud.path
 

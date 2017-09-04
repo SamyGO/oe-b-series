@@ -1,4 +1,4 @@
-RDEPENDS += "kernel (${KERNEL_VERSION}) update-modules"
+RDEPENDS_${PN} += "kernel-${KERNEL_VERSION} update-modules"
 DEPENDS += "virtual/kernel"
 
 inherit module-base
@@ -8,6 +8,7 @@ MODULE_MAKE_FLAGS = '\
 	KERNEL_SRC=${STAGING_KERNEL_DIR}\
 	KDIR=${STAGING_KERNEL_DIR}\
 	KERNELDIR=${STAGING_KERNEL_DIR}\
+	KERNEL_DIR=${STAGING_KERNEL_DIR}\
 	KERNEL_VERSION=${KERNEL_VERSION}\
 	CC="${KERNEL_CC}" LD="${KERNEL_LD}"\
 	AR="${KERNEL_AR}"\

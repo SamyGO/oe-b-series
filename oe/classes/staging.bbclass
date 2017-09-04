@@ -23,7 +23,7 @@ package_stagefile_shell() {
 		destfile=`echo $srcfile | sed s#${TMPDIR}#${PSTAGE_TMPDIR_STAGE}#`
 		destdir=`dirname $destfile`
 		mkdir -p $destdir
-		cp -pP $srcfile $destfile
+		cp -Pp $srcfile $destfile
 	fi
 }
 
@@ -42,20 +42,21 @@ SYSROOTEXTRALIBDIRSED ?= ""
 sysroot_stage_libdir() {
 	src="$1"
 	dest="$2"
-
-	olddir=`pwd`
-	cd $src
-	las=$(find . -name \*.la -type f)
-	cd $olddir
-	echo "Found la files: $las"		 
-	for i in $las
-	do
+	if [ "${LIBTOOL_HAS_SYSROOT}" = "no" ]; then
+	    olddir=`pwd`
+	    cd $src
+	    las=$(find . -name \*.la -type f)
+	    cd $olddir
+	    echo "Found la files: $las" 
+	    for i in $las
+	    do
 		sed -e 's/^installed=yes$/installed=no/' \
 		    -e '/^dependency_libs=/s,${WORKDIR}[[:alnum:]/\._+-]*/\([[:alnum:]\._+-]*\),${STAGING_LIBDIR}/\1,g' \
 		    -e "/^dependency_libs=/s,\([[:space:]']\)${libdir},\1${STAGING_LIBDIR},g" \
 		    ${SYSROOTEXTRALIBDIRSED} \
 		    -i $src/$i
-	done
+	    done
+	fi
 	sysroot_stage_dir $src $dest
 }
 
@@ -73,7 +74,7 @@ sysroot_stage_dirs() {
 		sysroot_stage_dir $from${sysconfdir} $to${STAGING_DIR_HOST}${sysconfdir}
 		if [ "${prefix}/lib" != "${libdir}" ]; then
 			# python puts its files in here, make sure they are staged as well
-			autotools_stage_dir $from/${prefix}/lib $to${STAGING_DIR_HOST}${prefix}/lib
+			sysroot_stage_dir $from/${prefix}/lib $to${STAGING_DIR_HOST}${prefix}/lib
 		fi
 	fi
 	if [ -d $from${libdir} ]
@@ -168,7 +169,8 @@ python do_populate_sysroot () {
         #os.system('cp -pPR %s/* %s/' % (dest, sysrootdest))
         for f in (bb.data.getVar('SYSROOT_PREPROCESS_FUNCS', d, True) or '').split():
             bb.build.exec_func(f, d)
-        bb.build.exec_func("packagedstaging_fastpath", d)
+        if pstageactive:
+            bb.build.exec_func("packagedstaging_fastpath", d)
 
         lock = bb.utils.lockfile(lockfile)
         os.system(bb.data.expand('cp -pPR ${SYSROOT_DESTDIR}${TMPDIR}/* ${TMPDIR}/', d))

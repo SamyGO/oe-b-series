@@ -10,24 +10,38 @@
 python () {
     import bb, os
 
-    filespath = d.getVar("FILESPATH", 1).split(":")
-    amendfiles = [os.path.join(fpath, "amend.inc")
-                  for fpath in filespath]
-
-    # Adding all amend.incs that can exist to the __depends, to ensure that
-    # creating one of them invalidates the bitbake cache.  Note that it
-    # requires a fix in bitbake.  Without the bitbake fix, the cache will be
-    # completely invalidated on every bitbake execution.
-    depends = d.getVar("__depends", 0) or []
-    d.setVar("__depends", depends + [(file, 0) for file in amendfiles if not os.path.exists(file)])
-
-    # Make sure we don't parse the same amend.inc file more than once, if
-    # there are duplicates in FILESPATH
     seen = set()
+    def __amendfiles():
+        for base in d.getVar("FILESPATHBASE", True).split(":"):
+            for pkg in d.getVar("FILESPATHPKG", True).split(":"):
+                path = os.path.join(base, pkg, "amend.inc")
+                if path not in seen:
+                    seen.add(path)
+                    yield path
 
-    for file in amendfiles:
-        if os.path.exists(file):
-            if file not in seen:
-                bb.parse.handle(file, d, 1)
-                seen.add(file)
+    newdata = []
+    for amend in __amendfiles():
+        if os.path.exists(amend):
+            bb.parse.handle(amend, d, 1)
+        else:
+            # Manually add amend.inc files that don't exist to the __depends,
+            # to ensure that creating them invalidates the bitbake cache
+            newdata.append((amend, 0))
+
+    if not newdata:
+        return
+
+    depends = d.getVar("__depends", False)
+    bbversion = tuple(int(i) for i in bb.__version__.split("."))
+    if bbversion < (1, 11, 0):
+        if depends is None:
+            depends = []
+        depends += newdata
+    else:
+        if depends is None:
+            depends = set()
+        depends |= set(newdata)
+    d.setVar("__depends", depends)
+
+    set_multimach_arch(d)
 }

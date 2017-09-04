@@ -278,7 +278,9 @@ def write_package_md5sums (root, outfile, ignorepaths):
 #
 
 def get_package_mapping (pkg, d):
-	data = read_subpkgdata(pkg, d)
+	import oe.packagedata
+
+	data = oe.packagedata.read_subpkgdata(pkg, d)
 	key = "PKG_%s" % pkg
 
 	if key in data:
@@ -354,16 +356,21 @@ python package_do_split_locales() {
 }
 
 python perform_packagecopy () {
-	dest = bb.data.getVar('D', d, True)
-	dvar = bb.data.getVar('PKGD', d, True)
+	installdest = bb.data.getVar('D', d, True)
+	pkgcopy = bb.data.getVar('PKGD', d, True)
 
-	bb.mkdirhier(dvar)
+	bb.mkdirhier(pkgcopy)
 
 	# Start by package population by taking a copy of the installed 
 	# files to operate on
-	os.system('rm -rf %s/*' % (dvar))
-	#LocalChange: fixed portability of cp without -d param
-	os.system('cp -pPR %s/* %s/' % (dest, dvar))
+	os.system('rm -rf %s/*' % (pkgcopy))
+	os.system('cp -pPR %s/. %s/' % (installdest, pkgcopy))
+}
+
+python run_strip_funcs() {
+	if (bb.data.getVar('PACKAGE_STRIP', d, True) != 'no'):
+		for f in (bb.data.getVar('PACKAGESTRIPFUNCS', d, True) or '').split():
+			bb.build.exec_func(f, d)
 }
 
 python populate_packages () {
@@ -389,11 +396,6 @@ python populate_packages () {
 			bb.error("-------------------")
 		else:
 			package_list.append(pkg)
-
-
-	if (bb.data.getVar('PACKAGE_STRIP', d, True) != 'no'):
-		for f in (bb.data.getVar('PACKAGESTRIPFUNCS', d, True) or '').split():
-			bb.build.exec_func(f, d)
 
 	pkgdest = bb.data.getVar('PKGDEST', d, True)
 	os.system('rm -rf %s' % pkgdest)
@@ -462,9 +464,9 @@ python populate_packages () {
 				unshipped.append(path)
 
 	if unshipped != []:
-		bb.note("the following files were installed but not shipped in any package:")
+		bb.warn("the following files were installed but not shipped in any package:")
 		for f in unshipped:
-			bb.note("  " + f)
+			bb.warn("  " + f)
 
 	bb.build.exec_func("package_name_hook", d)
 
@@ -515,7 +517,7 @@ python populate_packages () {
 						break
 			if found == False:
 				bb.note("%s contains dangling symlink to %s" % (pkg, l))
-		bb.data.setVar('RDEPENDS_' + pkg, " " + " ".join(rdepends), d)
+		bb.data.setVar('RDEPENDS_' + pkg, " ".join(rdepends), d)
 }
 populate_packages[dirs] = "${D}"
 
@@ -541,9 +543,7 @@ python emit_pkgdata() {
 	pkgdest = bb.data.getVar('PKGDEST', d, 1)
 	pkgdatadir = bb.data.getVar('PKGDATA_DIR', d, True)
 
-	pstageactive = bb.data.getVar('PSTAGING_ACTIVE', d, True)
-	if pstageactive == "1":
-		lf = bb.utils.lockfile(bb.data.expand("${STAGING_DIR}/staging.lock", d))
+	lf = bb.utils.lockfile(bb.data.expand("${STAGING_DIR}/staging.lock", d))
 
 	data_file = pkgdatadir + bb.data.expand("/${PN}" , d)
 	f = open(data_file, 'w')
@@ -591,8 +591,7 @@ python emit_pkgdata() {
 			packagedfile = pkgdatadir + '/runtime/%s.packaged' % pkg
 			file(packagedfile, 'w').close()
 			package_stagefile(packagedfile, d)
-	if pstageactive == "1":
-		bb.utils.unlockfile(lf)
+	bb.utils.unlockfile(lf)
 }
 emit_pkgdata[dirs] = "${PKGDATA_DIR}/runtime"
 
@@ -615,7 +614,8 @@ python package_do_shlibs() {
 		return
 		
 	lib_re = re.compile("^lib.*\.so")
-	libdir_re = re.compile(".*/lib$")
+	libdir = bb.data.getVar('base_libdir', d, True)
+	libdir_re = re.compile(".*%s$" % (libdir))
 
 	packages = bb.data.getVar('PACKAGES', d, True)
 
@@ -631,10 +631,6 @@ python package_do_shlibs() {
 	shlibs_dir = bb.data.getVar('SHLIBSDIR', d, True)
 	bb.mkdirhier(shlibs_dir)
 
-	pstageactive = bb.data.getVar('PSTAGING_ACTIVE', d, True)
-	if pstageactive == "1":
-		lf = bb.utils.lockfile(bb.data.expand("${STAGING_DIR}/staging.lock", d))
-
 	if bb.data.getVar('PACKAGE_SNAP_LIB_SYMLINKS', d, True) == "1":
 		snap_symlinks = True
 	else:
@@ -647,6 +643,8 @@ python package_do_shlibs() {
 
 	needed = {}
 	private_libs = bb.data.getVar('PRIVATE_LIBS', d, True)
+
+	lf = bb.utils.lockfile(bb.data.expand("${STAGING_DIR}/staging.lock", d))
 	for pkg in packages.split():
 		needs_ldconfig = False
 		bb.debug(2, "calculating shlib provides for %s" % pkg)
@@ -712,9 +710,6 @@ python package_do_shlibs() {
 			postinst += bb.data.getVar('ldconfig_postinst_fragment', d, True)
 			bb.data.setVar('pkg_postinst_%s' % pkg, postinst, d)
 
-	if pstageactive == "1":
-		bb.utils.unlockfile(lf)
-
 	shlib_provider = {}
 	list_re = re.compile('^(.*)\.list$')
 	for dir in [shlibs_dir]: 
@@ -735,6 +730,7 @@ python package_do_shlibs() {
 					fd.close()
 				for l in lines:
 					shlib_provider[l.rstrip()] = (dep_pkg, lib_ver)
+	bb.utils.unlockfile(lf)
 
 	assumed_libs = bb.data.getVar('ASSUME_SHLIBS', d, True)
 	if assumed_libs:
@@ -828,9 +824,7 @@ python package_do_pkgconfig () {
 							if hdr == 'Requires':
 								pkgconfig_needed[pkg] += exp.replace(',', ' ').split()
 
-	pstageactive = bb.data.getVar('PSTAGING_ACTIVE', d, True)
-	if pstageactive == "1":
-		lf = bb.utils.lockfile(bb.data.expand("${STAGING_DIR}/staging.lock", d))
+	lf = bb.utils.lockfile(bb.data.expand("${STAGING_DIR}/staging.lock", d))
 
 	for pkg in packages.split():
 		pkgs_file = os.path.join(shlibs_dir, pkg + ".pclist")
@@ -878,8 +872,7 @@ python package_do_pkgconfig () {
 			fd.close()
 			package_stagefile(deps_file, d)
 
-	if pstageactive == "1":
-		bb.utils.unlockfile(lf)
+	bb.utils.unlockfile(lf)
 }
 
 python read_shlibdeps () {
@@ -894,7 +887,7 @@ python read_shlibdeps () {
 				fd.close()
 				for l in lines:
 					rdepends.append(l.rstrip())
-		bb.data.setVar('RDEPENDS_' + pkg, " " + " ".join(rdepends), d)
+		bb.data.setVar('RDEPENDS_' + pkg, " ".join(rdepends), d)
 }
 
 python package_depchains() {
@@ -1009,6 +1002,7 @@ PACKAGE_PREPROCESS_FUNCS ?= ""
 PACKAGEFUNCS ?= "perform_packagecopy \
                 ${PACKAGE_PREPROCESS_FUNCS} \
 		package_do_split_locales \
+		run_strip_funcs \
 		populate_packages \
 		package_do_shlibs \
 		package_do_pkgconfig \

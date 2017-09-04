@@ -91,7 +91,8 @@ SRC_URI[sha256sum] = &quot;36bdb85c97b39ac604bc58cb7857ee08295242c78a12848ef8a31
   it is unpacked into the work directory, <command>${WORKDIR}</command>. The
   unpacker recognises several archive and compression types and for these it
   will decompress any compressed files and extract all of the files from
-  archives into the work directory. The supported types are:</para>
+  archives into the work directory, unless the option <command>unpack=no</command>
+  is set for the given file. The supported types are:</para>
 
   <variablelist>
     <varlistentry>
@@ -192,6 +193,16 @@ SRC_URI[sha256sum] = &quot;36bdb85c97b39ac604bc58cb7857ee08295242c78a12848ef8a31
           md5sum option provided.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term>unpack={yes|no}</term>
+
+        <listitem>
+          <para>If set to 'yes' (default) and the source file is an archive,
+          then the archive will be decompressed and unpacked into the ${WORKDIR}.
+	  Otherwise, the archive will be copied into the ${WORKDIR}.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
 
     <para>Related variables:</para>
@@ -229,7 +240,7 @@ SRC_URI[sha256sum] = &quot;36bdb85c97b39ac604bc58cb7857ee08295242c78a12848ef8a31
     <para>The following example shows the specification of a patch
     file:<screen>file://ospfd-no-opaque-lsa-fix.patch</screen></para>
 
-    <para>Patch files are be copied to the patches subdirectory of the source
+    <para>Patch files are copied to the patches subdirectory of the source
     directory, <command>${S}/patches</command>, and then applied from the
     source directory. The patches are searched for along the path specified
     via the file path variable, <command>${FILESPATH},</command> and if not
@@ -350,15 +361,6 @@ SRC_URI[sha256sum] = &quot;36bdb85c97b39ac604bc58cb7857ee08295242c78a12848ef8a31
     </variablelist>
 
     <para>Related variables:<variablelist>
-        <varlistentry>
-          <term>CVS_TARBALL_STASH</term>
-
-          <listitem>
-            <para>Used to specifies a location to search for pre-generated tar
-            archives to use instead of accessing cvs directly.</para>
-          </listitem>
-        </varlistentry>
-
         <varlistentry>
           <term>CVSDIR</term>
 
@@ -565,14 +567,6 @@ SRC_URI[sha256sum] = &quot;36bdb85c97b39ac604bc58cb7857ee08295242c78a12848ef8a31
 
         <listitem>
           <para>http://heanet.dl.sourceforge.net/sourceforge</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term>SAMYGO_MIRROR</term>
-
-        <listitem>
-          <para>http://download.samygo.tv</para>
         </listitem>
       </varlistentry>
 

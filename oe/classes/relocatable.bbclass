@@ -1,4 +1,4 @@
-#LocalChange: disable usage of chrpath
+#MobiAqua: disable usage of chrpath
 #SYSROOT_PREPROCESS_FUNCS += "relocatable_binaries_preprocess"
 
 CHRPATH_BIN ?= "chrpath"

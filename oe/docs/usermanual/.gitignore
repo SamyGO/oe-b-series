@@ -1,0 +1,6 @@
+*.pdf
+html/
+xhtml/
+*.sw?
+html-nochunks/
+*.ps

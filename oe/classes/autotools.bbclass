@@ -8,17 +8,16 @@ def autotools_deps(d):
 	pn = bb.data.getVar('PN', d, 1)
 	deps = ''
 
-	if pn in ['autoconf-native', 'automake-native']:
+	if pn in ['autoconf-native', 'automake-native', 'help2man-native']:
 		return deps
-	deps += 'autoconf-native automake-native '
+	deps += 'autoconf-native automake-native help2man-native '
 
-	if not pn in ['libtool', 'libtool-native', 'libtool-cross']:
+	if pn not in ['libtool', 'libtool-native', 'libtool-cross']:
 		deps += 'libtool-native '
-		if not bb.data.inherits_class('native', d) \
-                        and not bb.data.inherits_class('cross', d) \
-                        and not bb.data.inherits_class('sdk', d) \
-                        and not bb.data.getVar('INHIBIT_DEFAULT_DEPS', d, 1):
-                    deps += 'libtool-cross '
+		if (not oe.utils.inherits(d, 'native', 'nativesdk', 'cross',
+		                          'sdk') and
+		    not d.getVar('INHIBIT_DEFAULT_DEPS', True)):
+			deps += 'libtool-cross '
 
 	return deps + 'gnu-config-native '
 
@@ -31,11 +30,7 @@ DEPENDS_virtclass-nativesdk_prepend = "${@autotools_deps(d)}"
 inherit siteinfo
 
 def _autotools_get_sitefiles(d):
-    def inherits(d, *classes):
-        if any(bb.data.inherits_class(cls, d) for cls in classes):
-            return True
-
-    if inherits(d, "native", "nativesdk"):
+    if oe.utils.inherits(d, 'native', 'nativesdk'):
         return
 
     sitedata = siteinfo_data(d)
@@ -57,6 +52,30 @@ def autotools_set_crosscompiling(d):
 		return " cross_compiling=yes"
 	return ""
 
+def append_libtool_sysroot(d):
+	if bb.data.getVar('LIBTOOL_HAS_SYSROOT', d, 1) == "yes":
+		if bb.data.getVar('BUILD_SYS', d, 1) == bb.data.getVar('HOST_SYS', d, 1):
+			return '--with-libtool-sysroot'
+		else:
+			return '--with-libtool-sysroot=${STAGING_DIR_HOST}'
+	return ''
+
+def distro_imposed_configure_flags(d):
+	distro_features = bb.data.getVar('DISTRO_FEATURES', d, True) or ""
+	distro_features = distro_features.split()
+	flags = set()
+	features = (('largefile', 'largefile'),
+		('ipv6'     , 'ipv6'),
+		('nls'      , 'nls'))
+
+	for knob, cfgargs in features:
+		if isinstance(cfgargs, basestring):
+			cfgargs = [cfgargs]
+		en_or_dis = knob in distro_features and "enable" or "disable"
+		for flg in cfgargs:
+			flags.add("--%s-%s" % (en_or_dis, flg))
+	return " ".join(flags)
+
 # EXTRA_OECONF_append = "${@autotools_set_crosscompiling(d)}"
 
 CONFIGUREOPTS = " --build=${BUILD_SYS} \
@@ -75,86 +94,82 @@ CONFIGUREOPTS = " --build=${BUILD_SYS} \
 		  --includedir=${includedir} \
 		  --oldincludedir=${oldincludedir} \
 		  --infodir=${infodir} \
-		  --mandir=${mandir}"
+		  --mandir=${mandir} \
+		  ${@append_libtool_sysroot(d)} \
+		  ${@distro_imposed_configure_flags(d)} \
+		"
 
 oe_runconf () {
 	if [ -x ${S}/configure ] ; then
-		${S}/configure ${CONFIGUREOPTS} ${EXTRA_OECONF} "$@"
+		${S}/configure \
+		${CONFIGUREOPTS} ${EXTRA_OECONF} "$@"
 	else
 		oefatal "no configure script found"
 	fi
 }
 
+oe_autoreconf () {
+	if [ x"${acpaths}" = xdefault ]; then
+		acpaths=
+		for i in `find ${S} -maxdepth 2 -name \*.m4|grep -v 'aclocal.m4'| \
+			grep -v 'acinclude.m4' | sed -e 's,\(.*/\).*$,\1,'|sort -u`; do
+			acpaths="$acpaths -I $i"
+		done
+	else
+		acpaths="${acpaths}"
+	fi
+	AUTOV=`automake --version | head -n 1 | sed "s/.* //;s/\.[0-9]\+$//"`
+	install -d ${STAGING_DATADIR}/aclocal
+	install -d ${STAGING_DATADIR}/aclocal-$AUTOV
+	acpaths="$acpaths -I${STAGING_DATADIR}/aclocal-$AUTOV -I ${STAGING_DATADIR}/aclocal"
+	# autoreconf is too shy to overwrite aclocal.m4 if it doesn't look
+	# like it was auto-generated.  Work around this by blowing it away
+	# by hand, unless the package specifically asked not to run aclocal.
+	if ! echo ${EXTRA_AUTORECONF} | grep -q "aclocal"; then
+		rm -f aclocal.m4
+	fi
+	if [ -e configure.in ]; then
+		CONFIGURE_AC=configure.in
+	else
+		CONFIGURE_AC=configure.ac
+	fi
+	if grep "^[[:space:]]*AM_GLIB_GNU_GETTEXT" $CONFIGURE_AC >/dev/null; then
+		if grep "sed.*POTFILES" $CONFIGURE_AC >/dev/null; then
+			: do nothing -- we still have an old unmodified configure.ac
+		else
+			echo "no" | glib-gettextize --force --copy
+		fi
+	else if grep "^[[:space:]]*AM_GNU_GETTEXT" $CONFIGURE_AC >/dev/null; then
+		if [ -e ${STAGING_DATADIR}/gettext/config.rpath ]; then
+			cp ${STAGING_DATADIR}/gettext/config.rpath ${S}/
+		else
+			oenote ${STAGING_DATADIR}/gettext/config.rpath not found. gettext is not installed.
+		fi
+	fi
+
+	fi
+	for aux in m4 `sed -n -e '/^[[:space:]]*AC_CONFIG_MACRO_DIR/s|[^(]*([[]*\([^])]*\)[]]*)|\1|p' $CONFIGURE_AC`; do
+		mkdir -p ${aux}
+	done
+	autoreconf -Wcross --verbose --install --force ${EXTRA_AUTORECONF} $acpaths || oefatal "autoreconf execution failed."
+	if grep "^[[:space:]]*[AI][CT]_PROG_INTLTOOL" $CONFIGURE_AC >/dev/null; then
+		intltoolize --copy --force --automake
+	fi
+}
+
 autotools_do_configure() {
 	case ${PN} in
-	autoconf*)
-	;;
-	automake*)
+	autoconf*|automake*)
 	;;
 	*)
-		# WARNING: gross hack follows:
-		# An autotools built package generally needs these scripts, however only
-		# automake or libtoolize actually install the current versions of them.
-		# This is a problem in builds that do not use libtool or automake, in the case
-		# where we -need- the latest version of these scripts.  e.g. running a build
-		# for a package whose autotools are old, on an x86_64 machine, which the old
-		# config.sub does not support.  Work around this by installing them manually
-		# regardless.
-		( for ac in `find ${S} -name configure.in -o -name configure.ac`; do
-			rm -f `dirname $ac`/configure
-			done )
+		find ${S} -name configure.in -o -name configure.ac | \
+			while read fn; do
+				rm -f `dirname $fn`/configure
+			done
 		if [ -e ${S}/configure.in -o -e ${S}/configure.ac ]; then
 			olddir=`pwd`
 			cd ${S}
-			if [ x"${acpaths}" = xdefault ]; then
-				acpaths=
-				for i in `find ${S} -maxdepth 2 -name \*.m4|grep -v 'aclocal.m4'| \
-					grep -v 'acinclude.m4' | sed -e 's,\(.*/\).*$,\1,'|sort -u`; do
-					acpaths="$acpaths -I $i"
-				done
-			else
-				acpaths="${acpaths}"
-			fi
-			AUTOV=`automake --version |head -n 1 |sed "s/.* //;s/\.[0-9]\+$//"`
-			automake --version
-			echo "AUTOV is $AUTOV"
-			install -d ${STAGING_DATADIR}/aclocal
-			install -d ${STAGING_DATADIR}/aclocal-$AUTOV
-			acpaths="$acpaths -I${STAGING_DATADIR}/aclocal-$AUTOV -I ${STAGING_DATADIR}/aclocal"
-			# autoreconf is too shy to overwrite aclocal.m4 if it doesn't look
-			# like it was auto-generated.  Work around this by blowing it away
-			# by hand, unless the package specifically asked not to run aclocal.
-			if ! echo ${EXTRA_AUTORECONF} | grep -q "aclocal"; then
-				rm -f aclocal.m4
-			fi
-			if [ -e configure.in ]; then
-			  CONFIGURE_AC=configure.in
-			else
-			  CONFIGURE_AC=configure.ac
-			fi
-			if grep "^[[:space:]]*AM_GLIB_GNU_GETTEXT" $CONFIGURE_AC >/dev/null; then
-			  if grep "sed.*POTFILES" $CONFIGURE_AC >/dev/null; then
-			    : do nothing -- we still have an old unmodified configure.ac
-			  else
-			    oenote Executing glib-gettextize --force --copy
-			    echo "no" | glib-gettextize --force --copy
-			  fi
-			else if grep "^[[:space:]]*AM_GNU_GETTEXT" $CONFIGURE_AC >/dev/null; then
-			  if [ -e ${STAGING_DATADIR}/gettext/config.rpath ]; then
-			    cp ${STAGING_DATADIR}/gettext/config.rpath ${S}/
-			  else
-			    oenote ${STAGING_DATADIR}/gettext/config.rpath not found. gettext is not installed.
-			  fi
-			fi
-
-			fi
-			mkdir -p m4
-			oenote Executing autoreconf --verbose --install --force ${EXTRA_AUTORECONF} $acpaths
-			autoreconf -Wcross --verbose --install --force ${EXTRA_AUTORECONF} $acpaths || oefatal "autoreconf execution failed."
-			if grep "^[[:space:]]*[AI][CT]_PROG_INTLTOOL" $CONFIGURE_AC >/dev/null; then
-			  oenote Executing intltoolize --copy --force --automake
-			  intltoolize --copy --force --automake
-			fi
+			oe_autoreconf
 			cd $olddir
 		fi
 	;;
@@ -170,8 +185,7 @@ autotools_do_install() {
 	oe_runmake 'DESTDIR=${D}' install
 }
 
-PACKAGE_PREPROCESS_FUNCS += "autotools_prepackage_lamangler"
-
+PACKAGE_PREPROCESS_FUNCS += "${@['autotools_prepackage_lamangler',''][bb.data.getVar('LIBTOOL_HAS_SYSROOT', d, 1) == "yes"]}"
 autotools_prepackage_lamangler () {
         for i in `find ${PKGD} -name "*.la"` ; do \
             sed -i -e 's:${STAGING_LIBDIR}:${libdir}:g;' \

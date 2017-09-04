@@ -1,4 +1,8 @@
 # For compatibility
+def uniq(iterable):
+    import oe.utils
+    return oe.utils.uniq(iterable)
+
 def base_path_join(a, *p):
     return oe.path.join(a, *p)
 
@@ -38,33 +42,41 @@ def oe_filter(f, str, d):
 def oe_filter_out(f, str, d):
     return oe.utils.str_filter_out(f, str, d)
 
+def machine_paths(d):
+    """List any existing machine specific filespath directories"""
+    machine = d.getVar("MACHINE", True)
+    filespathpkg = d.getVar("FILESPATHPKG", True).split(":")
+    for basepath in d.getVar("FILESPATHBASE", True).split(":"):
+        for pkgpath in filespathpkg:
+            machinepath = os.path.join(basepath, pkgpath, machine)
+            if os.path.isdir(machinepath):
+                yield machinepath
 
-def subprocess_setup():
-   import signal
-   # Python installs a SIGPIPE handler by default. This is usually not what
-   # non-Python subprocesses expect.
-   signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+def is_machine_specific(d):
+    """Determine whether the current recipe is machine specific"""
+    machinepaths = set(machine_paths(d))
+    urldatadict = bb.fetch.init(d.getVar("SRC_URI", True).split(), d, True)
+    for urldata in (urldata for urldata in urldatadict.itervalues()
+                    if urldata.type == "file"):
+        if any(urldata.localpath.startswith(mp + "/") for mp in machinepaths):
+            return True
+
+def oe_popen_env(d):
+    env = {}
+    for v in d.keys():
+        if d.getVarFlag(v, "export"):
+            env[v] = d.getVar(v, True) or ""
+    return env
+
+def oe_run(d, cmd, **kwargs):
+    import oe.process
+    kwargs["env"] = oe_popen_env(d)
+    return oe.process.run(cmd, **kwargs)
 
 def oe_popen(d, cmd, **kwargs):
-    """ Convenience function to call out processes with our exported
-    variables in the environment.
-    """
-    from subprocess import Popen
-
-    if kwargs.get("env") is None:
-        env = d.getVar("__oe_popen_env", False)
-        if env is None:
-            env = {}
-            for v in d.keys():
-                if d.getVarFlag(v, "export"):
-                    env[v] = d.getVar(v, True) or ""
-            d.setVar("__oe_popen_env", env)
-        kwargs["env"] = env
-
-    kwargs["close_fds"] = True
-    kwargs["preexec_fn"] = subprocess_setup
-
-    return Popen(cmd, **kwargs)
+    import oe.process
+    kwargs["env"] = oe_popen_env(d)
+    return oe.process.Popen(cmd, **kwargs)
 
 def oe_system(d, cmd, **kwargs):
     """ Popen based version of os.system. """
@@ -90,7 +102,21 @@ def setup_checksum_deps(d):
             d.setVarFlag("do_fetch", "depends", "%s %s" %
                          (depends, "shasum-native:do_populate_sysroot"))
 
-def base_chk_file_checksum(localpath, src_uri, expected_md5sum, expected_sha256sum, data):
+def base_get_hash_flags(params):
+    try:
+        name = params["name"]
+    except KeyError:
+        name = ""
+    if name:
+        md5flag = "%s.md5sum" % name
+        sha256flag = "%s.sha256sum" % name
+    else:
+        md5flag = "md5sum"
+        sha256flag = "sha256sum"
+
+    return (md5flag, sha256flag)
+
+def base_chk_file_checksum(localpath, src_uri, expected_md5sum, expected_sha256sum, params, data):
     strict_checking = True
     if bb.data.getVar("OE_STRICT_CHECKSUMS", data, True) != "1":
         strict_checking = False
@@ -125,86 +151,36 @@ def base_chk_file_checksum(localpath, src_uri, expected_md5sum, expected_sha256s
         if not ufile:
             raise Exception("Creating %s.sum failed" % uname)
 
-        ufile.write("SRC_URI[md5sum] = \"%s\"\nSRC_URI[sha256sum] = \"%s\"\n" % (md5data, sha256data))
+        (md5flag, sha256flag) = base_get_hash_flags(params)
+        ufile.write("SRC_URI[%s] = \"%s\"\nSRC_URI[%s] = \"%s\"\n" % (md5flag, md5data, sha256flag, sha256data))
         ufile.close()
         bb.note("This package has no checksums, please add to recipe")
-        bb.note("\nSRC_URI[md5sum] = \"%s\"\nSRC_URI[sha256sum] = \"%s\"\n" % (md5data, sha256data))
+        bb.note("\nSRC_URI[%s] = \"%s\"\nSRC_URI[%s] = \"%s\"\n" % (md5flag, md5data, sha256flag, sha256data))
 
         # fail for strict, continue for disabled strict checksums
         return not strict_checking
 
     if (expected_md5sum and expected_md5sum != md5data) or (expected_sha256sum and expected_sha256sum != sha256data):
+        (md5flag, sha256flag) = base_get_hash_flags(params)
         bb.note("The checksums for '%s' did not match.\nExpected MD5: '%s' and Got: '%s'\nExpected SHA256: '%s' and Got: '%s'" % (localpath, expected_md5sum, md5data, expected_sha256sum, sha256data))
-        bb.note("Your checksums:\nSRC_URI[md5sum] = \"%s\"\nSRC_URI[sha256sum] = \"%s\"\n" % (md5data, sha256data))
+        bb.note("Your checksums:\nSRC_URI[%s] = \"%s\"\nSRC_URI[%s] = \"%s\"\n" % (md5flag, md5data, sha256flag, sha256data))
         return False
 
     return True
 
 def base_get_checksums(pn, pv, src_uri, localpath, params, data):
-    # Try checksum from recipe and then parse checksums.ini 
+    # Try checksum from recipe and then parse checksums.ini
     # and try PN-PV-SRC_URI first and then try PN-SRC_URI
     # we rely on the get method to create errors
-    try:
-        name = params["name"]
-    except KeyError:
-        name = ""
-    if name:
-        md5flag = "%s.md5sum" % name
-        sha256flag = "%s.sha256sum" % name
-    else:
-        md5flag = "md5sum"
-        sha256flag = "sha256sum"
+    (md5flag, sha256flag) = base_get_hash_flags(params)
     expected_md5sum = bb.data.getVarFlag("SRC_URI", md5flag, data)
     expected_sha256sum = bb.data.getVarFlag("SRC_URI", sha256flag, data)
 
-    if (expected_md5sum and expected_sha256sum):
-        return (expected_md5sum,expected_sha256sum)
-    else:
-        # missing checksum, parse checksums.ini
-
-        # Verify the SHA and MD5 sums we have in OE and check what do
-        # in
-        checksum_paths = bb.data.getVar('BBPATH', data, True).split(":")
-
-        # reverse the list to give precedence to directories that
-        # appear first in BBPATH
-        checksum_paths.reverse()
-
-        checksum_files = ["%s/conf/checksums.ini" % path for path in checksum_paths]
-        try:
-            parser = base_chk_load_parser(checksum_files)
-        except ValueError:
-            bb.note("No conf/checksums.ini found, not checking checksums")
-            return (None,None)
-        except:
-            bb.note("Creating the CheckSum parser failed: %s:%s" % (sys.exc_info()[0], sys.exc_info()[1]))
-            return (None,None)
-        pn_pv_src = "%s-%s-%s" % (pn,pv,src_uri)
-        pn_src    = "%s-%s" % (pn,src_uri)
-        if parser.has_section(pn_pv_src):
-            expected_md5sum    = parser.get(pn_pv_src, "md5")
-            expected_sha256sum = parser.get(pn_pv_src, "sha256")
-        elif parser.has_section(pn_src):
-            expected_md5sum    = parser.get(pn_src, "md5")
-            expected_sha256sum = parser.get(pn_src, "sha256")
-        elif parser.has_section(src_uri):
-            expected_md5sum    = parser.get(src_uri, "md5")
-            expected_sha256sum = parser.get(src_uri, "sha256")
-        else:
-            return (None,None)
-        
-        if name:
-            bb.note("This package has no checksums in corresponding recipe '%s', please consider moving its checksums from checksums.ini file \
-                \nSRC_URI[%s.md5sum] = \"%s\"\nSRC_URI[%s.sha256sum] = \"%s\"\n" % (bb.data.getVar("FILE", data, True), name, expected_md5sum, name, expected_sha256sum))
-        else:
-            bb.note("This package has no checksums in corresponding recipe '%s', please consider moving its checksums from checksums.ini file \
-                \nSRC_URI[md5sum] = \"%s\"\nSRC_URI[sha256sum] = \"%s\"\n" % (bb.data.getVar("FILE", data, True), expected_md5sum, expected_sha256sum))
-
-        return (expected_md5sum, expected_sha256sum)
+    return (expected_md5sum, expected_sha256sum)
 
 def base_chk_file(pn, pv, src_uri, localpath, params, data):
     (expected_md5sum, expected_sha256sum) = base_get_checksums(pn, pv, src_uri, localpath, params, data)
-    return base_chk_file_checksum(localpath, src_uri, expected_md5sum, expected_sha256sum, data)
+    return base_chk_file_checksum(localpath, src_uri, expected_md5sum, expected_sha256sum, params, data)
 
 oedebug() {
 	test $# -ge 2 || {
@@ -324,7 +300,7 @@ oe_libinstall() {
 		eval `cat $lafile|grep "^library_names="`
 		libtool=1
 	else
-		library_names="$libname.so* $libname.dll.a"
+		library_names="$libname.so* $libname.dll.a $libname.*.dylib"
 	fi
 
 	__runcmd install -d $destpath/
@@ -333,7 +309,7 @@ oe_libinstall() {
 		__runcmd install -m 0644 $dota $destpath/
 	fi
 	if [ -f "$dotlai" -a -n "$libtool" ]; then
-		if test -n "$staging_install"
+		if [ -n "$staging_install" -a "${LIBTOOL_HAS_SYSROOT}" = "no" ]
 		then
 			# stop libtool using the final directory name for libraries
 			# in staging:
@@ -355,6 +331,8 @@ oe_libinstall() {
 					oefatal "oe_libinstall: $dir/$f not found."
 				fi
 			elif [ -L "$f" ]; then
+				#MobiAqua: remove before copy
+				rm -f "$destpath/$f"
 				__runcmd cp -P "$f" $destpath/
 			elif [ ! -L "$f" ]; then
 				libfile="$f"
@@ -413,6 +391,31 @@ oe_machinstall() {
 	fi
 }
 
+create_wrapper () {
+   # Create a wrapper script
+   #
+   # These are useful to work around relocation issues, by setting environment
+   # variables which point to paths in the filesystem.
+   #
+   # Usage: create_wrapper FILENAME [[VAR=VALUE]..]
+
+   cmd=$1
+   shift
+
+   # run echo via env to test syntactic validity of the variable arguments
+   env $@ echo "Generating wrapper script for $cmd"
+
+   mv $cmd $cmd.real
+   cmdname=`basename $cmd`.real
+   #MobiAqua: remove readlink usage
+   cat <<END >$cmd
+#!/bin/sh
+realpath=$0
+exec env $@ \`dirname \$realpath\`/$cmdname "\$@"
+END
+   chmod +x $cmd
+}
+
 def check_app_exists(app, d):
 	from bb import which, data
 
@@ -421,7 +424,21 @@ def check_app_exists(app, d):
 	return bool(which(path, app))
 
 def explode_deps(s):
-	return bb.utils.explode_deps(s)
+	r = []
+	l = s.split()
+	flag = False
+	for i in l:
+		if i[0] == '(':
+			flag = True
+			j = []
+		if flag:
+			j.append(i)
+			if i.endswith(')'):
+				flag = False
+				r[-1] += ' ' + ' '.join(j)
+		else:
+			r.append(i)
+	return r
 
 def base_set_filespath(path, d):
 	bb.note("base_set_filespath usage is deprecated, %s should be fixed" % d.getVar("P", 1))
@@ -432,3 +449,23 @@ def base_set_filespath(path, d):
 		for o in overrides.split(":"):
 			filespath.append(os.path.join(p, o))
 	return ":".join(filespath)
+
+# These directory stack functions are based upon the versions in the Korn
+# Shell documentation - http://docstore.mik.ua/orelly/unix3/korn/ch04_07.htm.
+dirs() {
+    echo "$_DIRSTACK"
+}
+
+pushd() {
+    dirname=$1
+    cd ${dirname:?"missing directory name."} || return 1
+    _DIRSTACK="$PWD $_DIRSTACK"
+    echo "$_DIRSTACK"
+}
+
+popd() {
+    _DIRSTACK=${_DIRSTACK#* }
+    top=${_DIRSTACK%% *}
+    cd $top || return 1
+    echo "$PWD"
+}

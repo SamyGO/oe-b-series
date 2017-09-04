@@ -38,16 +38,16 @@ except ImportError:
     import pickle
     bb.msg.note(1, bb.msg.domain.Cache, "Importing cPickle failed. Falling back to a very slow implementation.")
 
-__cache_version__ = "130"
+__cache_version__ = "131"
 
 class Cache:
     """
     BitBake Cache implementation
     """
-    def __init__(self, cooker):
+    def __init__(self, data):
 
 
-        self.cachedir = bb.data.getVar("CACHE", cooker.configuration.data, True)
+        self.cachedir = bb.data.getVar("CACHE", data, True)
         self.clean = {}
         self.checked = {}
         self.depends_cache = {}
@@ -72,7 +72,7 @@ class Cache:
         # If any of configuration.data's dependencies are newer than the
         # cache there isn't even any point in loading it...
         newest_mtime = 0
-        deps = bb.data.getVar("__depends", cooker.configuration.data, True)
+        deps = bb.data.getVar("__depends", data, True)
         for f,old_mtime in deps:
             if old_mtime > newest_mtime:
                 newest_mtime = old_mtime
@@ -134,7 +134,19 @@ class Cache:
         self.data = data
 
         # Make sure __depends makes the depends_cache
-        self.getVar("__depends", virtualfn, True)
+        # If we're a virtual class we need to make sure all our depends are appended 
+        # to the depends of fn.
+        depends = self.getVar("__depends", virtualfn, True) or []
+        self.depends_cache.setdefault(fn, {})
+        if "__depends" not in self.depends_cache[fn] or not self.depends_cache[fn]["__depends"]:
+            self.depends_cache[fn]["__depends"] = depends
+        for dep in depends:
+            if dep not in self.depends_cache[fn]["__depends"]:
+                self.depends_cache[fn]["__depends"].append(dep)
+
+        # Make sure the variants always make it into the cache too
+        self.getVar('__VARIANTS', virtualfn, True)
+
         self.depends_cache[virtualfn]["CACHETIMESTAMP"] = bb.parse.cached_mtime(fn)
 
     def virtualfn2realfn(self, virtualfn):
@@ -170,11 +182,8 @@ class Cache:
 
         bb.msg.debug(1, bb.msg.domain.Cache, "Parsing %s (full)" % fn)
 
-        bb_data, skipped = self.load_bbfile(fn, cfgData)
-        if isinstance(bb_data, dict):
-            return bb_data[cls]
-
-        return bb_data
+        bb_data = self.load_bbfile(fn, cfgData)
+        return bb_data[cls]
 
     def loadData(self, fn, cfgData, cacheData):
         """
@@ -184,42 +193,39 @@ class Cache:
         to record the variables accessed.
         Return the cache status and whether the file was skipped when parsed
         """
+        skipped = 0
+        virtuals = 0
+
         if fn not in self.checked:
             self.cacheValidUpdate(fn)
+
         if self.cacheValid(fn):
-            if "SKIPPED" in self.depends_cache[fn]:
-                return True, True
-            self.handle_data(fn, cacheData)
-            multi = self.getVar('BBCLASSEXTEND', fn, True)
-            if multi:
-                for cls in multi.split():
-                    virtualfn = self.realfn2virtual(fn, cls)
-                    # Pretend we're clean so getVar works
-                    self.clean[virtualfn] = ""
-                    self.handle_data(virtualfn, cacheData)
-            return True, False
+            multi = self.getVar('__VARIANTS', fn, True)
+            for cls in (multi or "").split() + [""]:
+                virtualfn = self.realfn2virtual(fn, cls)
+                if self.depends_cache[virtualfn]["__SKIPPED"]:
+                    skipped += 1
+                    bb.msg.debug(1, bb.msg.domain.Cache, "Skipping %s" % virtualfn)
+                    continue
+                self.handle_data(virtualfn, cacheData)
+                virtuals += 1
+            return True, skipped, virtuals
 
         bb.msg.debug(1, bb.msg.domain.Cache, "Parsing %s" % fn)
 
-        bb_data, skipped = self.load_bbfile(fn, cfgData)
+        bb_data = self.load_bbfile(fn, cfgData)
 
-        if skipped:
-           if isinstance(bb_data, dict):
-               self.setData(fn, fn, bb_data[""])
-           else:
-               self.setData(fn, fn, bb_data)
-           return False, skipped
-
-        if isinstance(bb_data, dict):
-            for data in bb_data:
-                virtualfn = self.realfn2virtual(fn, data)
-                self.setData(virtualfn, fn, bb_data[data])
+        for data in bb_data:
+            virtualfn = self.realfn2virtual(fn, data)
+            self.setData(virtualfn, fn, bb_data[data])
+            if self.getVar("__SKIPPED", virtualfn, True):
+                skipped += 1
+                bb.msg.debug(1, bb.msg.domain.Cache, "Skipping %s" % virtualfn)
+            else:
                 self.handle_data(virtualfn, cacheData)
-            return False, skipped
+                virtuals += 1
+        return False, skipped, virtuals
 
-        self.setData(fn, fn, bb_data)
-        self.handle_data(fn, cacheData)
-        return False, skipped
 
     def cacheValid(self, fn):
         """
@@ -273,7 +279,7 @@ class Cache:
             for f,old_mtime in depends:
                 fmtime = bb.parse.cached_mtime_noerror(f)
                 # Check if file still exists
-                if fmtime == 0:
+                if old_mtime != 0 and fmtime == 0:
                     self.remove(fn)
                     return False
 
@@ -286,16 +292,13 @@ class Cache:
         if not fn in self.clean:
             self.clean[fn] = ""
 
-        return True
+        # Mark extended class data as clean too
+        multi = self.getVar('__VARIANTS', fn, True)
+        for cls in (multi or "").split():
+            virtualfn = self.realfn2virtual(fn, cls)
+            self.clean[virtualfn] = ""
 
-    def skip(self, fn):
-        """
-        Mark a fn as skipped
-        Called from the parser
-        """
-        if not fn in self.depends_cache:
-            self.depends_cache[fn] = {}
-        self.depends_cache[fn]["SKIPPED"] = "1"
+        return True
 
     def remove(self, fn):
         """
@@ -326,10 +329,13 @@ class Cache:
         version_data['CACHE_VER'] = __cache_version__
         version_data['BITBAKE_VER'] = bb.__version__
 
-        cache_data = copy.deepcopy(self.depends_cache)
+        cache_data = copy.copy(self.depends_cache)
         for fn in self.depends_cache:
             if '__BB_DONT_CACHE' in self.depends_cache[fn] and self.depends_cache[fn]['__BB_DONT_CACHE']:
                 bb.msg.debug(2, bb.msg.domain.Cache, "Not caching %s, marked as not cacheable" % fn)
+                del cache_data[fn]
+            elif 'PV' in self.depends_cache[fn] and 'SRCREVINACTION' in self.depends_cache[fn]['PV']:
+                bb.msg.error(bb.msg.domain.Cache, "Not caching %s as it had SRCREVINACTION in PV. Please report this bug" % fn)
                 del cache_data[fn]
 
         p = pickle.Pickler(file(self.cachefile, "wb" ), -1 )
@@ -346,6 +352,8 @@ class Cache:
         pn       = self.getVar('PN', file_name, True)
         pe       = self.getVar('PE', file_name, True) or "0"
         pv       = self.getVar('PV', file_name, True)
+        if 'SRCREVINACTION' in pv:
+            bb.note("Found SRCREVINACTION in PV (%s) or %s. Please report this bug." % (pv, file_name))
         pr       = self.getVar('PR', file_name, True)
         dp       = int(self.getVar('DEFAULT_PREFERENCE', file_name, True) or "0")
         depends   = bb.utils.explode_deps(self.getVar("DEPENDS", file_name, True) or "")
@@ -436,7 +444,7 @@ class Cache:
 
         # Touch this to make sure its in the cache
         self.getVar('__BB_DONT_CACHE', file_name, True)
-        self.getVar('BBCLASSEXTEND', file_name, True)
+        self.getVar('__VARIANTS', file_name, True)
 
     def load_bbfile( self, bbfile , config):
         """
@@ -457,10 +465,7 @@ class Cache:
         try:
             bb_data = parse.handle(bbfile, bb_data) # read .bb data
             os.chdir(oldpath)
-            return bb_data, False
-        except bb.parse.SkipPackage:
-            os.chdir(oldpath)
-            return bb_data, True
+            return bb_data
         except:
             os.chdir(oldpath)
             raise
@@ -482,7 +487,7 @@ def init(cooker):
     Files causing parsing errors are evicted from the cache.
 
     """
-    return Cache(cooker)
+    return Cache(cooker.configuration.data)
 
 
 

@@ -15,19 +15,20 @@
 # It is an error for the target not to exist.
 # If 'what' doesn't exist then an empty value is returned
 #
-#LocalChange: don't use ix86-common for i386
 def siteinfo_data(d):
     archinfo = {
         "arm": "endian-little bit-32 arm-common",
         "armeb": "endian-big bit-32 arm-common",
         "avr32": "endian-big bit-32 avr32-common",
         "bfin": "endian-little bit-32 bfin-common",
-        "i386": "endian-little bit-32",
+        "i386": "endian-little bit-32 ix86-common",
         "i486": "endian-little bit-32 ix86-common",
         "i586": "endian-little bit-32 ix86-common",
         "i686": "endian-little bit-32 ix86-common",
         "ia64": "endian-little bit-64",
         "mips": "endian-big bit-32 mips-common",
+        "mips64": "endian-big bit-64 mips64-common",
+        "mips64el": "endian-little bit-64 mips64-common",
         "mipsel": "endian-little bit-32 mips-common",
         "powerpc": "endian-big bit-32 powerpc-common",
         "nios2": "endian-little bit-32 nios2-common",
@@ -44,6 +45,7 @@ def siteinfo_data(d):
         "darwin": "common-darwin",
         "darwin9": "common-darwin",
         "linux": "common-linux common-glibc",
+        "linux-gnu": "common-linux common-glibc",
         "linux-gnueabi": "common-linux common-glibc",
         "linux-gnuspe": "common-linux common-glibc",
         "linux-uclibc": "common-linux common-uclibc",

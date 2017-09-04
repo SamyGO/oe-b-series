@@ -12,41 +12,6 @@ PACKAGE_DBG_DESC = "Debugging files for %s"
 PACKAGE_DBG_EXCLUDE = "${PN}-locale* ${PN}-doc ${PN}-dev *-dbg"
 
 
-def __find(dir):
-    """ Given a directory, recurses into that directory,
-    returning all files. """
-
-    from os import walk
-    from os.path import join
-
-    for root, dirs, files in walk(dir):
-        for file in files:
-            yield join(root, file)
-
-def __package_get_files(pkg, d):
-    """ Obtains a list of files to be included in a package.
-
-    Starting from the FILES_<pkg> variable, it expands any globs in the list,
-    which removes missing files, and traverses any directories in the list.
-
-    It does *not* remove files which are also in other packages, it's left
-    to the user's discretion whether to allow overlap. """
-
-    from glob import glob
-    from os.path import join, isdir, islink
-
-    installdir = d.getVar("D", True)
-    installdirlen = len(installdir)
-
-    files = (d.getVar("FILES_%s" % pkg, True) or "").split()
-    for globbed in (glob(join(installdir, file[1:])) for file in files):
-        for path in globbed:
-            if isdir(path) and not islink(path):
-                for file in __find(path):
-                    yield file[installdirlen:]
-            else:
-                yield path[installdirlen:]
-
 def add_dbg_packages(d):
     from fnmatch import fnmatch
 
@@ -88,6 +53,7 @@ python populate_packages_prepend () {
 python package_do_dbg() {
     """ Populate the -dbg subpackage metadata. """
 
+    import oe.package
     from os.path import join, basename, dirname
 
     def setVar(key, val):
@@ -100,7 +66,7 @@ python package_do_dbg() {
 
     done = []
     for pkgname in tuple(packages):
-        files = tuple(__package_get_files(pkgname, d))
+        files = tuple(oe.package.files(pkgname, d))
         dbg = [join(dirname(file), ".debug", basename(file))
                for file in files
                if not file in done]

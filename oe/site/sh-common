@@ -25,7 +25,6 @@ ac_cv_sizeof_signed_char=${ac_cv_sizeof_signed_char=1}
 # lzo
 ac_cv_sizeof_char_p=${ac_cv_sizeof_char_p=4}
 
-ac_cv_sys_restartable_syscalls=yes
 ac_cv_uchar=${ac_cv_uchar=no}
 ac_cv_uint=${ac_cv_uint=yes}
 ac_cv_ulong=${ac_cv_ulong=yes}
@@ -126,6 +125,13 @@ db_cv_uimutexes=${db_cv_uimutexes=no}
 ac_cv_pread=${ac_cv_pread=no}
 ac_cv_pwrite=${ac_cv_pwrite=no}
 php_cv_lib_cookie_io_functions_use_off64_t=${php_cv_lib_cookie_io_functions_use_off64_t=yes}
+
+# postgresql
+pgac_cv_alignof_short=2
+pgac_cv_alignof_int=4
+pgac_cv_alignof_long=4
+pgac_cv_alignof_long_long_int=8
+pgac_cv_alignof_double=8
 
 # glib
 glib_cv_sizeof_gmutex=${glib_cv_sizeof_gmutex=24}
@@ -232,10 +238,6 @@ mono_cv_sizeof_sunpath=108
 # mysql
 mysql_cv_func_atomic_sub=${mysql_cv_func_atomic_sub=no}
 mysql_cv_func_atomic_add=${mysql_cv_func_atomic_add=no}
-ac_cv_conv_longlong_to_float=${ac_cv_conv_longlong_to_float=yes}
-
-# rp-pppoe
-rpppoe_cv_pack_bitfields=${rpppoe_cv_pack_bitfields=rev}
 
 # gettext
 am_cv_func_working_getline=${am_cv_func_working_getline=yes}

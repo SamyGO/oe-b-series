@@ -24,15 +24,13 @@ BitBake build tools.
 #
 # Based on functions from the base bb module, Copyright 2003 Holger Schurig
 
-import os, re, fcntl
+import os, re
 import bb
 from   bb import data
 from   bb import persist_data
 
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
+class MalformedUrl(Exception):
+    """Exception raised when encountering an invalid url"""
 
 class FetchError(Exception):
     """Exception raised when a download fails"""
@@ -52,6 +50,100 @@ class MD5SumError(Exception):
 class InvalidSRCREV(Exception):
     """Exception raised when an invalid SRCREV is encountered"""
 
+def decodeurl(url):
+    """Decodes an URL into the tokens (scheme, network location, path,
+    user, password, parameters).
+
+    >>> decodeurl("http://www.google.com/index.html")
+    ('http', 'www.google.com', '/index.html', '', '', {})
+
+    CVS url with username, host and cvsroot. The cvs module to check out is in the
+    parameters:
+
+    >>> decodeurl("cvs://anoncvs@cvs.handhelds.org/cvs;module=familiar/dist/ipkg")
+    ('cvs', 'cvs.handhelds.org', '/cvs', 'anoncvs', '', {'module': 'familiar/dist/ipkg'})
+
+    Dito, but this time the username has a password part. And we also request a special tag
+    to check out.
+
+    >>> decodeurl("cvs://anoncvs:anonymous@cvs.handhelds.org/cvs;module=familiar/dist/ipkg;tag=V0-99-81")
+    ('cvs', 'cvs.handhelds.org', '/cvs', 'anoncvs', 'anonymous', {'tag': 'V0-99-81', 'module': 'familiar/dist/ipkg'})
+    """
+
+    m = re.compile('(?P<type>[^:]*)://((?P<user>.+)@)?(?P<location>[^;]+)(;(?P<parm>.*))?').match(url)
+    if not m:
+        raise MalformedUrl(url)
+
+    type = m.group('type')
+    location = m.group('location')
+    if not location:
+        raise MalformedUrl(url)
+    user = m.group('user')
+    parm = m.group('parm')
+
+    locidx = location.find('/')
+    if locidx != -1:
+        host = location[:locidx]
+        path = location[locidx:]
+    else:
+        host = ""
+        path = location
+    if user:
+        m = re.compile('(?P<user>[^:]+)(:?(?P<pswd>.*))').match(user)
+        if m:
+            user = m.group('user')
+            pswd = m.group('pswd')
+    else:
+        user = ''
+        pswd = ''
+
+    p = {}
+    if parm:
+        for s in parm.split(';'):
+            s1,s2 = s.split('=')
+            p[s1] = s2
+
+    return (type, host, path, user, pswd, p)
+
+def encodeurl(decoded):
+    """Encodes a URL from tokens (scheme, network location, path,
+    user, password, parameters).
+
+    >>> encodeurl(['http', 'www.google.com', '/index.html', '', '', {}])
+    'http://www.google.com/index.html'
+
+    CVS with username, host and cvsroot. The cvs module to check out is in the
+    parameters:
+
+    >>> encodeurl(['cvs', 'cvs.handhelds.org', '/cvs', 'anoncvs', '', {'module': 'familiar/dist/ipkg'}])
+    'cvs://anoncvs@cvs.handhelds.org/cvs;module=familiar/dist/ipkg'
+
+    Dito, but this time the username has a password part. And we also request a special tag
+    to check out.
+
+    >>> encodeurl(['cvs', 'cvs.handhelds.org', '/cvs', 'anoncvs', 'anonymous', {'tag': 'V0-99-81', 'module': 'familiar/dist/ipkg'}])
+    'cvs://anoncvs:anonymous@cvs.handhelds.org/cvs;tag=V0-99-81;module=familiar/dist/ipkg'
+    """
+
+    (type, host, path, user, pswd, p) = decoded
+
+    if not type or not path:
+        bb.msg.fatal(bb.msg.domain.Fetcher, "invalid or missing parameters for url encoding")
+    url = '%s://' % type
+    if user:
+        url += "%s" % user
+        if pswd:
+            url += ":%s" % pswd
+        url += "@"
+    if host:
+        url += "%s" % host
+    url += "%s" % path
+    if p:
+        for parm in p:
+            url += ";%s=%s" % (parm, p[parm])
+
+    return url
+
 def uri_replace(uri, uri_find, uri_replace, d):
 #   bb.msg.note(1, bb.msg.domain.Fetcher, "uri_replace: operating on %s" % uri)
     if not uri or not uri_find or not uri_replace:
@@ -65,7 +157,6 @@ def uri_replace(uri, uri_find, uri_replace, d):
         result_decoded[loc] = uri_decoded[loc]
         import types
         if type(i) == types.StringType:
-            import re
             if (re.match(i, uri_decoded[loc])):
                 result_decoded[loc] = re.sub(i, uri_replace_decoded[loc], uri_decoded[loc])
                 if uri_find_decoded.index(i) == 2:
@@ -78,12 +169,13 @@ def uri_replace(uri, uri_find, uri_replace, d):
 #               bb.msg.note(1, bb.msg.domain.Fetcher, "uri_replace: no match")
                 return uri
 #           else:
-#               for j in i.keys():
+#               for j in i:
 #                   FIXME: apply replacements against options
     return bb.encodeurl(result_decoded)
 
 methods = []
 urldata_cache = {}
+saved_headrevs = {}
 
 def fetcher_init(d):
     """
@@ -97,12 +189,41 @@ def fetcher_init(d):
         bb.msg.debug(1, bb.msg.domain.Fetcher, "Keeping SRCREV cache due to cache policy of: %s" % srcrev_policy)
     elif srcrev_policy == "clear":
         bb.msg.debug(1, bb.msg.domain.Fetcher, "Clearing SRCREV cache due to cache policy of: %s" % srcrev_policy)
+        try:
+            bb.fetch.saved_headrevs = pd.getKeyValues("BB_URI_HEADREVS")
+        except:
+            pass
         pd.delDomain("BB_URI_HEADREVS")
     else:
         bb.msg.fatal(bb.msg.domain.Fetcher, "Invalid SRCREV cache policy of: %s" % srcrev_policy)
+
+    for m in methods:
+        if hasattr(m, "init"):
+            m.init(d)
+
     # Make sure our domains exist
     pd.addDomain("BB_URI_HEADREVS")
     pd.addDomain("BB_URI_LOCALCOUNT")
+
+def fetcher_compare_revisons(d):
+    """
+    Compare the revisions in the persistant cache with current values and
+    return true/false on whether they've changed.
+    """
+
+    pd = persist_data.PersistData(d)
+    data = pd.getKeyValues("BB_URI_HEADREVS")
+    data2 = bb.fetch.saved_headrevs
+
+    changed = False
+    for key in data:
+        if key not in data2 or data2[key] != data[key]:
+            bb.msg.debug(1, bb.msg.domain.Fetcher, "%s changed" % key)
+            changed = True
+            return True
+        else:
+            bb.msg.debug(2, bb.msg.domain.Fetcher, "%s did not change" % key)
+    return False
 
 # Function call order is usually:
 #   1. init
@@ -161,7 +282,25 @@ def go(d, urls = None):
                     pass
                 bb.utils.unlockfile(lf)
                 continue
-        m.go(u, ud, d)
+
+        # First try fetching uri, u, from PREMIRRORS
+        mirrors = [ i.split() for i in (bb.data.getVar('PREMIRRORS', d, 1) or "").split('\n') if i ]
+        localpath = try_mirrors(d, u, mirrors)
+        if not localpath:
+            # Next try fetching from the original uri, u
+            try:
+                m.go(u, ud, d)
+                localpath = ud.localpath
+            except FetchError:
+                # Finally, try fetching uri, u, from MIRRORS
+                mirrors = [ i.split() for i in (bb.data.getVar('MIRRORS', d, 1) or "").split('\n') if i ]
+                localpath = try_mirrors (d, u, mirrors)
+                if not localpath or not os.path.exists(localpath):
+                    raise FetchError("Unable to fetch URL %s from any source." % u)
+
+        if localpath:
+            ud.localpath = localpath
+
         if ud.localfile:
             if not m.forcefetch(u, ud, d):
                 Fetch.write_md5sum(u, ud, d)
@@ -179,7 +318,18 @@ def checkstatus(d):
         ud = urldata[u]
         m = ud.method
         bb.msg.note(1, bb.msg.domain.Fetcher, "Testing URL %s" % u)
-        ret = m.checkstatus(u, ud, d)
+        # First try checking uri, u, from PREMIRRORS
+        mirrors = [ i.split() for i in (bb.data.getVar('PREMIRRORS', d, 1) or "").split('\n') if i ]
+        ret = try_mirrors(d, u, mirrors, True)
+        if not ret:
+            # Next try checking from the original uri, u
+            try:
+                ret = m.checkstatus(u, ud, d)
+            except:
+                # Finally, try checking uri, u, from MIRRORS
+                mirrors = [ i.split() for i in (bb.data.getVar('MIRRORS', d, 1) or "").split('\n') if i ]
+                ret = try_mirrors (d, u, mirrors, True)
+
         if not ret:
             bb.msg.fatal(bb.msg.domain.Fetcher, "URL %s doesn't work" % u)
 
@@ -276,7 +426,7 @@ def runfetchcmd(cmd, d, quiet = False):
     # rather than host provided
     # Also include some other variables.
     # FIXME: Should really include all export varaiables?
-    exportvars = ['PATH', 'GIT_PROXY_HOST', 'GIT_PROXY_PORT', 'GIT_CONFIG', 'http_proxy', 'ftp_proxy', 'SSH_AUTH_SOCK', 'SSH_AGENT_PID', 'HOME']
+    exportvars = ['PATH', 'GIT_PROXY_COMMAND', 'GIT_PROXY_HOST', 'GIT_PROXY_PORT', 'GIT_CONFIG', 'http_proxy', 'ftp_proxy', 'SSH_AUTH_SOCK', 'SSH_AGENT_PID', 'HOME']
 
     for var in exportvars:
         val = data.getVar(var, d, True)
@@ -308,6 +458,48 @@ def runfetchcmd(cmd, d, quiet = False):
 
     return output
 
+def try_mirrors(d, uri, mirrors, check = False):
+    """
+    Try to use a mirrored version of the sources.
+    This method will be automatically called before the fetchers go.
+
+    d Is a bb.data instance
+    uri is the original uri we're trying to download
+    mirrors is the list of mirrors we're going to try
+    """
+    fpath = os.path.join(data.getVar("DL_DIR", d, 1), os.path.basename(uri))
+    if not check and os.access(fpath, os.R_OK):
+        bb.msg.debug(1, bb.msg.domain.Fetcher, "%s already exists, skipping checkout." % fpath)
+        return fpath
+
+    ld = d.createCopy()
+    for (find, replace) in mirrors:
+        newuri = uri_replace(uri, find, replace, ld)
+        if newuri != uri:
+            try:
+                ud = FetchData(newuri, ld)
+            except bb.fetch.NoMethodError:
+                bb.msg.debug(1, bb.msg.domain.Fetcher, "No method for %s" % uri)
+                continue
+
+            ud.setup_localpath(ld)
+
+            try:
+                if check:
+                    ud.method.checkstatus(newuri, ud, ld)
+                else:
+                    ud.method.go(newuri, ud, ld)
+                return ud.localpath
+            except (bb.fetch.MissingParameterError,
+                    bb.fetch.FetchError,
+                    bb.fetch.MD5SumError):
+                import sys
+                (type, value, traceback) = sys.exc_info()
+                bb.msg.debug(2, bb.msg.domain.Fetcher, "Mirror fetch failure: %s" % value)
+                continue
+    return None
+
+
 class FetchData(object):
     """
     A class which represents the fetcher state for a given URI.
@@ -334,16 +526,33 @@ class FetchData(object):
             # if user sets localpath for file, use it instead.
             self.localpath = self.parm["localpath"]
         else:
-            try:
-                bb.fetch.srcrev_internal_call = True
-                self.localpath = self.method.localpath(self.url, self, d)
-            finally:
-                bb.fetch.srcrev_internal_call = False
-            # We have to clear data's internal caches since the cached value of SRCREV is now wrong.
-            # Horrible...
-            bb.data.delVar("ISHOULDNEVEREXIST", d)
-        self.md5 = self.localpath + '.md5'
-        self.lockfile = self.localpath + '.lock'
+            premirrors = bb.data.getVar('PREMIRRORS', d, True)
+            local = ""
+            if premirrors and self.url:
+                aurl = self.url.split(";")[0]
+                mirrors = [ i.split() for i in (premirrors or "").split('\n') if i ]
+                for (find, replace) in mirrors:
+                    if replace.startswith("file://"):
+                        path = aurl.split("://")[1]
+                        path = path.split(";")[0]
+                        local = replace.split("://")[1] + os.path.basename(path)
+                        if local == aurl or not os.path.exists(local) or os.path.isdir(local):
+                            local = ""
+                self.localpath = local
+            if not local:
+                try:
+                    bb.fetch.srcrev_internal_call = True
+                    self.localpath = self.method.localpath(self.url, self, d)
+                finally:
+                    bb.fetch.srcrev_internal_call = False
+                # We have to clear data's internal caches since the cached value of SRCREV is now wrong.
+                # Horrible...
+                bb.data.delVar("ISHOULDNEVEREXIST", d)
+
+        # Note: These files should always be in DL_DIR whereas localpath may not be.
+        basepath = bb.data.expand("${DL_DIR}/%s" % os.path.basename(self.localpath), d)
+        self.md5 = basepath + '.md5'
+        self.lockfile = basepath + '.lock'
 
 
 class Fetch(object):
@@ -448,48 +657,22 @@ class Fetch(object):
 
     srcrev_internal_helper = staticmethod(srcrev_internal_helper)
 
-    def try_mirror(d, tarfn):
+    def localcount_internal_helper(ud, d):
         """
-        Try to use a mirrored version of the sources. We do this
-        to avoid massive loads on foreign cvs and svn servers.
-        This method will be used by the different fetcher
-        implementations.
-
-        d Is a bb.data instance
-        tarfn is the name of the tarball
+        Return:
+            a) a locked localcount if specified
+            b) None otherwise
         """
-        tarpath = os.path.join(data.getVar("DL_DIR", d, 1), tarfn)
-        if os.access(tarpath, os.R_OK):
-            bb.msg.debug(1, bb.msg.domain.Fetcher, "%s already exists, skipping checkout." % tarfn)
-            return True
 
-        pn = data.getVar('PN', d, True)
-        src_tarball_stash = None
-        if pn:
-            src_tarball_stash = (data.getVar('SRC_TARBALL_STASH_%s' % pn, d, True) or data.getVar('CVS_TARBALL_STASH_%s' % pn, d, True) or data.getVar('SRC_TARBALL_STASH', d, True) or data.getVar('CVS_TARBALL_STASH', d, True) or "").split()
+        localcount= None
+        if 'name' in ud.parm:
+            pn = data.getVar("PN", d, 1)
+            localcount = data.getVar("LOCALCOUNT_" + ud.parm['name'], d, 1)
+        if not localcount:
+            localcount = data.getVar("LOCALCOUNT", d, 1)
+        return localcount
 
-        ld = d.createCopy()
-        for stash in src_tarball_stash:
-            url = stash + tarfn
-            try:
-                ud = FetchData(url, ld)
-            except bb.fetch.NoMethodError:
-                bb.msg.debug(1, bb.msg.domain.Fetcher, "No method for %s" % url)
-                continue
-
-            ud.setup_localpath(ld)
-
-            try:
-                ud.method.go(url, ud, ld)
-                return True
-            except (bb.fetch.MissingParameterError,
-                    bb.fetch.FetchError,
-                    bb.fetch.MD5SumError):
-                import sys
-                (type, value, traceback) = sys.exc_info()
-                bb.msg.debug(2, bb.msg.domain.Fetcher, "Tarball stash fetch failure: %s" % value)
-        return False
-    try_mirror = staticmethod(try_mirror)
+    localcount_internal_helper = staticmethod(localcount_internal_helper)
 
     def verify_md5sum(ud, got_sum):
         """
@@ -536,27 +719,32 @@ class Fetch(object):
         """
         
         """
-        has_want_sortable = hasattr(self, "_want_sortable_revision")
-        has_sortable = hasattr(self, "_sortable_revision")
-
-        if not has_want_sortable and has_sortable:
+        if hasattr(self, "_sortable_revision"):
             return self._sortable_revision(url, ud, d)
-        elif has_want_sortable and self._want_sortable_revision(url, ud, d) and has_sortable:
-            return self._sortable_revision(url, ud, d)
-        
 
         pd = persist_data.PersistData(d)
         key = self.generate_revision_key(url, ud, d)
 
         latest_rev = self._build_revision(url, ud, d)
         last_rev = pd.getValue("BB_URI_LOCALCOUNT", key + "_rev")
-        count = pd.getValue("BB_URI_LOCALCOUNT", key + "_count")
+        uselocalcount = bb.data.getVar("BB_LOCALCOUNT_OVERRIDE", d, True) or False
+        count = None
+        if uselocalcount:
+            count = Fetch.localcount_internal_helper(ud, d)
+        if count is None:
+            count = pd.getValue("BB_URI_LOCALCOUNT", key + "_count")
 
         if last_rev == latest_rev:
             return str(count + "+" + latest_rev)
 
+        buildindex_provided = hasattr(self, "_sortable_buildindex")
+        if buildindex_provided:
+            count = self._sortable_buildindex(url, ud, d, latest_rev)
+
         if count is None:
             count = "0"
+        elif uselocalcount or buildindex_provided:
+            count = str(count)
         else:
             count = str(int(count) + 1)
 
@@ -580,6 +768,7 @@ import perforce
 import bzr
 import hg
 import osc
+import repo
 
 methods.append(local.Local())
 methods.append(wget.Wget())
@@ -592,3 +781,4 @@ methods.append(perforce.Perforce())
 methods.append(bzr.Bzr())
 methods.append(hg.Hg())
 methods.append(osc.Osc())
+methods.append(repo.Repo())

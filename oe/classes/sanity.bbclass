@@ -78,14 +78,14 @@ def check_sanity(e):
 	if not check_app_exists("${MAKE}", e.data):
 		missing = missing + "GNU make,"
 
-	if not check_app_exists('${BUILD_PREFIX}gcc', e.data):
-		missing = missing + "C Compiler (${BUILD_PREFIX}gcc),"
+	#if not check_app_exists('${BUILD_PREFIX}gcc', e.data):
+		#missing = missing + "C Compiler (${BUILD_PREFIX}gcc),"
 
 	if not check_app_exists('${BUILD_PREFIX}g++', e.data):
 		missing = missing + "C++ Compiler (${BUILD_PREFIX}g++),"
 
-	#LocalChange: added: wget, intltoolize, python, perl; removed md5sum chrpath
-	required_utilities = "patch help2man diffstat texi2html makeinfo cvs svn bzip2 tar gzip gawk wget intltoolize python perl"
+	#MobiAqua: added: wget, intltoolize, python, perl; removed md5sum chrpath xz
+	required_utilities = "patch diffstat texi2html makeinfo svn bzip2 tar gzip gawk wget intltoolize python perl xz"
 
 	# If we'll be running qemu, perform some sanity checks
 	if data.getVar('ENABLE_BINARY_LOCALE_GENERATION', e.data, True):
@@ -186,6 +186,15 @@ def check_sanity(e):
 		if archs.count(arch) != 1:
 			messages = messages + "Error, Your PACKAGE_ARCHS field contains duplicates. Perhaps you set PACKAGE_EXTRA_ARCHS twice accidently through some tune file?\n"
 			break
+
+	#
+	# Check there isn't old persistent cache
+	#
+	cache = data.getVar('CACHE', e.data, True)
+	persistent_dir = data.getVar('PERSISTENT_DIR', e.data, True)
+	persistent_cache_filename = data.getVar('SANITY_PERSIST_DATA_FILE', e.data, True)
+	if cache != persistent_dir and os.path.exists(cache + '/' + persistent_cache_filename):
+		messages = messages + "Error, persistent cache file '%s' exists in old location '%s', please migrate it to new location '%s' and merge them together if you have one for each MACHINE.\n" % (persistent_cache_filename, cache, persistent_dir)
 
 	if messages != "":
 		raise_sanity_error(messages)

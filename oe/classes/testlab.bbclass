@@ -15,7 +15,7 @@
 
 # TODO: 
 # * log information to a server for safekeeping
-# * use mtn certs to record this info into the scm
+# * use git notes to record this info into the scm
 # * add test suite to run on the target device 
 
 
@@ -36,7 +36,7 @@ if [ -e  ${IMAGE_ROOTFS}/etc/opkg ] && [ "${ONLINE_PACKAGE_MANAGEMENT}" = "full"
 	echo -e "digraph depends {\n    node [shape=plaintext]" > ${TESTLAB_DIR}/depends.dot
 
 	for pkg in $(opkg-cl ${IPKG_ARGS} list_installed | awk '{print $1}') ; do 
-		opkg-cl ${IPKG_ARGS} info $pkg | grep -B 7 -A 7 "^Status.* \(\(installed\)\|\(unpacked\)\)" | awk '/^Package/ {printf $2"_"} /^Version/ {printf $2"_"} /^Archi/ {print $2".ipk"}'  >> ${TESTLAB_DIR}/installed-packages.txt
+		opkg-cl ${IPKG_ARGS} info $pkg | grep -B 7 -A 7 "^Status.* \(\(installed\)\|\(unpacked\)\)" | awk '/^Package/ {printf $2"_"} /^Version/ {sub(/.*:/,"", $2); printf $2"_"} /^Archi/ {print $2".ipk"}'  >> ${TESTLAB_DIR}/installed-packages.txt
 
     		for depends in $(opkg-cl ${IPKG_ARGS} info $pkg | grep ^Depends) ; do 
         		echo "$pkg OPP $depends;" | grep -v "(" | grep -v ")" | grep -v "$pkg OPP Depends" | sed -e 's:,::g' -e 's:-:_:g' -e 's:\.:_:g' -e 's:+::g' |sed 's:OPP:->:g' >> ${TESTLAB_DIR}/depends.dot
@@ -64,6 +64,19 @@ if [ -e  ${IMAGE_ROOTFS}/etc/opkg ] && [ "${ONLINE_PACKAGE_MANAGEMENT}" = "full"
 	for file in $(cat ${TESTLAB_DIR}/installed-packages.txt) ; do 
      		du -k $(find ${DEPLOY_DIR_IPK} -name "$file") | head -n1
 	done | grep "\.ipk" | sed -e s:${DEPLOY_DIR_IPK}::g | sort -n -r | awk '{print $1 "\tKiB " $2}' > ${TESTLAB_DIR}/installed-package-sizes.txt
+
+	# Log results to a git controlled directory structure than can be pushed to a remote location
+	if [ "${TESTLABLOG}" = "remote" ] && [ -n "${TESTLABREMOTEDIR}" ] ; then
+		TESTLABLOGDIR="${MACHINE_ARCH}/${IMAGE_BASENAME}"
+		mkdir -p ${TESTLABREMOTEDIR}/${TESTLABLOGDIR}
+		cp ${TESTLAB_DIR}/*package* ${TESTLAB_DIR}/depends.dot ${TESTLABREMOTEDIR}/${TESTLABLOGDIR}
+		# force change to record builds where the testlab contents didn't change, but other things (e.g. git rev) did
+		echo "${MACHINE}: ${IMAGE_BASENAME} configured for ${DISTRO} ${DISTRO_VERSION} using branch ${METADATA_BRANCH} and revision ${METADATA_REVISION} " > ${TESTLABREMOTEDIR}/${TESTLABLOGDIR}/build-id
+		# This runs inside fakeroot, so the git author is listed as root (or whatever root configured it to be) :(
+		( cd ${TESTLABREMOTEDIR}/
+		  git add ${TESTLABLOGDIR}/*
+		  git commit ${TESTLABLOGDIR}/ -m "${MACHINE}: ${IMAGE_BASENAME} configured for ${DISTRO} ${DISTRO_VERSION} using branch ${METADATA_BRANCH} and revision ${METADATA_REVISION}" --author "testlab <testlab@${DISTRO}>" || true)
+	fi
 fi
 }
 

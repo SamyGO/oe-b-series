@@ -25,7 +25,7 @@ BitBake build tools.
 #
 # Based on functions from the base bb module, Copyright 2003 Holger Schurig
 
-import os, re
+import os
 import bb
 from   bb import data
 from   bb.fetch import Fetch
@@ -33,9 +33,9 @@ from   bb.fetch import Fetch
 class Local(Fetch):
     def supports(self, url, urldata, d):
         """
-        Check to see if a given url can be fetched with cvs.
+        Check to see if a given url represents a local fetch.
         """
-        return urldata.type in ['file','patch']
+        return urldata.type in ['file']
 
     def localpath(self, url, urldata, d):
         """

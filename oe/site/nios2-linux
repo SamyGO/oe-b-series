@@ -143,7 +143,6 @@ mono_cv_sizeof_sunpath=108
 # mysql
 mysql_cv_func_atomic_sub=${mysql_cv_func_atomic_sub=no}
 mysql_cv_func_atomic_add=${mysql_cv_func_atomic_add=no}
-ac_cv_conv_longlong_to_float=${ac_cv_conv_longlong_to_float=yes}
 
 # nano
 ac_cv_regexec_segfault_emptystr=${ac_cv_regexec_segfault_emptystr=no}
@@ -266,7 +265,6 @@ ac_cv_sizeof_unsigned_long=${ac_cv_sizeof_unsigned_long=4}
 ac_cv_sizeof_unsigned_long_long=${ac_cv_sizeof_unsigned_long_long=8}
 ac_cv_sizeof_signed_char=${ac_cv_sizeof_signed_char=1}
 
-ac_cv_sys_restartable_syscalls=yes
 ac_cv_uchar=${ac_cv_uchar=no}
 ac_cv_uint=${ac_cv_uint=yes}
 ac_cv_ulong=${ac_cv_ulong=yes}
@@ -403,9 +401,6 @@ ac_cv_func_pthread_attr_getstack=${ac_cv_func_pthread_attr_getstack=yes}
 ac_cv_member_struct_sockaddr_sa_len=${ac_cv_member_struct_sockaddr_sa_len=no}
 ac_cv_gnet_have_abstract_sockets=${ac_cv_gnet_have_abstract_sockets=no}
 gnet_sockaddr_family_field_name=${gnet_sockaddr_family_field_name=ss_family}
-
-# rp-pppoe
-rpppoe_cv_pack_bitfields=${rpppoe_cv_pack_bitfields=rev}
 
 # squeak (forbid unaliged access)
 ac_cv_double_align=${ac_cv_double_align=no}                           

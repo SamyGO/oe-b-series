@@ -21,7 +21,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import os, re
+import re
 from bb import data, utils
 import bb
 
@@ -50,19 +50,27 @@ def sortPriorities(pn, dataCache, pkg_pn = None):
         if preference not in priorities[priority]:
             priorities[priority][preference] = []
         priorities[priority][preference].append(f)
-    pri_list = priorities.keys()
-    pri_list.sort(lambda a, b: a - b)
     tmp_pn = []
-    for pri in pri_list:
-        pref_list = priorities[pri].keys()
-        pref_list.sort(lambda a, b: b - a)
+    for pri in sorted(priorities, lambda a, b: a - b):
         tmp_pref = []
-        for pref in pref_list:
+        for pref in sorted(priorities[pri], lambda a, b: b - a):
             tmp_pref.extend(priorities[pri][pref])
         tmp_pn = [tmp_pref] + tmp_pn
 
     return tmp_pn
 
+def preferredVersionMatch(pe, pv, pr, preferred_e, preferred_v, preferred_r):
+    """
+    Check if the version pe,pv,pr is the preferred one.
+    If there is preferred version defined and ends with '%', then pv has to start with that version after removing the '%' 
+    """
+    if (pr == preferred_r or preferred_r == None):
+        if (pe == preferred_e or preferred_e == None):
+            if preferred_v == pv:
+                return True
+            if preferred_v != None and preferred_v.endswith('%') and pv.startswith(preferred_v[:len(preferred_v)-1]):
+                return True
+    return False
 
 def findPreferredProvider(pn, cfgData, dataCache, pkg_pn = None, item = None):
     """
@@ -96,7 +104,7 @@ def findPreferredProvider(pn, cfgData, dataCache, pkg_pn = None, item = None):
         for file_set in pkg_pn:
             for f in file_set:
                 pe,pv,pr = dataCache.pkg_pepvpr[f]
-                if preferred_v == pv and (preferred_r == pr or preferred_r == None) and (preferred_e == pe or preferred_e == None):
+                if preferredVersionMatch(pe, pv, pr, preferred_e, preferred_v, preferred_r):
                     preferred_file = f
                     preferred_ver = (pe, pv, pr)
                     break
@@ -184,14 +192,14 @@ def _filterProviders(providers, item, cfgData, dataCache):
     bb.msg.debug(1, bb.msg.domain.Provider, "providers for %s are: %s" % (item, pkg_pn.keys()))
 
     # First add PREFERRED_VERSIONS
-    for pn in pkg_pn.keys():
+    for pn in pkg_pn:
         sortpkg_pn[pn] = sortPriorities(pn, dataCache, pkg_pn)
         preferred_versions[pn] = findPreferredProvider(pn, cfgData, dataCache, sortpkg_pn[pn], item)
         if preferred_versions[pn][1]:
             eligible.append(preferred_versions[pn][1])
 
-    # Now add latest verisons
-    for pn in sortpkg_pn.keys():
+    # Now add latest versions
+    for pn in sortpkg_pn:
         if pn in preferred_versions and preferred_versions[pn][1]:
             continue
         preferred_versions[pn] = findLatestProvider(pn, cfgData, dataCache, sortpkg_pn[pn][0])
@@ -280,6 +288,8 @@ def filterProvidersRunTime(providers, item, cfgData, dataCache):
 
     return eligible, numberPreferred
 
+regexp_cache = {}
+
 def getRuntimeProviders(dataCache, rdepend):
     """
     Return any providers of runtime dependency
@@ -297,11 +307,16 @@ def getRuntimeProviders(dataCache, rdepend):
 
     # Only search dynamic packages if we can't find anything in other variables
     for pattern in dataCache.packages_dynamic:
-        try:
-            regexp = re.compile(pattern.replace('+', "\+"))
-        except:
-            bb.msg.error(bb.msg.domain.Provider, "Error parsing re expression: %s" % pattern)
-            raise
+        pattern = pattern.replace('+', "\+")
+        if pattern in regexp_cache:
+            regexp = regexp_cache[pattern]
+        else:
+            try:
+                regexp = re.compile(pattern)
+            except:
+                bb.msg.error(bb.msg.domain.Provider, "Error parsing re expression: %s" % pattern)
+                raise
+            regexp_cache[pattern] = regexp
         if regexp.match(rdepend):
             rproviders += dataCache.packages_dynamic[pattern]
 

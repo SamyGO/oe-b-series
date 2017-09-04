@@ -5,8 +5,14 @@ QUILTRCFILE ?= "${STAGING_BINDIR_NATIVE}/quiltrc"
 
 PATCHDEPENDENCY = "${PATCHTOOL}-native:do_populate_sysroot"
 
+PATCHTOOL[type] = "choice"
+PATCHTOOL[choices] = "patch quilt git"
+PATCHRESOLVE[type] = "choice"
+PATCHRESOLVE[choices] = "noop user"
+
 python patch_do_patch() {
 	import oe.patch
+	import oe.unpack
 
 	src_uri = (bb.data.getVar('SRC_URI', d, 1) or '').split()
 	if not src_uri:
@@ -31,37 +37,27 @@ python patch_do_patch() {
 
 	path = os.getenv('PATH')
 	os.putenv('PATH', bb.data.getVar('PATH', d, 1))
-	patchset = cls(s, d)
-	patchset.Clean()
 
-	resolver = rcls(patchset)
+	classes = {}
 
+	src_uri = d.getVar("SRC_URI", True).split()
+	srcurldata = bb.fetch.init(src_uri, d, True)
 	workdir = bb.data.getVar('WORKDIR', d, 1)
 	for url in src_uri:
-		(type, host, path, user, pswd, parm) = bb.decodeurl(url)
+		urldata = srcurldata[url]
 
-		local = None
-		base, ext = os.path.splitext(os.path.basename(path))
+		local = urldata.localpath
+		if not local:
+			raise bb.build.FuncFailed('Unable to locate local file for %s' % url)
+
+		base, ext = os.path.splitext(os.path.basename(local))
 		if ext in ('.gz', '.bz2', '.Z'):
-			local = os.path.join(workdir, base)
-			ext = os.path.splitext(base)[1]
+			local = oe.path.join(workdir, base)
 
-		if "apply" in parm:
-			apply = parm["apply"]
-			if apply != "yes":
-				if apply != "no":
-					bb.msg.warn(None, "Unsupported value '%s' for 'apply' url param in '%s', please use 'yes' or 'no'" % (apply, url))
-				continue
-		elif "patch" in parm:
-			bb.msg.warn(None, "Deprecated usage of 'patch' url param in '%s', please use 'apply={yes,no}'" % url)
-		elif ext not in (".diff", ".patch"):
+		if not oe.unpack.is_patch(local, urldata.parm):
 			continue
 
-		if not local:
-			bb.fetch.init([url],d)
-			url = bb.encodeurl((type, host, path, user, pswd, []))
-			local = os.path.join('/', bb.fetch.localpath(url, d))
-		local = bb.data.expand(local, d)
+		parm = urldata.parm
 
 		if "striplevel" in parm:
 			striplevel = parm["striplevel"]
@@ -101,22 +97,52 @@ python patch_do_patch() {
 				continue
 
 		if "maxrev" in parm:
-			srcrev = bb.data.getVar('SRCREV', d, 1)		
+			srcrev = bb.data.getVar('SRCREV', d, 1)
 			if srcrev and srcrev > parm["maxrev"]:
 				bb.note("Patch '%s' applies to earlier revisions" % pname)
 				continue
 
+		if "patchdir" in parm:
+			patchdir = parm["patchdir"]
+			if not os.path.isabs(patchdir):
+				patchdir = os.path.join(s, patchdir)
+		else:
+			patchdir = s
+
+		if not patchdir in classes:
+			patchset = cls(patchdir, d)
+			resolver = rcls(patchset)
+			classes[patchdir] = (patchset, resolver)
+			patchset.Clean()
+		else:
+			patchset, resolver = classes[patchdir]
+
 		bb.note("Applying patch '%s' (%s)" % (pname, oe.path.format_display(local, d)))
 		try:
 			patchset.Import({"file":local, "remote":url, "strippath": striplevel}, True)
-		except Exception:
-			import sys
-			raise bb.build.FuncFailed(str(sys.exc_value))
-		resolver.Resolve()
+			resolver.Resolve()
+		except Exception, exc:
+			bb.fatal(str(exc))
 }
+
+def patch_deps(d):
+    import oe.unpack
+
+    src_uri = d.getVar("SRC_URI", True).split()
+    srcurldata = bb.fetch.init(src_uri, d, True)
+    for url in src_uri:
+        urldata = srcurldata[url]
+        local = urldata.localpath
+        if local:
+            base, ext = os.path.splitext(os.path.basename(local))
+            if ext in ('.gz', '.bz2', '.Z', '.xz'):
+                local = base
+            if oe.unpack.is_patch(local, urldata.parm):
+                return "${PATCHDEPENDENCY}"
+    return ""
 
 addtask patch after do_unpack
 do_patch[dirs] = "${WORKDIR}"
-do_patch[depends] = "${PATCHDEPENDENCY}"
+do_patch[depends] = "${@patch_deps(d)}"
 
 EXPORT_FUNCTIONS do_patch

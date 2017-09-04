@@ -20,15 +20,20 @@ BitBake 'Fetch' git implementation
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import os, re
+import os
 import bb
 from   bb    import data
 from   bb.fetch import Fetch
-from   bb.fetch import FetchError
 from   bb.fetch import runfetchcmd
 
 class Git(Fetch):
     """Class to fetch a module or modules from git repositories"""
+    def init(self, d):
+        #
+        # Only enable _sortable revision if the key is set
+        #
+        if bb.data.getVar("BB_GIT_CLONE_FOR_SRCREV", d, True):
+            self._sortable_buildindex = self._sortable_buildindex_disabled
     def supports(self, url, ud, d):
         """
         Check to see if a given url can be fetched with git.
@@ -46,6 +51,10 @@ class Git(Fetch):
 
         ud.branch = ud.parm.get("branch", "master")
 
+        gitsrcname = '%s%s' % (ud.host, ud.path.replace('/', '.'))
+        ud.mirrortarball = 'git_%s.tar.gz' % (gitsrcname)
+        ud.clonedir = os.path.join(data.expand('${GITDIR}', d), gitsrcname)
+
         tag = Fetch.srcrev_internal_helper(ud, d)
         if tag is True:
             ud.tag = self.latest_revision(url, ud, d)	
@@ -55,74 +64,101 @@ class Git(Fetch):
         if not ud.tag or ud.tag == "master":
             ud.tag = self.latest_revision(url, ud, d)	
 
-        ud.localfile = data.expand('git_%s%s_%s.tar.gz' % (ud.host, ud.path.replace('/', '.'), ud.tag), d)
+        subdir = ud.parm.get("subpath", "")
+        if subdir != "":
+            if subdir.endswith("/"):
+                subdir = subdir[:-1]
+            subdirpath = os.path.join(ud.path, subdir);
+        else:
+            subdirpath = ud.path;
+
+        if 'fullclone' in ud.parm:
+            ud.localfile = ud.mirrortarball
+        else:
+            ud.localfile = data.expand('git_%s%s_%s.tar.gz' % (ud.host, subdirpath.replace('/', '.'), ud.tag), d)
+
+        ud.basecmd = data.getVar("FETCHCMD_git", d, True) or "git"
 
         return os.path.join(data.getVar("DL_DIR", d, True), ud.localfile)
 
     def go(self, loc, ud, d):
         """Fetch url"""
 
-        if Fetch.try_mirror(d, ud.localfile):
-            bb.msg.debug(1, bb.msg.domain.Fetcher, "%s already exists (or was stashed). Skipping git checkout." % ud.localpath)
-            return
-
         if ud.user:
             username = ud.user + '@'
         else:
             username = ""
 
-        gitsrcname = '%s%s' % (ud.host, ud.path.replace('/', '.'))
-
-        repofilename = 'git_%s.tar.gz' % (gitsrcname)
-        repofile = os.path.join(data.getVar("DL_DIR", d, 1), repofilename)
-        repodir = os.path.join(data.expand('${GITDIR}', d), gitsrcname)
+        repofile = os.path.join(data.getVar("DL_DIR", d, 1), ud.mirrortarball)
 
         coname = '%s' % (ud.tag)
-        codir = os.path.join(repodir, coname)
+        codir = os.path.join(ud.clonedir, coname)
 
-        if not os.path.exists(repodir):
-            if Fetch.try_mirror(d, repofilename):    
-                bb.mkdirhier(repodir)
-                os.chdir(repodir)
+        if not os.path.exists(ud.clonedir):
+            try:
+                Fetch.try_mirrors(ud.mirrortarball)
+                bb.mkdirhier(ud.clonedir)
+                os.chdir(ud.clonedir)
                 runfetchcmd("tar -xzf %s" % (repofile), d)
-            else:
-                runfetchcmd("git clone -n %s://%s%s%s %s" % (ud.proto, username, ud.host, ud.path, repodir), d)
+            except:
+                runfetchcmd("%s clone -n %s://%s%s%s %s" % (ud.basecmd, ud.proto, username, ud.host, ud.path, ud.clonedir), d)
 
-        os.chdir(repodir)
+        os.chdir(ud.clonedir)
         # Remove all but the .git directory
         if not self._contains_ref(ud.tag, d):
             runfetchcmd("rm * -Rf", d)
-            runfetchcmd("git fetch %s://%s%s%s %s" % (ud.proto, username, ud.host, ud.path, ud.branch), d)
-            runfetchcmd("git fetch --tags %s://%s%s%s" % (ud.proto, username, ud.host, ud.path), d)
-            runfetchcmd("git prune-packed", d)
-            runfetchcmd("git pack-redundant --all | xargs -r rm", d)
+            runfetchcmd("%s fetch %s://%s%s%s %s" % (ud.basecmd, ud.proto, username, ud.host, ud.path, ud.branch), d)
+            runfetchcmd("%s fetch --tags %s://%s%s%s" % (ud.basecmd, ud.proto, username, ud.host, ud.path), d)
+            runfetchcmd("%s prune-packed" % ud.basecmd, d)
+            runfetchcmd("%s pack-redundant --all | xargs rm -r" % ud.basecmd, d)
 
-        os.chdir(repodir)
+        os.chdir(ud.clonedir)
         mirror_tarballs = data.getVar("BB_GENERATE_MIRROR_TARBALLS", d, True)
-        if mirror_tarballs != "0": 
+        if mirror_tarballs != "0" or 'fullclone' in ud.parm: 
             bb.msg.note(1, bb.msg.domain.Fetcher, "Creating tarball of git repository")
             runfetchcmd("tar -czf %s %s" % (repofile, os.path.join(".", ".git", "*") ), d)
+
+        if 'fullclone' in ud.parm:
+            return
 
         if os.path.exists(codir):
             bb.utils.prunedir(codir)
 
+        subdir = ud.parm.get("subpath", "")
+        if subdir != "":
+            if subdir.endswith("/"):
+                subdirbase = os.path.basename(subdir[:-1])
+            else:
+                subdirbase = os.path.basename(subdir)
+        else:
+            subdirbase = ""
+
+        if subdir != "":
+            readpathspec = ":%s" % (subdir)
+            codir = os.path.join(codir, "git")
+            coprefix = os.path.join(codir, subdirbase, "")
+        else:
+            readpathspec = ""
+            coprefix = os.path.join(codir, "git", "")
+
         bb.mkdirhier(codir)
-        os.chdir(repodir)
-        runfetchcmd("git read-tree %s" % (ud.tag), d)
-        runfetchcmd("git checkout-index -q -f --prefix=%s -a" % (os.path.join(codir, "git", "")), d)
+        os.chdir(ud.clonedir)
+        runfetchcmd("%s read-tree %s%s" % (ud.basecmd, ud.tag, readpathspec), d)
+        runfetchcmd("%s checkout-index -q -f --prefix=%s -a" % (ud.basecmd, coprefix), d)
 
         os.chdir(codir)
         bb.msg.note(1, bb.msg.domain.Fetcher, "Creating tarball of git checkout")
         runfetchcmd("tar -czf %s %s" % (ud.localpath, os.path.join(".", "*") ), d)
 
-        os.chdir(repodir)
+        os.chdir(ud.clonedir)
         bb.utils.prunedir(codir)
 
     def suppports_srcrev(self):
         return True
 
     def _contains_ref(self, tag, d):
-        output = runfetchcmd("git log --pretty=oneline -n 1 %s -- 2> /dev/null | wc -l" % tag, d, quiet=True)
+        basecmd = data.getVar("FETCHCMD_git", d, True) or "git"
+        output = runfetchcmd("%s log --pretty=oneline -n 1 %s -- 2> /dev/null | wc -l" % (basecmd, tag), d, quiet=True)
         return output.split()[0] != "0"
 
     def _revision_key(self, url, ud, d):
@@ -140,50 +176,42 @@ class Git(Fetch):
         else:
             username = ""
 
-        output = runfetchcmd("git ls-remote %s://%s%s%s %s" % (ud.proto, username, ud.host, ud.path, ud.branch), d, True)
+        basecmd = data.getVar("FETCHCMD_git", d, True) or "git"
+        cmd = "%s ls-remote %s://%s%s%s %s" % (basecmd, ud.proto, username, ud.host, ud.path, ud.branch)
+        output = runfetchcmd(cmd, d, True)
+        if not output:
+            raise bb.fetch.FetchError("Fetch command %s gave empty output\n" % (cmd))
         return output.split()[0]
 
     def _build_revision(self, url, ud, d):
         return ud.tag
 
-    def _want_sortable_revision(self, url, ud, d):
-        return bb.data.getVar("BB_GIT_CLONE_FOR_SRCREV", d, True) or False
-
-    def _sortable_revision(self, url, ud, d):
+    def _sortable_buildindex_disabled(self, url, ud, d, rev):
         """
-        This is only called when _want_sortable_revision called true
-
-        We will have to get the updated revision.
+        Return a suitable buildindex for the revision specified. This is done by counting revisions 
+        using "git rev-list" which may or may not work in different circumstances.
         """
-        gitsrcname = '%s%s' % (ud.host, ud.path.replace('/', '.'))
-        repodir = os.path.join(data.expand('${GITDIR}', d), gitsrcname)
-
-        key = "GIT_CACHED_REVISION-%s-%s"  % (gitsrcname, ud.tag)
-        if bb.data.getVar(key, d):
-            return bb.data.getVar(key, d)
-
-
-        # Runtime warning on wrongly configured sources
-        if ud.tag == "1":
-            bb.msg.error(1, bb.msg.domain.Fetcher, "SRCREV is '1'. This indicates a configuration error of %s" % url)
-            return "0+1"
 
         cwd = os.getcwd()
 
         # Check if we have the rev already
-        if not os.path.exists(repodir):
+
+        if not os.path.exists(ud.clonedir):
             print "no repo"
             self.go(None, ud, d)
+            if not os.path.exists(ud.clonedir):
+                bb.msg.error(bb.msg.domain.Fetcher, "GIT repository for %s doesn't exist in %s, cannot get sortable buildnumber, using old value" % (url, ud.clonedir))
+                return None
 
-        os.chdir(repodir)
-        if not self._contains_ref(ud.tag, d):
+
+        os.chdir(ud.clonedir)
+        if not self._contains_ref(rev, d):
             self.go(None, ud, d)
 
-        output = runfetchcmd("git rev-list %s -- 2> /dev/null | wc -l" % ud.tag, d, quiet=True)
+        output = runfetchcmd("%s rev-list %s -- 2> /dev/null | wc -l" % (ud.basecmd, rev), d, quiet=True)
         os.chdir(cwd)
 
-        sortable_revision = "%s+%s" % (output.split()[0], ud.tag)
-        bb.data.setVar(key, sortable_revision, d)
-        return sortable_revision
-        
+        buildindex = "%s" % output.split()[0]
+        bb.msg.debug(1, bb.msg.domain.Fetcher, "GIT repository for %s in %s is returning %s revisions in rev-list before %s" % (url, ud.clonedir, buildindex, rev))
+        return buildindex        
 

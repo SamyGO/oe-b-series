@@ -1,7 +1,8 @@
 inherit linux-kernel-base module_strip
 
-PROVIDES += "virtual/kernel"
-DEPENDS += "virtual/${TARGET_PREFIX}gcc virtual/${TARGET_PREFIX}depmod-${@get_kernelmajorversion('${PV}')} virtual/${TARGET_PREFIX}gcc${KERNEL_CCSUFFIX} update-modules"
+PROVIDES += "virtual/kernel virtual/kernel-${PV}"
+#MobiAqua: chnage depmod on specific kernel version
+DEPENDS += "virtual/${TARGET_PREFIX}gcc virtual/${TARGET_PREFIX}depmod virtual/${TARGET_PREFIX}gcc${KERNEL_CCSUFFIX} update-modules"
 
 # we include gcc above, we dont need virtual/libc
 INHIBIT_DEFAULT_DEPS = "1"
@@ -18,7 +19,7 @@ python __anonymous () {
     	bb.data.setVar("DEPENDS", depends, d)
 
     image = bb.data.getVar('INITRAMFS_IMAGE', d, True)
-    if image != '' and image is not None:
+    if image:
         bb.data.setVar('INITRAMFS_TASK', '${INITRAMFS_IMAGE}:do_rootfs', d)
 
     machine_kernel_pr = bb.data.getVar('MACHINE_KERNEL_PR', d, True)
@@ -32,6 +33,7 @@ INITRAMFS_TASK ?= ""
 
 inherit kernel-arch
 
+PACKAGES_DYNAMIC += "kernel-*"
 PACKAGES_DYNAMIC += "kernel-module-*"
 PACKAGES_DYNAMIC += "kernel-image-*"
 PACKAGES_DYNAMIC += "kernel-firmware-*"
@@ -43,19 +45,39 @@ KERNEL_PRIORITY = "${@bb.data.getVar('PV',d,1).split('-')[0].split('.')[-1]}"
 
 KERNEL_RELEASE ?= "${KERNEL_VERSION}"
 
+KERNEL_ARSUFFIX ?= ""
 KERNEL_CCSUFFIX ?= ""
 KERNEL_LDSUFFIX ?= ""
+KERNEL_NMSUFFIX ?= ""
+KERNEL_OBJCOPYSUFFIX ?= ""
 
 # Set TARGET_??_KERNEL_ARCH in the machine .conf to set architecture
 # specific options necessary for building the kernel and modules.
 #FIXME: should be this: TARGET_CC_KERNEL_ARCH ?= "${TARGET_CC_ARCH}"
+TARGET_AR_KERNEL_ARCH ?= ""
+HOST_AR_KERNEL_ARCH ?= "${TARGET_AR_KERNEL_ARCH}"
 TARGET_CC_KERNEL_ARCH ?= ""
 HOST_CC_KERNEL_ARCH ?= "${TARGET_CC_KERNEL_ARCH}"
 TARGET_LD_KERNEL_ARCH ?= ""
 HOST_LD_KERNEL_ARCH ?= "${TARGET_LD_KERNEL_ARCH}"
+TARGET_NM_KERNEL_ARCH ?= ""
+HOST_NM_KERNEL_ARCH ?= "${TARGET_NM_KERNEL_ARCH}"
+TARGET_OBJCOPY_KERNEL_ARCH ?= ""
+HOST_OBJCOPY_KERNEL_ARCH ?= "${TARGET_OBJCOPY_KERNEL_ARCH}"
 
+KERNEL_AR = "${AR}${KERNEL_ARSUFFIX} ${HOST_AR_KERNEL_ARCH}"
 KERNEL_CC = "${CCACHE}${HOST_PREFIX}gcc${KERNEL_CCSUFFIX} ${HOST_CC_KERNEL_ARCH}"
 KERNEL_LD = "${LD}${KERNEL_LDSUFFIX} ${HOST_LD_KERNEL_ARCH}"
+KERNEL_NM = "${NM}${KERNEL_NMSUFFIX} ${HOST_NM_KERNEL_ARCH}"
+KERNEL_OBJCOPY = "${OBJCOPY}${KERNEL_OBJCOPYSUFFIX} ${HOST_OBJCOPY_KERNEL_ARCH}"
+
+KERNEL_EXTRA_OEMAKE = " \
+	AR='${KERNEL_AR}' \
+	CC='${KERNEL_CC}' \
+	LD='${KERNEL_LD}' \
+	NM='${KERNEL_NM}' \
+	OBJCOPY='${KERNEL_OBJCOPY}' \
+"
 
 # Where built kernel lies in the kernel tree
 KERNEL_OUTPUT ?= "arch/${ARCH}/boot/${KERNEL_IMAGETYPE}"
@@ -84,18 +106,22 @@ EXTRA_OEMAKE = ""
 
 kernel_do_compile() {
 	unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS MACHINE
-	oe_runmake include/linux/version.h CC="${KERNEL_CC}" LD="${KERNEL_LD}"
+	oe_runmake include/linux/version.h ${KERNEL_EXTRA_OEMAKE}
 	if [ "${KERNEL_MAJOR_VERSION}" != "2.6" ]; then
-		oe_runmake dep CC="${KERNEL_CC}" LD="${KERNEL_LD}"
+		oe_runmake dep ${KERNEL_EXTRA_OEMAKE}
 	fi
-	oe_runmake ${KERNEL_IMAGETYPE} CC="${KERNEL_CC}" LD="${KERNEL_LD}"
+	oe_runmake ${KERNEL_IMAGETYPE} ${KERNEL_EXTRA_OEMAKE}
+}
+
+do_compile_kernelmodules() {
+	unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS MACHINE
 	if (grep -q -i -e '^CONFIG_MODULES=y$' .config); then
-		oe_runmake modules  CC="${KERNEL_CC}" LD="${KERNEL_LD}"
+		oe_runmake modules ${KERNEL_EXTRA_OEMAKE}
 	else
 		oenote "no modules to compile"
 	fi
 }
-kernel_do_compile[depends] = "${INITRAMFS_TASK}"
+addtask compile_kernelmodules after do_compile before do_install
 
 kernel_do_install() {
 	unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS MACHINE
@@ -122,7 +148,14 @@ kernel_do_install() {
                 oe_runmake SUBDIRS="scripts/genksyms"
         fi
 
+	# we need to set kerneldir here as some kernels have a do_install_append
+	# which assumes kerneldir is set
 	kerneldir=${D}/kernel/
+}
+
+sysroot_stage_all_append() {
+
+	kerneldir=${SYSROOT_DESTDIR}${STAGING_KERNEL_DIR}
 
 	if [ -e include/asm ] ; then
 		# This link is generated only in kernel before 2.6.33-rc1, don't stage it for newer kernels
@@ -156,7 +189,7 @@ kernel_do_install() {
 	mkdir -p $kerneldir/include/asm-generic
 	cp -fR include/asm-generic/* $kerneldir/include/asm-generic/
 
-	for entry in drivers/crypto drivers/media include/generated include/linux include/net include/pcmcia include/media include/acpi include/sound include/video include/scsi include/trace include/mtd include/rdma include/drm include/xen; do
+	for entry in drivers/crypto drivers/media include/generated include/linux include/net include/pcmcia include/media include/acpi include/sound include/video include/scsi include/trace include/mtd include/rdma include/drm include/xen crypto/ocf include/crypto; do
 		if [ -d $entry ]; then
 			mkdir -p $kerneldir/$entry
 			cp -fR $entry/* $kerneldir/$entry/
@@ -201,11 +234,6 @@ kernel_do_install() {
 	cp -fR scripts $kerneldir/
 }
 
-sysroot_stage_all_append() {
-	sysroot_stage_dir ${D}/kernel ${SYSROOT_DESTDIR}${STAGING_KERNEL_DIR}
-	cp -fpPR ${D}/kernel/.config ${SYSROOT_DESTDIR}${STAGING_KERNEL_DIR}
-}
-
 kernel_do_configure() {
 	yes '' | oe_runmake oldconfig
 	if [ ! -z "${INITRAMFS_IMAGE}" ]; then
@@ -216,18 +244,7 @@ kernel_do_configure() {
 		done
 	fi
 }
-
-do_menuconfig() {
-	export TERMWINDOWTITLE="${PN} Kernel Configuration"
-	export SHELLCMDS="make menuconfig"
-	${TERMCMDRUN}
-	if [ $? -ne 0 ]; then
-		echo "Fatal: '${TERMCMD}' not found. Check TERMCMD variable."
-		exit 1
-	fi
-}
-do_menuconfig[nostamp] = "1"
-addtask menuconfig after do_configure
+do_configure[depends] += "${INITRAMFS_TASK}"
 
 pkg_postinst_kernel () {
 	cd /${KERNEL_IMAGEDEST}; update-alternatives --install /${KERNEL_IMAGEDEST}/${KERNEL_IMAGETYPE} ${KERNEL_IMAGETYPE} ${KERNEL_IMAGETYPE}-${KERNEL_VERSION} ${KERNEL_PRIORITY} || true
@@ -252,16 +269,11 @@ RDEPENDS_kernel = "kernel-base"
 # Allow machines to override this dependency if kernel image files are 
 # not wanted in images as standard
 RDEPENDS_kernel-base ?= "kernel-image"
-PKG_kernel-image = "kernel-image-${KERNEL_VERSION}"
-PKG_kernel-base = "kernel-${KERNEL_VERSION}"
+PKG_kernel-image = "kernel-image-${@legitimize_package_name('${KERNEL_VERSION}')}"
+PKG_kernel-base = "kernel-${@legitimize_package_name('${KERNEL_VERSION}')}"
 ALLOW_EMPTY_kernel = "1"
 ALLOW_EMPTY_kernel-base = "1"
 ALLOW_EMPTY_kernel-image = "1"
-
-# Userspace workarounds for kernel modules issues
-# This is shame, fix the kernel instead!
-DEPENDS_kernel-module-dtl1-cs = "bluez-dtl1-workaround"
-RDEPENDS_kernel-module-dtl1-cs = "bluez-dtl1-workaround"
 
 # renamed modules
 RPROVIDES_kernel-module-aes-generic = "kernel-module-aes"
@@ -271,7 +283,7 @@ if [ ! -e "$D/lib/modules/${KERNEL_VERSION}" ]; then
 	mkdir -p $D/lib/modules/${KERNEL_VERSION}
 fi
 if [ -n "$D" ]; then
-	${HOST_PREFIX}depmod-${KERNEL_MAJOR_VERSION} -A -b $D -F ${STAGING_KERNEL_DIR}/System.map-${KERNEL_VERSION} ${KERNEL_VERSION}
+	${HOST_PREFIX}depmod -A -b $D -F ${STAGING_KERNEL_DIR}/System.map-${KERNEL_VERSION} ${KERNEL_VERSION}
 else
 	depmod -a ${KERNEL_VERSION}
 fi
@@ -279,7 +291,7 @@ fi
 
 pkg_postinst_modules () {
 if [ -n "$D" ]; then
-	${HOST_PREFIX}depmod-${KERNEL_MAJOR_VERSION} -A -b $D -F ${STAGING_KERNEL_DIR}/System.map-${KERNEL_VERSION} ${KERNEL_VERSION}
+	${HOST_PREFIX}depmod -A -b $D -F ${STAGING_KERNEL_DIR}/System.map-${KERNEL_VERSION} ${KERNEL_VERSION}
 else
 	depmod -a ${KERNEL_VERSION}
 	update-modules || true
@@ -355,7 +367,7 @@ python populate_packages_prepend () {
 		host_prefix = bb.data.getVar("HOST_PREFIX", d, 1) or ""
 		major_version = bb.data.getVar('KERNEL_MAJOR_VERSION', d, 1)
 
-		cmd = "PATH=\"%s\" %sdepmod-%s -n -a -r -b %s -F %s/boot/System.map-%s %s" % (path, host_prefix, major_version, dvar, dvar, kernelver, kernelver_stripped)
+		cmd = "PATH=\"%s\" %sdepmod -n -a -r -b %s -F %s/boot/System.map-%s %s" % (path, host_prefix, dvar, dvar, kernelver, kernelver_stripped)
 		f = os.popen(cmd, 'r')
 
 		deps = {}
@@ -390,7 +402,12 @@ python populate_packages_prepend () {
 		return deps
 	
 	def get_dependencies(file, pattern, format):
-		file = file.replace(bb.data.getVar('PKGD', d, 1) or '', '', 1)
+		prefix = os.path.normpath(os.path.join(
+			os.path.join(bb.data.getVar('PKGD', d, 1) or ''),
+			'lib/modules',
+			bb.data.getVar('KERNEL_VERSION', d, 1)
+		)) + '/'
+		file = file.replace(prefix, '', 1)
 
 		if module_deps.has_key(file):
 			import re
@@ -481,12 +498,12 @@ python populate_packages_prepend () {
 		for i in l:
 			pkg = module_pattern % legitimize_package_name(re.match(module_regex, os.path.basename(i)).group(1))
 			blacklist.append(pkg)
-	metapkg_rdepends = []
+	metapkg_rrecommends = []
 	packages = bb.data.getVar('PACKAGES', d, 1).split()
 	for pkg in packages[1:]:
-		if not pkg in blacklist and not pkg in metapkg_rdepends and not any(pkg.endswith(post) for post in depchains):
-			metapkg_rdepends.append(pkg)
-	bb.data.setVar('RDEPENDS_' + metapkg, ' '.join(metapkg_rdepends), d)
+		if not pkg in blacklist and not pkg in metapkg_rrecommends and not any(pkg.endswith(post) for post in depchains):
+			metapkg_rrecommends.append(pkg)
+	bb.data.setVar('RRECOMMENDS_' + metapkg, ' '.join(metapkg_rrecommends), d)
 	bb.data.setVar('DESCRIPTION_' + metapkg, 'Kernel modules meta package', d)
 	packages.append(metapkg)
 	bb.data.setVar('PACKAGES', ' '.join(packages), d)
@@ -519,11 +536,10 @@ do_uboot_mkimage() {
             rm -f linux.bin
         else
             ${OBJCOPY} -O binary -R .note -R .comment -S vmlinux linux.bin
-            #SamyGO: don't gzip kernel image
-            #rm -f linux.bin.gz
-            #gzip -9 linux.bin
-            uboot-mkimage -A ${UBOOT_ARCH} -O linux -T kernel -C none -a ${UBOOT_LOADADDRESS} -e $ENTRYPOINT -n "${DISTRO_NAME}/${PV}/${MACHINE}" -d linux.bin arch/${ARCH}/boot/uImage
-            #rm -f linux.bin.gz
+            rm -f linux.bin.gz
+            gzip -9 linux.bin
+            uboot-mkimage -A ${UBOOT_ARCH} -O linux -T kernel -C gzip -a ${UBOOT_LOADADDRESS} -e $ENTRYPOINT -n "${DISTRO_NAME}/${PV}/${MACHINE}" -d linux.bin.gz arch/${ARCH}/boot/uImage
+            rm -f linux.bin.gz
         fi
     fi
 }

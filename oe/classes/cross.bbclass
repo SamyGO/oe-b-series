@@ -50,6 +50,10 @@ exec_prefix = "${prefix}"
 base_sbindir = "${base_prefix}/bin"
 sbindir = "${exec_prefix}/bin"
 
+# staging should be special for cross
+STAGING_DIR_HOST = ""
+SHLIBSDIR = "${STAGING_DIR_NATIVE}/shlibs"
+
 do_install () {
 	oe_runmake 'DESTDIR=${D}' install
 }
@@ -70,8 +74,7 @@ sysroot_stage_all() {
 }
 
 #
-# Cross .la files have more path issues we have to correct
-SYSROOTEXTRALIBDIRSED = '-e "/^libdir=/s,.*,libdir=${STAGING_DIR_TARGET}${target_libdir},g" \
-                         -e "/^dependency_libs=/s,\([[:space:]']\)-L${STAGING_LIBDIR_NATIVE},,g" \
-'
+# Cross .la files have more path issues we have to correct only for libtool < 2.4
+SYSROOTEXTRALIBDIRSED_OLD = " -e \"/^libdir=/s,.*,libdir=${target_libdir},g\" -e \"/^dependency_libs=/s,\([[:space:]']\)-L${STAGING_LIBDIR_NATIVE},,g\""
 
+SYSROOTEXTRALIBDIRSED = "${@["${SYSROOTEXTRALIBDIRSED_OLD}",""][("${LIBTOOL_HAS_SYSROOT}" == "yes")]}"

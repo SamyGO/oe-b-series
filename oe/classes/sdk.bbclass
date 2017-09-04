@@ -6,6 +6,8 @@
 # SDK packages are built either explicitly by the user,
 # or indirectly via dependency.  No need to be in 'world'.
 EXCLUDE_FROM_WORLD = "1"
+target_includedir := "${includedir}"
+target_libdir := "${libdir}"
 
 # Save MULTIMACH_ARCH
 OLD_MULTIMACH_ARCH := "${MULTIMACH_ARCH}"
@@ -31,6 +33,8 @@ CPPFLAGS = "${BUILD_CPPFLAGS}"
 CFLAGS = "${BUILD_CFLAGS}"
 CXXFLAGS = "${BUILD_CFLAGS}"
 LDFLAGS = "${BUILD_LDFLAGS}"
+
+TOOLCHAIN_OPTIONS = ""
 
 # Path prefixes
 prefix = "${SDK_PATH}"
@@ -66,3 +70,5 @@ FILES_${PN}-dbg += "${prefix}/.debug \
                    "
 
 export PKG_CONFIG_SYSROOT_DIR = "${STAGING_DIR_HOST}"
+
+OVERRIDES =. "virtclass-sdk:"
