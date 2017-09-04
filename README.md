@@ -3,7 +3,7 @@ Create your own firmware for your B-Series Samsung TV
 
 ## Usage Information:
 
-Run 
+Run
 
     $ . setup.sh
 
@@ -22,7 +22,7 @@ After configure, use bitbake command.
 
     $ bitbake -s #to see avaliable task
 
-Normally 
+Normally
 
     $ bitbake externalboot-base
 
