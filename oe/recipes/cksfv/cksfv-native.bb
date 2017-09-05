@@ -3,7 +3,7 @@ SECTION = "console/utils"
 PV = "1.3.14"
 PR = "r0"
 
-FILESPATH = "${@base_set_filespath([ '${FILE_DIRNAME}/cksfv-${PV}', '${FILE_DIRNAME}/files' ], d)}"
+FILESPATHPKG_prepend = "cksfv-${PV}:files:"
 
 SRC_URI = "http://zakalwe.fi/~shd/foss/cksfv/files/cksfv-${PV}.tar.gz"
 SRC_URI_append_samygo =+ " file://validinfo_format.patch"
