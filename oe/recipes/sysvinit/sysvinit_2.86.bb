@@ -2,11 +2,11 @@ DESCRIPTION = "System-V like init."
 SECTION = "base"
 LICENSE = "GPLv2+"
 HOMEPAGE = "http://freshmeat.net/projects/sysvinit/"
-PR = "r58"
+PR = "r66"
 
 # USE_VT and SERIAL_CONSOLE are generally defined by the MACHINE .conf.
 # Set PACKAGE_ARCH appropriately.
-PACKAGE_ARCH_pn-${PN}-inittab = "${MACHINE_ARCH}"
+PACKAGE_ARCH_${PN}-inittab = "${MACHINE_ARCH}"
 
 RDEPENDS_${PN} = "${PN}-inittab"
 
@@ -20,6 +20,7 @@ SYSVINIT_ENABLED_GETTYS ?= "1"
 
 SRC_URI = "ftp://ftp.cistron.nl/pub/people/miquels/sysvinit/sysvinit-${PV}.tar.gz \
            file://install.patch \
+           file://100_fix_ftbfs_enoioctlcmd.patch \
            file://need \
            file://provide \
            file://inittab \
@@ -42,10 +43,10 @@ PACKAGES =+ "sysvinit-utils sysvinit-pidof sysvinit-sulogin"
 FILES_${PN} += "${base_sbindir}/* ${base_bindir}/*"
 FILES_sysvinit-pidof = "${base_bindir}/pidof.sysvinit"
 FILES_sysvinit-sulogin = "${base_sbindir}/sulogin"
-FILES_sysvinit-utils = "${bindir}/last.${PN} ${bindir}/mesg.${PN} ${bindir}/wall.${PN} ${base_sbindir}/shutdown.${PN} ${bindir}/lastb ${bindir}/utmpdump ${base_sbindir}/runlevel"
+FILES_sysvinit-utils = "${bindir}/last.${PN} ${bindir}/mesg.${PN} ${bindir}/wall.${PN} ${bindir}/lastb ${bindir}/utmpdump ${base_sbindir}/killall5 ${base_sbindir}/runlevel"
 RRECOMMENDS_${PN} = "sysvinit-utils"
 RRECOMMENDS_${PN}_micro = ""
-RRECOMMENDS_${PN}_samygo = ""
+RRECOMMENDS_${PN}_slugos = ""
 
 CFLAGS_prepend = "-D_GNU_SOURCE "
 export LCRYPT = "-lcrypt"
@@ -99,6 +100,7 @@ EOF
 	done
 	mv                 ${D}${base_sbindir}/init               ${D}${base_sbindir}/init.${PN}
 	mv ${D}${base_bindir}/pidof ${D}${base_bindir}/pidof.${PN}
+	mv ${D}${base_bindir}/mountpoint ${D}${base_bindir}/mountpoint.${PN}
 	mv ${D}${base_sbindir}/halt ${D}${base_sbindir}/halt.${PN}
 	mv ${D}${base_sbindir}/reboot ${D}${base_sbindir}/reboot.${PN}
 	mv ${D}${base_sbindir}/shutdown ${D}${base_sbindir}/shutdown.${PN}
@@ -110,9 +112,11 @@ EOF
 
 pkg_postinst_${PN} () {
 #!/bin/sh
+update-alternatives --install ${base_bindir}/mountpoint mountpoint mountpoint.${PN} 200
 update-alternatives --install ${base_sbindir}/halt halt halt.${PN} 200
 update-alternatives --install ${base_sbindir}/reboot reboot reboot.${PN} 200
 update-alternatives --install ${base_sbindir}/poweroff poweroff poweroff.${PN} 200
+update-alternatives --install ${base_sbindir}/shutdown shutdown shutdown.${PN} 200
 }
 
 pkg_postinst_sysvinit-utils () {
@@ -120,13 +124,14 @@ pkg_postinst_sysvinit-utils () {
 update-alternatives --install ${bindir}/last last last.${PN} 200
 update-alternatives --install ${bindir}/mesg mesg mesg.${PN} 200
 update-alternatives --install ${bindir}/wall wall wall.${PN} 200
-update-alternatives --install ${base_sbindir}/shutdown shutdown shutdown.${PN} 200
 }
 
 pkg_prerm_${PN} () {
 #!/bin/sh
+update-alternatives --remove mountpoint mountpoint.${PN}
 update-alternatives --remove halt halt.${PN}
 update-alternatives --remove reboot reboot.${PN}
+update-alternatives --remove shutdown shutdown.${PN}
 }
 
 pkg_prerm_sysvinit-utils () {
@@ -134,7 +139,6 @@ pkg_prerm_sysvinit-utils () {
 update-alternatives --remove last last.${PN}
 update-alternatives --remove mesg mesg.${PN}
 update-alternatives --remove wall wall.${PN}
-update-alternatives --remove shutdown shutdown.${PN}
 }
 
 pkg_postinst_sysvinit-pidof () {
