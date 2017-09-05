@@ -14,6 +14,7 @@ SRC_URI = "${SAMYGO_MIRROR}/SamyGO%20Open%20Embedded/sources/git_sourceware.org.
 	file://detect-makeinfo.patch\
 	file://texi_fixes.patch \
 	file://fix-undef-behavior.patch \
+	file://m4.patch \
 "
 
 SRC_URI[md5sum] = "82c8d96b364a6b0ca343383ad53a8aea"
