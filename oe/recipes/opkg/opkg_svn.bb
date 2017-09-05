@@ -2,7 +2,6 @@ require opkg.inc
 
 PR = "${INC_PR}"
 
-
 PROVIDES =+ "virtual/update-alternatives"
 RPROVIDES_${PN} = "update-alternatives"
 PACKAGES =+ "libopkg-dev libopkg"
@@ -21,3 +20,5 @@ pkg_postrm_${PN} () {
 }
 
 require update-alternatives-merge.inc
+
+EXTRA_OECONF_append_visstrim_m10 = " --with-opkglockfile=/var/lock/opkg.lock"

@@ -10,19 +10,14 @@ SRCREV = "423ecd36b4782327c16f516885d1248249c7724a"
 PV = "0.1.8+git${SRCPV}"
 PR = "r1"
 
-#LocalChange: added fix-for-cutoff-filenames.patch, remove_f_from_ar.patch, fix_call.patch
+#MobiAqua: added fix-for-cutoff-filenames.patch, remove_f_from_ar.patch, fix_call.patch
 SRC_URI = "git://git.yoctoproject.org/opkg-utils;protocol=git \
            file://fix-for-cutoff-filenames.patch \
            file://remove_f_from_ar.patch \
            file://fix_call.patch \
-           file://fix_tar.patch \
            "
 
 S = "${WORKDIR}/git"
-
-# Avoid circular dependencies from package_ipk.bbclass
-#LocalChange: added coreutils-native for md5sum
-PACKAGES_virtclass-native = "coreutils-native"
 
 do_install() {
 	oe_runmake PREFIX=${prefix} DESTDIR=${D} install

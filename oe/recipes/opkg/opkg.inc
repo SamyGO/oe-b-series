@@ -6,12 +6,14 @@ SRCREV = "609"
 PV = "0.1.8+svnr${SRCPV}"
 CONFLICTS = "ipkg"
 INC_PR = "r5"
+SRCREV = "b71b378dc4580dc8773d8b065c2dbc4f9e701028"
 
-SRC_URI = "svn://opkg.googlecode.com/svn;module=trunk;proto=http \
+SRC_URI = "git://github.com/shr-project/opkg.git;protocol=git;branch=master \
+	   file://remove-ACLOCAL_AMFLAGS-I-shave-I-m4.patch \
 	   file://configure \
 "
 
-S = "${WORKDIR}/trunk"
+S = "${WORKDIR}/git"
 
 inherit autotools pkgconfig
 
