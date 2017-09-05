@@ -1,24 +1,24 @@
---- glib-2.18.1.orig/configure.in
-+++ glib-2.18.1/configure.in
-@@ -2396,9 +2396,15 @@ if test x"$GCC" = xyes; then
-       ;;	
-     arm*)
-       AC_MSG_RESULT([arm])
--      AC_DEFINE_UNQUOTED(G_ATOMIC_ARM, 1,
--                         [arm atomic implementation])
--      glib_memory_barrier_needed=no
-+      AC_MSG_CHECKING(arm atomic operations type)
-+      AC_MSG_RESULT(inline asm)
-+      AC_DEFINE_UNQUOTED(G_ATOMIC_ARM, 6,
-+                         [armv6 atomic implementation])
-+      glib_memory_barrier_needed=yes
-+      dnl AC_MSG_RESULT(kernel helper)
-+      dnl AC_DEFINE_UNQUOTED(G_ATOMIC_ARM_LINUX, 1,
-+      dnl                   [special arm linux implementation])
-+      dnl glib_memory_barrier_needed=yes
-       ;;
-     *)
-       AC_MSG_RESULT([none])
+--- glib-2.23.6.orig/configure.in
++++ glib-2.23.6/configure.in
+@@ -2513,9 +2513,15 @@
+         ;;
+       arm*)
+         AC_MSG_RESULT([arm])
+-        AC_DEFINE_UNQUOTED(G_ATOMIC_ARM, 1,
+-			   [arm atomic implementation])
+-        glib_memory_barrier_needed=no
++        AC_MSG_CHECKING(arm atomic operations type)
++        AC_MSG_RESULT(inline asm)
++        AC_DEFINE_UNQUOTED(G_ATOMIC_ARM, 6,
++                           [armv6 atomic implementation])
++        glib_memory_barrier_needed=yes
++        dnl AC_MSG_RESULT(kernel helper)
++        dnl AC_DEFINE_UNQUOTED(G_ATOMIC_ARM_LINUX, 1,
++        dnl                   [special arm linux implementation])
++        dnl glib_memory_barrier_needed=yes
+         ;;
+       crisv32*|etraxfs*)
+         AC_MSG_RESULT([crisv32])
 --- /tmp/gatomic.c	2009-08-27 02:08:32.000000000 +0530
 +++ glib-2.21.4/glib/gatomic.c	2009-08-27 02:08:49.000000000 +0530
 @@ -561,6 +561,7 @@ g_atomic_pointer_compare_and_exchange (v
