@@ -1,23 +1,22 @@
 DESCRIPTION = "GNU C Library"
-HOMEPAGE = "http://www.gnu.org/software/libc/libc.html"
 SECTION = "libs"
 PRIORITY = "required"
 LICENSE = "LGPL"
+INC_PR = "r21"
 # nptl needs unwind support in gcc, which can't be built without glibc.
 DEPENDS = "virtual/${TARGET_PREFIX}gcc-intermediate linux-libc-headers"
 #this leads to circular deps, so lets not add it yet
 #RDEPENDS_ldd += " bash"
+# nptl needs libgcc but dlopens it, so our shlibs code doesn't detect this
+#RDEPENDS_${PN} += "${@['','libgcc']['nptl' in '${GLIBC_ADDONS}']}"
 PROVIDES = "virtual/libc virtual/${TARGET_PREFIX}libc-for-gcc"
 PROVIDES += "virtual/libintl virtual/libiconv"
-#LocalChange: added runtime depedencies
-RPROVIDES += "libc6 libstdc++6"
-
-COMPATIBLE_TARGET_SYS ?= "(?!nios2)"
-
-# INC_PR for glibc.inc, glibc-initial.inc and glibc-stage.inc
-INC_PR = "r36"
+PACKAGES_DYNAMIC = "libc6*"
+RPROVIDES_${PN}-dev = "libc6-dev virtual-libc-dev"
+PROVIDES_${PN}-dbg = "glibc-dbg"
 
 inherit autotools
+require glibc-options.inc
 
 LEAD_SONAME = "libc.so"
 
@@ -25,5 +24,17 @@ GLIBC_EXTRA_OECONF ?= ""
 INHIBIT_DEFAULT_DEPS = "1"
 
 ARM_INSTRUCTION_SET = "arm"
+# PARALLEL_MAKE into PARALLELMFLAGS and empty out PARALLEL_MAKE
+EXTRA_OEMAKE := "PARALLELMFLAGS="${PARALLEL_MAKE}""
+PARALLEL_MAKE = ""
 
-PACKAGES = "glibc catchsegv sln nscd ldd localedef glibc-utils glibc-dev glibc-doc glibc-locale libsegfault glibc-extra-nss glibc-thread-db glibc-pcprofile"
+GLIBC_EXTRA_OECONF += "${@get_libc_fpu_setting(bb, d)}"
+
+OE_FEATURES := "${@features_to_glibc_settings(d)}"
+do_configure_prepend() {
+	echo '${OE_FEATURES}' > ${B}/option-groups.config
+}
+
+# Work around issues with pstage package install order and intermediate steps
+# in the toolchain build.
+do_setscene[deptask] = "do_setscene"

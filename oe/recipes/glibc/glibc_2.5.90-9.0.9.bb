@@ -83,8 +83,6 @@ EXTRA_OECONF = "\
   ${GLIBC_EXTRA_OECONF} \
 "
 
-EXTRA_OECONF += "${@get_glibc_fpu_setting(bb, d)}"
-
 do_munge() {
 	# Integrate ports and libidn into tree
 	# mv ${WORKDIR}/glibc-ports-${PV} ${S}/ports
@@ -149,7 +147,5 @@ do_compile () {
 		done
 	)
 }
-
-require glibc-stage.inc
 
 require glibc-package.inc
