@@ -4,15 +4,15 @@ LICENSE = "GPL"
 DEPENDS = ""
 INHIBIT_DEFAULT_DEPS = "1"
 
-FIXEDSRCDATE = "${@bb.data.getVar('FILE', d, 1).split('_')[-1].split('.')[0]}"
-PV = "0.1+cvs${FIXEDSRCDATE}"
-PR = "r6"
+PR = "r1"
 
-SRC_URI = "cvs://anonymous@cvs.sv.gnu.org/cvsroot/config;module=config;method=pserver;date=${FIXEDSRCDATE} \
-	   file://config-guess-uclibc.patch \
-           file://avr32.patch \
+SRCREV = "b576fa87c140b824466ef1638e945e87dc5c0343"
+PV = "20150728+git${SRCPV}"
+
+SRC_URI = "git://git.sv.gnu.org/config.git;protocol=git \
            file://gnu-configize.in"
-S = "${WORKDIR}/config"
+
+S = "${WORKDIR}/git"
 
 do_compile() {
 	:
