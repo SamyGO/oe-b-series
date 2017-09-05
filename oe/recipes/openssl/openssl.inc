@@ -8,7 +8,7 @@ S = "${WORKDIR}/openssl-${PV}"
 
 inherit siteinfo
 
-INC_PR = "r12"
+INC_PR = "r14"
 
 AR_append = " r"
 CFLAG = "${@base_conditional('SITEINFO_ENDIANNESS', 'le', '-DL_ENDIAN', '-DB_ENDIAN', d)} \
@@ -22,23 +22,33 @@ export DIRS = "crypto ssl apps"
 export EX_LIBS = "-lgcc -ldl"
 export AS = "${CC} -c"
 
-PACKAGES =+ "libcrypto libssl ${PN}-misc"
-FILES_libcrypto = "${libdir}/libcrypto.so.* ${libdir}/ssl/openssl.cnf"
+PACKAGES =+ "libcrypto libssl ${PN}-misc openssl-conf"
+FILES_libcrypto = "${libdir}/libcrypto.so.*"
 FILES_libssl = "${libdir}/libssl.so.*"
 FILES_${PN}-misc = "${libdir}/ssl/misc"
 
+# Add the openssl.cnf file to the openssl-conf package.  Make the libcrypto
+# package RRECOMMENDS on this package.  This will enable the configuration
+# file to be installed for both the base openssl package and the libcrypto
+# package since the base openssl package depends on the libcrypto package.
+FILES_openssl-conf = "${libdir}/ssl/openssl.cnf"
+CONFFILES_openssl-conf = "${libdir}/ssl/openssl.cnf"
+RRECOMMENDS_libcrypto += "openssl-conf"
+
+do_configure_prepend_darwin () {
+	sed -i -e '/version-script=openssl\.ld/d' Configure
+}
+
 do_configure () {
+	#MobiAqua: set PERL env
+	#export PERL=${STAGING_BINDIR_NATIVE}/perl
 	cd util
 	perl perlpath.pl ${bindir}
 	cd ..
 	ln -sf apps/openssl.pod crypto/crypto.pod ssl/ssl.pod doc/
 
 	os=${HOST_OS}
-	if [ "x$os" = "xlinux-uclibc" ]; then
-		os=linux
-	elif [ "x$os" = "xlinux-uclibceabi" ]; then
-		os=linux
-	elif [ "x$os" = "xlinux-gnueabi" ]; then
+	if [ `echo $os | grep -q linux; echo $?` -eq 0 ]; then
 		os=linux
 	fi
 	target="$os-${HOST_ARCH}"
@@ -73,8 +83,8 @@ do_configure () {
 	linux-powerpc)
 		target=linux-ppc
 		;;
-	linux-gnuspe-powerpc)
-		target=linux-ppc
+	linux-powerpc64)
+		target=linux-ppc64
 		;;
 	linux-supersparc)
 		target=linux-sparcv8
@@ -82,14 +92,20 @@ do_configure () {
 	linux-sparc)
 		target=linux-sparcv8
 		;;
+	darwin-i386)
+		target=darwin-i386-cc
+		;;
 	esac
 	# inject machine-specific flags
 	sed -i -e "s|^\(\"$target\",\s*\"[^:]\+\):\([^:]\+\)|\1:${CFLAG}|g" Configure
         useprefix=${prefix}
-        if [ "x$useprefix" == "x" ]; then
+        if [ "x$useprefix" = "x" ]; then
                 useprefix=/
         fi        
-	perl ./Configure shared --prefix=$useprefix --openssldir=${libdir}/ssl $target
+	perl ./Configure ${EXTRA_OECONF} shared --prefix=$useprefix --openssldir=${libdir}/ssl $target
+
+	eval "${@base_contains('DISTRO_FEATURES', 'largefile', '', 'sed -i -e "/_FILE_OFFSET_BITS/,/#endif/d" ${S}/crypto/bio/bss_file.c', d)}"
+	eval "${@base_contains('DISTRO_FEATURES', 'ipv6', '', 'sed -i -e "/AF_INET6/,/break/d" ${S}/crypto/bio/bss_dgram.c', d)}"
 }
 
 do_compile () {
@@ -111,5 +127,5 @@ do_install () {
 	oe_libinstall -so libssl ${D}${libdir}
 
 	install -d ${D}${includedir}
-	cp --dereference -R include/openssl ${D}${includedir}
+	cp -L -R include/openssl ${D}${includedir}
 }

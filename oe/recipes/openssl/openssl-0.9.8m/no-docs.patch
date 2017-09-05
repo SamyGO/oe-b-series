@@ -1,0 +1,12 @@
+diff -ur old/Makefile.org new/Makefile.org
+--- old/Makefile.org	2012-12-30 11:05:31.000000000 +0100
++++ new/Makefile.org	2012-12-30 11:06:37.000000000 +0100
+@@ -619,7 +619,7 @@
+ dist_pem_h:
+ 	(cd crypto/pem; $(MAKE) -e $(BUILDENV) pem.h; $(MAKE) clean)
+ 
+-install: all install_docs install_sw
++install: all install_sw
+ 
+ install_sw:
+ 	@$(PERL) $(TOP)/util/mkdir-p.pl $(INSTALL_PREFIX)$(INSTALLTOP)/bin \
