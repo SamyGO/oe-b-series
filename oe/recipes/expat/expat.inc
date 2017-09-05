@@ -1,13 +1,17 @@
-DESCRIPTION = "Jim Clarkes XML parser library."
-HOMEPAGE = "http://expat.sf.net/"
+SUMMARY = "A stream-oriented XML parser library"
+DESCRIPTION = "Expat is an XML parser library written in C. It is a stream-oriented parser in which an application registers handlers for things the parser might find in the XML document (like start tags)"
+HOMEPAGE = "http://expat.sourceforge.net/"
 SECTION = "libs"
 LICENSE = "MIT"
 
-SRC_URI = "${SOURCEFORGE_MIRROR}/expat/expat-${PV}.tar.gz;name=src \
+SRC_URI = "${SOURCEFORGE_MIRROR}/expat/expat-${PV}.tar.bz2 \
+           file://autotools.patch \
 	  "
-S = "${WORKDIR}/expat-${PV}"
-
-export LTCC = "${CC}"
 
 inherit autotools
 
+do_configure_prepend () {
+	rm -f ${S}/conftools/libtool.m4
+}
+
+BBCLASSEXTEND = "native nativesdk"
