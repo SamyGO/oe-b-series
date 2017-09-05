@@ -1,13 +1,21 @@
-Without this it fails to link against libtermcap causing various missing symbols 
-issues.
+Upstream-Status: Pending
+
+Without this it fails to link against libtermcap causing various missing
+symbols issues.
 
 RP - 8/10/08
 
-Index: readline-5.2/configure.in
-===================================================================
---- readline-5.2.orig/configure.in	2008-10-08 09:58:52.000000000 +0100
-+++ readline-5.2/configure.in	2008-10-08 09:59:03.000000000 +0100
-@@ -211,10 +211,10 @@
+Support 6.3 which uses configure.ac rather than configure.in.
+Signed-off-by: Hongxu Jia <hongxu.jia@windriver.com>
+---
+ configure.ac | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/configure.ac b/configure.ac
+index cea8f91..9075b8f 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -218,10 +218,10 @@ if test -f ${srcdir}/support/shobj-conf; then
          AC_MSG_CHECKING(configuration for building shared libraries)
          eval `TERMCAP_LIB=$TERMCAP_LIB ${CONFIG_SHELL-/bin/sh} ${srcdir}/support/shobj-conf -C "${CC}" -c ${host_cpu} -o ${host_os} -v ${host_vendor}`
  
@@ -22,3 +30,6 @@ Index: readline-5.2/configure.in
  	
          AC_SUBST(SHOBJ_CC)
          AC_SUBST(SHOBJ_CFLAGS)
+-- 
+1.8.1.2
+
