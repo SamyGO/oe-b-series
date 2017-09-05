@@ -3,7 +3,7 @@ HOMEPAGE = "http://www.gnu.org/software/ncurses/ncurses.html"
 LICENSE = "MIT"
 SECTION = "libs"
 DEPENDS = "ncurses-native"
-INC_PR = "r21"
+INC_PR = "r22"
 
 inherit autotools
 
@@ -32,13 +32,11 @@ export EXTRA_OEMAKE = '"BUILD_LDFLAGS=" "BUILD_CCFLAGS=${BUILD_CCFLAGS}"'
 # Below option is added to overcome the GCC bug on ARM
 # see http://gcc.gnu.org/PR42981 for further details.
 # We could potentially take it off when its fixed in gcc 4.5
-
-#LocalChange: do not use it below option
 #CFLAGS_EXTRA_append_arm = " -fforward-propagate"
 
 # This is necessary so that the "tic" command executed during the install can
 # link with the correct libary in staging.
-export LD_LIBRARY_PATH = "${STAGING_LIBDIR_NATIVE}"
+#export LD_LIBRARY_PATH = "${STAGING_LIBDIR_NATIVE}"
 
 do_install() {
 	autotools_do_install
