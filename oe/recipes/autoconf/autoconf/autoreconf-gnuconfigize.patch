@@ -1,5 +1,13 @@
---- /tmp/autoreconf.in	2009-06-02 13:10:42.000000000 +0200
-+++ autoconf-2.63/bin/autoreconf.in	2009-06-02 13:12:28.000000000 +0200
+Upstream-Status: Pending
+
+#
+# Patch managed by http://www.mn-logistik.de/unsupported/pxa250/patcher
+#
+
+Index: autoconf-2.63/bin/autoreconf.in
+===================================================================
+--- autoconf-2.63.orig/bin/autoreconf.in	2008-12-31 17:43:55.000000000 +0000
++++ autoconf-2.63/bin/autoreconf.in	2008-12-31 17:46:16.000000000 +0000
 @@ -58,7 +58,7 @@
  $help = "Usage: $0 [OPTION]... [DIRECTORY]...
  
@@ -13,11 +21,11 @@
  my $libtoolize = $ENV{'LIBTOOLIZE'} || 'libtoolize';
  my $autopoint  = $ENV{'AUTOPOINT'}  || 'autopoint';
  my $make       = $ENV{'MAKE'}       || 'make';
-+my $gnuconfigize  = $ENV{'GNUCONFIGIZE'} || 'gnu-configize';
++my $gnuconfigize = $ENV{'GNUCONFIGIZE'}       || 'gnu-configize';
  
  # --install -- as --add-missing in other tools.
  my $install = 0;
-@@ -643,6 +644,10 @@
+@@ -644,6 +645,10 @@
        }
      }
  

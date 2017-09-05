@@ -1,5 +1,9 @@
---- /tmp/autoreconf.in	2009-06-02 11:59:05.000000000 +0200
-+++ autoconf-2.63/bin/autoreconf.in	2009-06-02 12:09:03.000000000 +0200
+Upstream-Status: Pending
+
+Index: autoconf-2.63/bin/autoreconf.in
+===================================================================
+--- autoconf-2.63.orig/bin/autoreconf.in	2008-12-31 17:39:01.000000000 +0000
++++ autoconf-2.63/bin/autoreconf.in	2008-12-31 17:43:38.000000000 +0000
 @@ -76,6 +76,7 @@
    -i, --install            copy missing auxiliary files
        --no-recursive       don't rebuild sub-packages
@@ -26,7 +30,7 @@
  	  'B|prepend-include=s'	 => \@prepend_include,
  	  'i|install'            => \$install,
  	  's|symlink'            => \$symlink,
-+	  'x|exclude=s'          => \@exclude,
++  	  'x|exclude=s'          => \@exclude,
  	  'm|make'               => \$run_make,
  	  'recursive!'           => \$recursive);
  
@@ -39,15 +43,7 @@
    # Even if the user specified a configure.ac, trim to get the
    # directory, and look for configure.ac again.  Because (i) the code
    # is simpler, and (ii) we are still able to diagnose simultaneous
-@@ -190,6 +201,7 @@
-   $autoconf   .= join (' --prepend-include=', '', map { shell_quote ($_) } @prepend_include);
-   $autoheader .= join (' --include=', '', map { shell_quote ($_) } @include);
-   $autoheader .= join (' --prepend-include=', '', map { shell_quote ($_) } @prepend_include);
-+  $aclocal    .= join (' -I ', '', @include);
- 
-   # --install and --symlink;
-   if ($install)
-@@ -254,6 +266,11 @@
+@@ -255,6 +266,11 @@
  {
    my ($aclocal, $flags) = @_;
  
@@ -59,33 +55,53 @@
    # aclocal 1.8+ does all this for free.  It can be recognized by its
    # --force support.
    if ($aclocal_supports_force)
-@@ -367,8 +384,11 @@
+@@ -368,7 +384,10 @@
      }
    else
      {
 -      xsystem_hint ("autopoint is needed because this package uses Gettext", "$autopoint");
--    }
 +      @ex = grep (/^autopoint$/, @exclude);
 +      if ($#ex == -1) {
-+            xsystem_hint ("autopoint is needed because this package uses Gettext", "$autopoint");
++        xsystem_hint ("autopoint is needed because this package uses Gettext", "$autopoint");
 +      }
-+  }
+     }
  
  
-   # ----------------- #
-@@ -531,7 +551,10 @@
+@@ -532,16 +551,17 @@
  	{
  	  $libtoolize .= " --ltdl";
  	}
 -      xsystem_hint ("libtoolize is needed because this package uses Libtool", $libtoolize);
+-      $rerun_aclocal = 1;
 +      @ex = grep (/^libtoolize$/, @exclude);
 +      if ($#ex == -1) {
 +        xsystem_hint ("libtoolize is needed because this package uses Libtool", $libtoolize);
++        $rerun_aclocal = 1;
 +      }
-       $rerun_aclocal = 1;
      }
    else
-@@ -592,7 +615,10 @@
+     {
+       verb "$configure_ac: not running libtoolize: --install not given";
+     }
+ 
+-
+-
+   # ------------------- #
+   # Rerunning aclocal.  #
+   # ------------------- #
+@@ -572,7 +592,10 @@
+   # latter runs the former, and (ii) autoconf is stricter than
+   # autoheader.  So all in all, autoconf should give better error
+   # messages.
+-  xsystem ($autoconf);
++  @ex = grep (/^autoconf$/, @exclude);
++  if ($#ex == -1) {
++    xsystem ("$autoconf");
++  }
+ 
+ 
+   # -------------------- #
+@@ -593,7 +616,10 @@
      }
    else
      {
@@ -97,7 +113,7 @@
      }
  
  
-@@ -609,7 +635,10 @@
+@@ -610,7 +636,10 @@
        # We should always run automake, and let it decide whether it shall
        # update the file or not.  In fact, the effect of `$force' is already
        # included in `$automake' via `--no-force'.
@@ -109,14 +125,14 @@
      }
  
  
-@@ -633,7 +662,10 @@
+@@ -634,7 +663,10 @@
  	    }
  	  else
  	    {
 -	      xsystem ("$make");
 +              @ex = grep (/^make$/, @exclude);
 +              if ($#ex == -1) {
-+                xsystem ("make");
++	        xsystem ("$make");
 +              }
  	    }
  	}
