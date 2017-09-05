@@ -1,14 +1,20 @@
 DESCRIPTION = "gdb - GNU debugger"
 HOMEPAGE = "http://www.gnu.org/software/gdb/"
-LICENSE="GPL"
+LICENSE="GPLv3+"
 SECTION = "devel"
-PRIORITY = "optional"
+DEPENDS = "expat ncurses readline"
 
+INC_PR = "r0"
+
+LIC_FILES_CHKSUM = "file://COPYING;md5=59530bdf33659b29e73d4adb9f9f6552 \
+		file://COPYING.LIB;md5=9f604d8a4f8e74f4f5140845a21b6674 \
+		file://COPYING3;md5=d32239bcb673463ab874e80d47fae504 \
+		file://COPYING3.LIB;md5=6a6a8e020838b23406c81b19c1d46df6"
 inherit autotools
 
-SRC_URI = "${GNU_MIRROR}/gdb/gdb-${PV}.tar.gz"
+SRC_URI = "${GNU_MIRROR}/gdb/gdb-${PV}.tar.gz \
+          "
 
-FILESPATHPKG =. "gdb-${PV}:" 
 
 export CC_FOR_BUILD = "${BUILD_CC}"
 export CXX_FOR_BUILD = "${BUILD_CXX}"
@@ -17,21 +23,42 @@ export CFLAGS_FOR_BUILD = "${BUILD_CFLAGS}"
 export CXXFLAGS_FOR_BUILD = "${BUILD_CXXFLAGS}"
 export CPPFLAGS_FOR_BUILD = "${BUILD_CPPFLAGS}"
 
-S = "${WORKDIR}/gdb-${PV}"
 B = "${WORKDIR}/build-${TARGET_SYS}"
 
-do_install_append() {
-	# these mo files from gdb-cross-sdk clash with files from binutils-cross-sdk
-	# when building sdk archives. Drop them for now as a way to restore toolchains.
-	rm -f ${D}/${datadir}/locale/*/LC_MESSAGES/{bfd,opcodes}.mo
+EXTRA_OEMAKE = "'SUBDIRS=intl mmalloc libiberty opcodes bfd sim gdb etc utils'"
 
-	# we don't care about these infos, installed from binutils
-	rm -f ${D}/${infodir}/{configure,standards,bfd}.info
-	rm -f ${D}/${infodir}/dir
+EXPAT = "--with-expat --with-libexpat-prefix=${STAGING_DIR_HOST}"
 
-	# We use libiberty from binutils
-	rm -f ${D}${prefix}/${TARGET_SYS}/lib/libiberty.a
-	rm -f ${D}${libdir}/libiberty.a
+EXTRA_OECONF = "--disable-gdbtk --disable-tui --disable-x --disable-werror \
+                --with-curses --disable-multilib --with-system-readline --disable-sim \
+                --without-lzma --without-guile \
+                ${GDBPROPREFIX} ${EXPAT} \
+                ${@base_contains('DISTRO_FEATURES', 'multiarch', '--enable-64-bit-bfd', '', d)} \
+                --disable-rpath \
+               "
 
+SRC_URI[md5sum] = "f3b97de919a9dba84490b2e076ec4cb0"
+SRC_URI[sha256sum] = "4994ad986726ac4128a6f1bd8020cd672e9a92aa76b80736563ef992992764ef"
+
+GDBPROPREFIX = "--program-prefix=''"
+
+do_configure () {
+	# override this function to avoid the autoconf/automake/aclocal/autoheader
+	# calls for now
+	(cd ${S} && gnu-configize) || die "failure in running gnu-configize"
+	oe_runconf
 }
+
+# we don't want gdb to provide bfd/iberty/opcodes, which instead will override the
+# right bits installed by binutils.
+do_install_append() {
+	rm -rf ${D}${libdir}
+	rm -rf ${D}${includedir}
+	rm -rf ${D}${datadir}/locale
+}
+
+RRECOMMENDS_gdb_append_linux = " glibc-thread-db "
+RRECOMMENDS_gdb_append_linux-gnueabi = " glibc-thread-db "
+RRECOMMENDS_gdbserver_append_linux = " glibc-thread-db "
+RRECOMMENDS_gdbserver_append_linux-gnueabi = " glibc-thread-db "
 
