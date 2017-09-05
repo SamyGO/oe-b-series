@@ -8,25 +8,29 @@ SECTION = "console/utils"
 LICENSE = "GPLv2+"
 LIC_FILES_CHKSUM = "file://COPYING;md5=b234ee4d69f5fce4486a80fdaf4a4263"
 
-DEPENDS = ""
+DEPENDS = "glib-2.0"
 DEPENDS_class-native = ""
 DEPENDS_class-nativesdk = ""
 
-SRC_URI = "http://pkgconfig.freedesktop.org/releases/pkg-config-${PV}.tar.gz"
+SRCREV = "87152c05be88ca8be71a3a563f275b3686d32c28"
+PV = "0.29.1+git${SRCPV}"
 
-S = "${WORKDIR}/pkg-config-${PV}/"
+SRC_URI = "git://anongit.freedesktop.org/pkg-config;protocol=git \
+           file://pkg-config-native.in \
+           file://fix-glib-configure-libtool-usage.patch \
+           file://0001-gdate-Move-warning-pragma-outside-of-function.patch \
+           file://0001-glib-gettext.m4-Update-AM_GLIB_GNU_GETTEXT-to-match-.patch \
+           "
+
+S = "${WORKDIR}/git"
 
 inherit autotools
 
-EXTRA_OECONF = "--with-installed-glib --disable-legacy-scripts --with-internal-glib"
-EXTRA_OECONF_class-native = "--disable-legacy-scripts --with-internal-glib"
-EXTRA_OECONF_class-nativesdk = "--disable-legacy-scripts --with-internal-glib"
+EXTRA_OECONF = "--without-internal-glib"
+EXTRA_OECONF_class-native = "--with-internal-glib"
+EXTRA_OECONF_class-nativesdk = "--with-internal-glib"
 
 acpaths = "-I ."
-do_configure_prepend () {
-	mkdir --parents ${B}/glib-1.2.10
-	install -m 0644 ${WORKDIR}/glibconfig-sysdefs.h ${B}/glib-1.2.10/
-}
 
 BBCLASSEXTEND = "native nativesdk"
 
@@ -39,7 +43,7 @@ FILES_${PN} += "${datadir}/aclocal/pkg.m4"
 # When using the RPM generated automatic package dependencies, some packages
 # will end up requiring 'pkgconfig(pkg-config)'.  Allow this behavior by
 # specifying an appropriate provide.
-RPROVIDES_${PN} += "pkgconfig(pkg-config) (= ${PV})"
+RPROVIDES_${PN} += "pkgconfig(pkg-config)"
 
 # Install a pkg-config-native wrapper that will use the native sysroot instead
 # of the MACHINE sysroot, for using pkg-config when building native tools.
