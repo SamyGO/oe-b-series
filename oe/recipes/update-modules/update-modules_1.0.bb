@@ -2,8 +2,9 @@ SECTION = "base"
 DESCRIPTION = "Script to manage module configuration files"
 LICENSE = "GPLv2"
 PACKAGE_ARCH = "all"
+INHIBIT_DEFAULT_DEPS = "1"
 RDEPENDS_${PN} = "${@base_contains("MACHINE_FEATURES", "kernel26",  "module-init-tools-depmod","modutils-depmod",d)} "
-PR = "r9"
+PR = "r10"
 
 SRC_URI = "file://update-modules"
 
@@ -24,4 +25,4 @@ do_install() {
 # let the distros select if they want busybox, or some other package
 # to provide it.  Until then, the following line just removes the
 # unwanted dependencies for SlugOS.
-RDEPENDS_slugos = ""
+RDEPENDS_${PN}_slugos = ""
