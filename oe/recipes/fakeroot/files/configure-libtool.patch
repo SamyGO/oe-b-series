@@ -1,18 +1,7 @@
-diff -ur old/bootstrap new/bootstrap
---- old/bootstrap	2009-11-15 04:09:21.000000000 +0100
-+++ new/bootstrap	2010-03-08 20:43:21.000000000 +0100
-@@ -2,8 +2,4 @@
- 
- test -d build-aux || mkdir build-aux
- 
--# autoreconf seems to be missing the fact that libtool is used if
--# the macros are not defined first.  So help it.
--test -f ltmain.sh || libtoolize --install --force
--
- autoreconf --force --verbose --install
-diff -ur old/configure.ac new/configure.ac
---- old/configure.ac	2010-03-08 20:40:40.000000000 +0100
-+++ new/configure.ac	2010-03-08 20:41:32.000000000 +0100
+Index: fakeroot-1.12.1/configure.ac
+===================================================================
+--- fakeroot-1.12.1.orig/configure.ac
++++ fakeroot-1.12.1/configure.ac
 @@ -2,14 +2,12 @@
  AC_INIT([fakeroot],[FAKEROOT_VERSION],[schizo@debian.org],[fakeroot])
  AC_PREREQ(2.61)
