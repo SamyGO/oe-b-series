@@ -8,8 +8,7 @@ RPROVIDES_${PN} = "jpeg"
 
 PR = "r0"
 
-#SRC_URI = "http://www.ijg.org/files/jpegsrc.v${PV}.tar.gz \
-SRC_URI = "ftp://aeneas.mit.edu/pub/gnu/ghostscript/jpegsrc.v${PV}.tar.gz \
+SRC_URI = "http://www.ijg.org/files/jpegsrc.v${PV}.tar.gz \
 	   file://debian.patch \
 	   file://ldflags.patch \
 	   file://paths.patch \
@@ -19,7 +18,7 @@ S = "${WORKDIR}/jpeg-${PV}"
 inherit autotools
 
 EXTRA_OECONF="--enable-static"
-EXTRA_OEMAKE='"LIBTOOL=${STAGING_BINDIR_NATIVE}/${HOST_SYS}-libtool"'
+EXTRA_OEMAKE='"LIBTOOL=${HOST_SYS}-libtool"'
 
 CFLAGS_append = " -D_REENTRANT"
 
