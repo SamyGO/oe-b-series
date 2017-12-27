@@ -14,6 +14,11 @@ export CFLAGS = "-fvisibility=hidden"
 
 EXTRA_OECONF += " --disable-shared"
 
+do_configure_prepend() {
+	touch ${S}/NEWS
+	touch ${S}/AUTHORS
+}
+
 do_stage() {
 	install -m 0644 ${S}/zlib.h ${STAGING_INCDIR}/
 	install -m 0644 ${S}/zconf.h ${STAGING_INCDIR}/
