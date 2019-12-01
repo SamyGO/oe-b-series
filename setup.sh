@@ -91,17 +91,54 @@ setup() {
 	DISTRO=samygo
 	MACHINE=ssdtv
 
+	if [ -e ${HOME}/.samygo/oe/${DISTRO}_defaults ]; then
+		. ${HOME}/.samygo/oe/${DISTRO}_defaults
+		echo "Reading custom settings from file '${HOME}/.samygo/oe/${DISTRO}_defaults'"
+	else
+		echo "No custom settings file: '${HOME}/.samygo/oe/${DISTRO}_defaults'"
+		echo "Using defaults instead."
+	fi
+
 	if [ "$1" = "-cl" ] || [ "$2" = "-cl" ]; then
 		DISTRO=samygo-cl
 	fi
-	DL_DIR=${DL_DIR:="$HOME/sources"}
+	MA_DL_DIR=${MA_DL_DIR:="$HOME/sources"}
+	export MA_TARGET_IP=${MA_TARGET_IP:="192.168.1.10"}
+	export MA_TARGET_MAC=${MA_TARGET_MAC:=""}
+	export MA_DNS_IP=${MA_DNS_IP:="192.168.1.1"}
+	export MA_NFS_IP=${MA_NFS_IP:="192.168.1.1"}
+	export MA_NFS_PATH=${MA_NFS_PATH:="/nfsroot"}
+	export MA_ROOT_PASSWORD=${MA_ROOT_PASSWORD:=""}
+	export MA_DROPBEAR_KEY_FILE="$HOME/.samygo/oe/${DISTRO}_dropbear_rsa_host_key"
+	export MA_ROOTFS_POSTPROCESS=${MA_ROOTFS_POSTPROCESS:="echo"}
+	export BB_ENV_EXTRAWHITE="MA_TARGET_IP MA_TARGET_MAC MA_DNS_IP MA_NFS_IP MA_NFS_PATH \
+			MA_ROOT_PASSWORD MA_DROPBEAR_KEY_FILE MA_FSTAB_FILE MA_ROOTFS_POSTPROCESS"
 
+	echo "--- Settings:"
+	echo " -  sources:    ${MA_DL_DIR}"
+	echo " -  target ip:  ${MA_TARGET_IP}"
+	echo " -  target mac: ${MA_TARGET_MAC}"
+	echo " -  dns ip:     ${MA_DNS_IP}"
+	echo " -  nfs ip:     ${MA_NFS_IP}"
+	echo " -  nfs path:   ${MA_NFS_PATH}"
+	if [ "$MA_ROOT_PASSWORD" != "" ]; then
+		echo " -  root password is defined"
+	else
+		echo " -  root password is NOT defined"
+	fi
+	if [ -f ${MA_DROPBEAR_KEY_FILE} ]; then
+		echo " -  target dropbear host key file found"
+	else
+		echo " -  target dropbear host key file NOT found"
+	fi
 	mkdir -p  ${OE_BASE}/build-${DISTRO}/conf
 
 	BBF="\${OE_BASE}/oe/recipes/*/*.bb"
 	if [ "${DISTRO}" = "samygo-cl" ]; then
 		BBF="${BBF} \${OE_BASE}/oe/recipes/apps-cl/*/*.bb"
 	fi
+
+	DL_DIR=${MA_DL_DIR:="$HOME/sources"}
 
 	if [ ! -f ${OE_BASE}/build-${DISTRO}/conf/local.conf ] || [ ! -f ${OE_BASE}/build-${DISTRO}/env.source ] || [ "$1" = "-f" ] || [ "$2" = "-f" ]; then
 		PATH_TO_TOOLS="build-${DISTRO}/tmp/sysroots/`uname -m`-`uname -s | awk '{print tolower($0)}'`/usr"

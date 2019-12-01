@@ -52,6 +52,11 @@ do_install_append_openmn() {
 	echo "0:Jn6tcg/qjqvUE:0:0:root:/root:/bin/sh" >>${D}${datadir}/base-passwd/passwd.master
 }
 
+do_install_append_samygo() {
+	#SamyGO: added defined custom root passwd
+	sed -i -e s,root::0:0:root:,root:${MA_ROOT_PASSWORD}:0:0:root:, ${D}${datadir}/base-passwd/passwd.master
+}
+
 FILES_${PN}-doc += "${docdir}"
 
 pkg_postinst () {

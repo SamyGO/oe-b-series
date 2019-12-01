@@ -1,0 +1,32 @@
+
+### Set default downloaded sources dir
+#MA_DL_DIR=~/sources
+
+
+## Set target IP address
+#MA_TARGET_IP=192.168.1.10
+
+
+## Set DNS IP address
+#MA_DNS_IP=192.168.1.1
+
+
+## Set target MAC address in format: xx:xx:xx:xx:xx:xx
+## usage depends on target machine
+#MA_TARGET_MAC=
+
+
+## Set NFS server IP address
+#MA_NFS_IP=192.168.1.1
+
+
+## Set rootfs path on NFS server
+#MA_NFS_PATH=/nfsroot
+
+
+## Set target root password in encoded form
+#MA_ROOT_PASS=
+
+
+## Set rootfs postprocess commands
+#MA_ROOTFS_POSTPROCESS=
