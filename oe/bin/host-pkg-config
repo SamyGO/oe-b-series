@@ -1,0 +1,22 @@
+#!/bin/bash
+
+if [ -e /bin/uname ]; then
+    os=`/bin/uname -s`
+elif [ -e /usr/bin/uname ]; then
+    os=`/usr/bin/uname -s`
+fi
+
+case $os in
+    Darwin)
+        if [ -e /opt/local/bin/pkg-config ]; then
+                exec "/opt/local/bin/pkg-config" "$@"
+        elif [ -e /sw/bin/gsed ]; then
+                exec "/sw/bin/pkg-config" "$@"
+        else
+                exec "pkg-config" "$@"
+        fi
+        ;;
+    Linux)
+        exec "/usr/bin/pkg-config" "$@"
+        ;;
+esac
