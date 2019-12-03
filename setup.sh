@@ -266,7 +266,7 @@ INHERIT = \"rm_work\"
 IMAGE_KEEPROOTFS = \"1\"
 CACHE = \"${OE_BASE}/build-${DISTRO}/cache/oe-cache.\${USER}\"
 ASSUME_PROVIDED += \" git-native perl-native python-native desktop-file-utils-native \
-linux-libc-headers-native glib-2.0-native intltool-native xz-native \
+linux-libc-headers-native glib-2.0-native intltool-native xz-native gzip-native \
 findutils-native file-native bison-native flex-native help2man-native \
 m4-native unzip-native\"
 PARALLEL_MAKE = \"-j 4\"
