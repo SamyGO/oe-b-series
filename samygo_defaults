@@ -1,19 +1,19 @@
 
-### Set default downloaded sources dir
-#MA_DL_DIR=~/sources
-
-
 ## Set target IP address
-#MA_TARGET_IP=192.168.1.10
+#MA_TARGET_IP=192.168.1.2
 
 
-## Set DNS IP address
-#MA_DNS_IP=192.168.1.1
+## Set target network mask
+#MA_TARGET_MASK=255.255.255.0
 
 
 ## Set target MAC address in format: xx:xx:xx:xx:xx:xx
 ## usage depends on target machine
 #MA_TARGET_MAC=
+
+
+## Set Gateway IP address
+#MA_GATEWAY_IP=192.168.1.5
 
 
 ## Set NFS server IP address
@@ -30,3 +30,7 @@
 
 ## Set rootfs postprocess commands
 #MA_ROOTFS_POSTPROCESS=
+
+
+### Set default downloaded sources dir
+#MA_DL_DIR=~/sources

@@ -25,3 +25,14 @@ do_compile () {
         oe_runmake tools
 }
 
+do_fixup() {
+        sed -i -e s,192.168.1.2,${MA_TARGET_IP},g ${WORKDIR}/u-boot-${PV}/include/configs/ssdtv.h
+        sed -i -e s,255.255.255.0,${MA_TARGET_MASK},g ${WORKDIR}/u-boot-${PV}/include/configs/ssdtv.h
+        sed -i -e s,00:00:00:00:00:00,${MA_TARGET_MAC},g ${WORKDIR}/u-boot-${PV}/include/configs/ssdtv.h
+        sed -i -e s,192.168.1.5,${MA_GATEWAY_IP},g ${WORKDIR}/u-boot-${PV}/include/configs/ssdtv.h
+        sed -i -e s,192.168.1.1,${MA_NFS_IP},g ${WORKDIR}/u-boot-${PV}/include/configs/ssdtv.h
+        sed -i -e s,/nfspath,${MA_NFS_PATH},g ${WORKDIR}/u-boot-${PV}/include/configs/ssdtv.h
+}
+
+addtask fixup after do_patch before do_compile
+
