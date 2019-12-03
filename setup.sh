@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 error() {
 	echo
@@ -11,7 +11,15 @@ error() {
 python_v3_check() {
 	ver=`/usr/bin/env python --version 2>&1 | grep "Python 3"`
 	if [ "${ver}" != "" ]; then
-		return 1
+		python_path=`whereis python2`
+		if [ "$python_path" = "" ]; then
+			return 1
+		else
+			OE_BASE=`pwd -P`
+			/bin/rm -f ${OE_BASE}/oe/bin/python
+			/bin/ln -s $python_path ${OE_BASE}/oe/bin/python
+			return 0
+		fi
 	else
 		return 0
 	fi
@@ -36,6 +44,8 @@ realpath rm rmdir runcon sed seq sha1sum sha224sum sha256sum sha384sum sha512sum
 sleep sort split stat stdbuf stty sum sync tac tail tee test timeout touch tr true \
 truncate tsort tty uname unexpand uniq unlink uptime users vdir wc who whoami yes"
 
+tools="perl git wget gzip patch diffstat texi2html file bison flex help2man unzip"
+
 prepare_tools() {
 	OE_BASE=`pwd -P`
 	/bin/rm -f ${OE_BASE}/oe/bin/deftar
@@ -48,8 +58,6 @@ prepare_tools() {
 	Darwin)
 		if [ -e /opt/local/bin/gnutar ]; then
 			/bin/ln -s /opt/local/bin/gnutar ${OE_BASE}/oe/bin/tar
-		elif [ -e /sw/bin/gtar ]; then
-			/bin/ln -s /sw/bin/gtar ${OE_BASE}/oe/bin/tar
 		fi
 		if [ -e /usr/bin/tar ]; then
 			/bin/ln -s /usr/bin/tar ${OE_BASE}/oe/bin/deftar
@@ -58,21 +66,23 @@ prepare_tools() {
 			/bin/rm -f ${OE_BASE}/oe/bin/$i
 			if [ -e /opt/local/bin/g$i ]; then
 				/bin/ln -s /opt/local/bin/g$i ${OE_BASE}/oe/bin/$i
-			elif [ -e /sw/sbin/g$i ]; then
-				/bin/ln -s /sw/sbin/g$i ${OE_BASE}/oe/bin/$i
 			fi
 		done
 
-		if [ ! -e /opt/local/bin/gnutar ] && [ ! -e /sw/bin/gtar ]; then
+		if [ ! -e /opt/local/bin/gnutar ]; then
 			echo "* ERROR *  Missing GNU tar!"
 			return 1
 		fi
-		if [ ! -e /opt/local/bin/gsed ] && [ ! -e /sw/bin/gsed ]; then
+		if [ ! -e /opt/local/bin/gsed ]; then
 			echo "* ERROR *  Missing GNU sed!"
 			return 1
 		fi
-		if [ ! -e /opt/local/bin/ginstall ] && [ ! -e /sw/bin/ginstall ]; then
+		if [ ! -e /opt/local/bin/ginstall ]; then
 			echo "* ERROR *  Missing GNU coreutils!"
+			return 1
+		fi
+		if [ ! -e /opt/local/bin/gxargs ]; then
+			echo "* ERROR *  Missing GNU findutils!"
 			return 1
 		fi
 		;;
@@ -81,6 +91,110 @@ prepare_tools() {
 			/bin/ln -s /bin/tar ${OE_BASE}/oe/bin/deftar
 		fi
 	esac
+
+	for i in $tools; do
+		path=`whereis $i`
+		if [ "$path" = "" ]; then
+			/bin/rm -f ${OE_BASE}/oe/bin/$i
+			if [ -e /opt/local/bin/$i ]; then
+				/bin/ln -s /opt/local/bin/$i ${OE_BASE}/oe/bin/$i
+			else
+				echo "* ERROR *  Missing $i!"
+				return 1
+			fi
+		fi
+	done
+
+	path=`whereis desktop-file-install`
+	if [ "$OS" = "Darwin" ] && [ ! -e /opt/local/bin/desktop-file-install ]; then
+		echo "* ERROR *  Missing desktop-file-utils package"
+		return 1
+	fi
+	if [ "$OS" != "Darwin" ] && [ "$path" = "" ]; then
+		echo "* ERROR *  Missing desktop-file-utils package"
+		return 1
+	fi
+
+	path=`whereis intltoolize`
+	if [ "$OS" = "Darwin" ] && [ ! -e /opt/local/bin/intltoolize ]; then
+		echo "* ERROR *  Missing intltool package"
+		return 1
+	fi
+	if [ "$OS" != "Darwin" ] && [ "$path" = "" ]; then
+		echo "* ERROR *  Missing intltool package"
+		return 1
+	fi
+
+	path=`whereis xz`
+	if [ "$OS" = "Darwin" ] && [ ! -e /opt/local/bin/xz ]; then
+		echo "* ERROR *  Missing xz package"
+		return 1
+	fi
+	if [ "$OS" != "Darwin" ] && [ "$path" = "" ]; then
+		echo "* ERROR *  Missing xz-utils package"
+		return 1
+	fi
+
+	path=`whereis m4`
+	if [ "$OS" = "Darwin" ]; then
+		/bin/rm -f ${OE_BASE}/oe/bin/m4
+		if [ -e /opt/local/bin/gm4 ]; then
+			/bin/ln -s /opt/local/bin/gm4 ${OE_BASE}/oe/bin/m4
+		else
+			echo "* ERROR *  Missing m4 package"
+			return 1
+		fi
+	fi
+	if [ "$OS" != "Darwin" ] && [ "$path" = "" ]; then
+		echo "* ERROR *  Missing m4 package"
+		return 1
+	fi
+
+	path=`whereis makeinfo`
+	if [ "$OS" = "Darwin" ] && [ ! -e /opt/local/bin/makeinfo ]; then
+		echo "* ERROR *  Missing texinfo package"
+		return 1
+	fi
+	if [ "$OS" != "Darwin" ] && [ "$path" = "" ]; then
+		echo "* ERROR *  Missing texinfo package"
+		return 1
+	fi
+
+	path=`whereis svn`
+	if [ "$OS" = "Darwin" ] && [ ! -e /opt/local/bin/svn ]; then
+		echo "* ERROR *  Missing subversion package"
+		return 1
+	fi
+	if [ "$OS" != "Darwin" ] && [ "$path" = "" ]; then
+		echo "* ERROR *  Missing subversion package"
+		return 1
+	fi
+
+	path=`whereis glibtool`
+	if [ "$OS" = "Darwin" ] && [ ! -e /opt/local/bin/glibtool ]; then
+		echo "* ERROR *  Missing glib2 package"
+		return 1
+	fi
+	if [ "$OS" != "Darwin" ] && [ "$path" = "" ]; then
+		echo "* ERROR *  Missing libglib2.0-bin package"
+		return 1
+	fi
+
+	path=`whereis pkg-config`
+	if [ "$OS" = "Darwin" ] && [ ! -e /opt/local/bin/pkg-config ]; then
+		echo "* ERROR *  Missing pkgconfig package"
+		return 1
+	fi
+	if [ "$OS" != "Darwin" ] && [ "$path" = "" ]; then
+		echo "* ERROR *  Missing pkg-config package"
+		return 1
+	fi
+
+	path=`whereis xargs`
+	if [ "$path" = "" ]; then
+		echo "* ERROR *  Missing findutils package"
+		return 1
+	fi
 
 	return 0
 }
@@ -91,11 +205,11 @@ setup() {
 	DISTRO=samygo
 	MACHINE=ssdtv
 
-	if [ -e ${HOME}/.samygo/oe/${DISTRO}_defaults ]; then
-		. ${HOME}/.samygo/oe/${DISTRO}_defaults
-		echo "Reading custom settings from file '${HOME}/.samygo/oe/${DISTRO}_defaults'"
+	if [ -e ${HOME}/.samygo/oe/${DISTRO}_config ]; then
+		. ${HOME}/.samygo/oe/${DISTRO}_config
+		echo "Reading custom settings from file '${HOME}/.samygo/oe/${DISTRO}_config'"
 	else
-		echo "No custom settings file: '${HOME}/.samygo/oe/${DISTRO}_defaults'"
+		echo "No custom settings file: '${HOME}/.samygo/oe/${DISTRO}_config'"
 		echo "Using defaults instead."
 	fi
 
@@ -151,7 +265,10 @@ DISTRO = \"${DISTRO}\"
 INHERIT = \"rm_work\"
 IMAGE_KEEPROOTFS = \"1\"
 CACHE = \"${OE_BASE}/build-${DISTRO}/cache/oe-cache.\${USER}\"
-ASSUME_PROVIDED += \" git-native perl-native python-native desktop-file-utils-native linux-libc-headers-native glib-2.0-native intltool-native xz-native\"
+ASSUME_PROVIDED += \" git-native perl-native python-native desktop-file-utils-native \
+linux-libc-headers-native glib-2.0-native intltool-native xz-native \
+findutils-native file-native bison-native flex-native help2man-native \
+m4-native unzip-native\"
 PARALLEL_MAKE = \"-j 4\"
 BB_NUMBER_THREADS = \"3\"
 " > ${OE_BASE}/build-${DISTRO}/conf/local.conf
@@ -210,11 +327,12 @@ bitbake() {
 }
 
 ERROR=
+
+[ "$ERROR" != "1" ] && [ -z "$BASH_VERSION" ] && error "Script NOT running in 'bash' shell"
+
 [ "x$0" = "x./setup.sh" ] && error "Script must run via sourcing like '. setup.sh [-cl] [-f]'"
 
 [ "$ERROR" != "1" ] && [ $EUID -eq 0 ] && error "Script running with superuser privileges! Aborting."
-
-[ "$ERROR" != "1" ] && [ -z "$BASH_VERSION" ] && error "Script NOT running in 'bash' shell"
 
 [ "$ERROR" != "1" ] && python_v3_check; [ "$?" != "0" ] && error "Python v3 is not compatible please install v2"
 
