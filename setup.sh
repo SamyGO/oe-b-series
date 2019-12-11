@@ -220,7 +220,7 @@ setup() {
 	export MA_TARGET_IP=${MA_TARGET_IP:="192.168.1.2"}
 	export MA_TARGET_MASK=${MA_TARGET_MAASK:="255.255.255.0"}
 	export MA_TARGET_MAC=${MA_TARGET_MAC:=""}
-	export MA_GATEWAY_IP=${MA_GATEWAY_IP:="192.168.1.5"}
+	export MA_GATEWAY_IP=${MA_GATEWAY_IP:="192.168.1.1"}
 	export MA_NFS_IP=${MA_NFS_IP:="192.168.1.1"}
 	export MA_NFS_PATH=${MA_NFS_PATH:="/nfsroot"}
 	export MA_ROOT_PASSWORD=${MA_ROOT_PASSWORD:=""}

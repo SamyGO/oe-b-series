@@ -13,7 +13,7 @@
 
 
 ## Set Gateway IP address
-#MA_GATEWAY_IP=192.168.1.5
+#MA_GATEWAY_IP=192.168.1.1
 
 
 ## Set NFS server IP address
