@@ -196,6 +196,16 @@ prepare_tools() {
 		return 1
 	fi
 
+	if [ "$OS" = "Darwin" ]; then
+		/bin/rm -f ${OE_BASE}/oe/bin/find
+		if [ -e /opt/local/bin/gfind ]; then
+			/bin/ln -s /opt/local/bin/gfind ${OE_BASE}/oe/bin/find
+		else
+			echo "* ERROR *  Missing findutils package"
+			return 1
+		fi
+	fi
+
 	return 0
 }
 
