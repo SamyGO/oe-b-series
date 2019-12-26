@@ -90,6 +90,9 @@ prepare_tools() {
 		if [ -e /bin/tar ]; then
 			/bin/ln -s /bin/tar ${OE_BASE}/oe/bin/deftar
 		fi
+		if [ -e /bin/readlink ]; then
+			/bin/ln -s /bin/readlink ${OE_BASE}/oe/bin/readlink
+		fi
 	esac
 
 	for i in $tools; do
