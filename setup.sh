@@ -95,25 +95,37 @@ prepare_tools() {
 		fi
 	esac
 
-	for i in $tools; do
-		path=`whereis $i`
-		if [ "$path" = "" ]; then
-			/bin/rm -f ${OE_BASE}/oe/bin/$i
-			if [ -e /opt/local/bin/$i ]; then
-				/bin/ln -s /opt/local/bin/$i ${OE_BASE}/oe/bin/$i
-			else
+	if [ "$OS" = "Darwin" ]
+		for i in $tools; do
+			path=`whereis $i`
+			if [ "$path" = "" ]; then
+				/bin/rm -f ${OE_BASE}/oe/bin/$i
+				if [ -e /opt/local/bin/$i ]; then
+					/bin/ln -s /opt/local/bin/$i ${OE_BASE}/oe/bin/$i
+				else
+					echo "* ERROR *  Missing $i!"
+					return 1
+				fi
+			fi
+		fi
+	done
+	if [ "$OS" = "Linux" ]
+		for i in $tools; do
+			if [ -e /usr/bin/$i ]; then
 				echo "* ERROR *  Missing $i!"
 				return 1
 			fi
 		fi
 	done
 
-	path=`whereis desktop-file-install`
-	if [ "$OS" = "Darwin" ] && [ ! -e /opt/local/bin/desktop-file-install ]; then
-		echo "* ERROR *  Missing desktop-file-utils package"
-		return 1
+	if [ "$OS" = "Darwin" ]
+		path=`whereis desktop-file-install`
+		if [ ! -e /opt/local/bin/desktop-file-install ]; then
+			echo "* ERROR *  Missing desktop-file-utils package"
+			return 1
+		fi
 	fi
-	if [ "$OS" != "Darwin" ] && [ "$path" = "" ]; then
+	if [ "$OS" == "Linux" ] && [ ! -e /usr/bin/desktop-file-install ]; then
 		echo "* ERROR *  Missing desktop-file-utils package"
 		return 1
 	fi
