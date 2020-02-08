@@ -156,14 +156,7 @@ prepare_tools() {
 		return 1
 	fi
 
-	if [ "$OS" = "Darwin" ]; then
-		path=`whereis m4`
-		if [ ! -e /opt/local/bin/m4 ]; then
-			echo "* ERROR *  Missing m4 package"
-			return 1
-		fi
-	fi
-	if [ "$OS" == "Linux" ] && [ ! -e /usr/bin/m4 ]; then
+	if [ ! -e /usr/bin/m4 ]; then
 		echo "* ERROR *  Missing m4 package"
 		return 1
 	fi
