@@ -442,7 +442,7 @@ python do_package_qa () {
     if bb.data.getVar('INSANE_SKIP', d, True):
         return
 
-    checks = [package_qa_check_rpath, package_qa_check_dev,
+    checks = [package_qa_check_dev,
               package_qa_check_perm, package_qa_check_arch,
               package_qa_check_desktop, package_qa_hash_style,
               package_qa_check_dbg]
