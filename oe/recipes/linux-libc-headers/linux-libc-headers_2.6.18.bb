@@ -6,7 +6,7 @@ PR = "r0"
 
 COMPATIBLE_TARGET_SYS = "."
 
-SRC_URI = "${KERNELORG_MIRROR}/pub/linux/kernel/v2.6/linux-2.6.18.tar.bz2 \
+SRC_URI = "${KERNELORG_MIRROR}/linux/kernel/v2.6/linux-2.6.18.tar.bz2 \
            file://arm-syscall-define.patch"
 
 S = "${WORKDIR}/linux-2.6.18"

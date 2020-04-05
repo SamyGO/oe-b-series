@@ -3,7 +3,7 @@ LICENSE = "GPLv2"
 DEPENDS = "binutils-cross u-boot-mkimage-native fakeroot-native"
 
 SRC_URI = "\
-	${KERNELORG_MIRROR}/pub/linux/kernel/v2.6/linux-2.6.18.tar.bz2;name=kernel \
+	${KERNELORG_MIRROR}/linux/kernel/v2.6/linux-2.6.18.tar.bz2;name=kernel \
 	${SAMYGO_MIRROR}/SamyGO%20Open%20Embedded/sources/linux-patch-2.6.18.8.patch;name=patch \
 	file://arm-mm-2.6.19.patch \
 	file://rt-2.6.18.8-stripped.patch \
