@@ -18,7 +18,7 @@ CONFFILES_${PN}-inittab = "${sysconfdir}/inittab"
 USE_VT ?= "1"
 SYSVINIT_ENABLED_GETTYS ?= "1"
 
-SRC_URI = "ftp://ftp.cistron.nl/pub/people/miquels/sysvinit/sysvinit-${PV}.tar.gz \
+SRC_URI = "http://ftp.osuosl.org/pub/clfs/conglomeration/sysvinit/sysvinit-${PV}.tar.gz \
            file://install.patch \
            file://100_fix_ftbfs_enoioctlcmd.patch \
            file://need \
