@@ -7,8 +7,7 @@ SECTION = "base"
 LICENSE = "GPLv2+|NewBSD"
 PR = "r7"
 
-#SRC_URI = "http://tinylogin.busybox.net/downloads/tinylogin-${PV}.tar.bz2 \
-SRC_URI = "http://limpens.net/trac/at91-kit-trac/export/4/trunk/sources/tinylogin-${PV}.tar.bz2 \
+SRC_URI = "http://www.mucross.com/downloads/tonga-linux/sources/GPL/tinylogin/tinylogin-${PV}.tar.bz2 \
 	file://cvs-20040608.patch \
 	file://add-system.patch \
 	file://adduser-empty_pwd.patch \
