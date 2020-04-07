@@ -7,7 +7,7 @@ SECTION = "base"
 PR = "r2"
 
 
-SRC_URI = "${DEBIAN_MIRROR}/main/i/ifupdown/ifupdown_${PV}.tar.gz;name=ifupdown \
+SRC_URI = "https://mirrors.mediatemple.net/debian-archive/debian/pool/main/i/ifupdown/ifupdown_${PV}.tar.gz;name=ifupdown \
            file://busybox.patch \
            file://zeroconf.patch \
            file://fix-xargs-busybox.patch \

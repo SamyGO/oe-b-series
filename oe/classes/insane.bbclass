@@ -20,7 +20,7 @@
 #
 inherit package
 #MobiAqua: added findutils-native
-PACKAGE_DEPENDS += "pax-utils-native desktop-file-utils-native findutils-native"
+PACKAGE_DEPENDS += "desktop-file-utils-native findutils-native"
 PACKAGEFUNCS += " do_package_qa "
 
 

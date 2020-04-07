@@ -1,37 +1,48 @@
-Add 'install-ptest' rule.
-Print a standard result line for each test.
+Add 'install-ptest' rule. Print a standard result line for
+each test.
 
 Signed-off-by: Mihaela Sendrea <mihaela.sendrea@enea.com>
-Upstream-Status: Pending
+Signed-off-by: Andrej Valek <andrej.valek@siemens.com>
+Upstream-Status: Backport
 
-diff -uNr a/Makefile.am b/Makefile.am
---- a/Makefile.am	2013-04-17 14:51:42.633386477 +0200
-+++ b/Makefile.am	2013-04-19 14:47:51.544720568 +0200
-@@ -202,10 +202,19 @@
+Signed-off-by: Hongxu Jia <hongxu.jia@windriver.com>
+---
+ Makefile.am   |   9 ++++
+ runsuite.c    |   1 +
+ runtest.c     |   2 +
+ runxmlconf.c  |   1 +
+ testapi.c     | 122 ++++++++++++++++++++++++++++++---------------
+ testchar.c    | 156 +++++++++++++++++++++++++++++++++++++++++-----------------
+ testdict.c    |   1 +
+ testlimits.c  |   1 +
+ testrecurse.c |   2 +
+ 9 files changed, 210 insertions(+), 85 deletions(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index 9c630be..7cfd04b 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -202,6 +202,15 @@ runxmlconf_LDADD= $(LDADDS)
  #testOOM_DEPENDENCIES = $(DEPS)
  #testOOM_LDADD= $(LDADDS)
  
 +install-ptest:
 +	@(if [ -d .libs ] ; then cd .libs; fi; \
-+	install $(noinst_PROGRAMS) $(DESTDIR))
++	install $(check_PROGRAMS) $(DESTDIR))
 +	cp -r $(srcdir)/test $(DESTDIR)
 +	cp -r $(srcdir)/result $(DESTDIR)
 +	cp -r $(srcdir)/python $(DESTDIR)
 +	cp Makefile $(DESTDIR)
 +	sed -i -e 's|^Makefile:|_Makefile:|' $(DESTDIR)/Makefile
 +
- runtests:
+ runtests: runtest$(EXEEXT) testrecurse$(EXEEXT) testapi$(EXEEXT) \
+           testchar$(EXEEXT) testdict$(EXEEXT) runxmlconf$(EXEEXT)
  	[ -d test   ] || $(LN_S) $(srcdir)/test   .
- 	[ -d result ] || $(LN_S) $(srcdir)/result .
--	$(CHECKER) ./runtest$(EXEEXT) && $(CHECKER) ./testrecurse$(EXEEXT) &&$(CHECKER) ./testapi$(EXEEXT) && $(CHECKER) ./testchar$(EXEEXT)&& $(CHECKER) ./testdict$(EXEEXT) && $(CHECKER) ./runxmlconf$(EXEEXT)
-+	./runtest$(EXEEXT) ; ./testrecurse$(EXEEXT) ; ./testapi$(EXEEXT) ; ./testchar$(EXEEXT) ; ./testdict$(EXEEXT) ; ./runxmlconf$(EXEEXT)
- 	@(if [ "$(PYTHON_SUBDIR)" != "" ] ; then cd python ; \
- 	    $(MAKE) tests ; fi)
- 
-diff -uNr a/runsuite.c b/runsuite.c
---- a/runsuite.c	2013-04-12 16:17:11.462823238 +0200
-+++ b/runsuite.c	2013-04-17 14:07:24.352693211 +0200
-@@ -1162,6 +1162,7 @@
+diff --git a/runsuite.c b/runsuite.c
+index aaab13e..9ba2c5d 100644
+--- a/runsuite.c
++++ b/runsuite.c
+@@ -1162,6 +1162,7 @@ main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) {
  
      if (logfile != NULL)
          fclose(logfile);
@@ -39,18 +50,19 @@ diff -uNr a/runsuite.c b/runsuite.c
      return(ret);
  }
  #else /* !SCHEMAS */
-diff -uNr a/runtest.c b/runtest.c
---- a/runtest.c	2013-04-16 13:19:15.087997290 +0200
-+++ b/runtest.c	2013-04-17 14:08:29.529949655 +0200
-@@ -4386,6 +4386,7 @@
- 	    err++;
- 	}
-     }
+diff --git a/runtest.c b/runtest.c
+index addda5c..8ba5d59 100644
+--- a/runtest.c
++++ b/runtest.c
+@@ -4501,6 +4501,7 @@ launchTests(testDescPtr tst) {
+     xmlCharEncCloseFunc(ebcdicHandler);
+     xmlCharEncCloseFunc(eucJpHandler);
+ 
 +    printf("%s: %s\n", (err == 0) ? "PASS" : "FAIL", tst->desc);
      return(err);
  }
  
-@@ -4455,6 +4456,7 @@
+@@ -4577,6 +4578,7 @@ main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) {
      xmlCleanupParser();
      xmlMemoryDump();
  
@@ -58,10 +70,11 @@ diff -uNr a/runtest.c b/runtest.c
      return(ret);
  }
  
-diff -uNr a/runxmlconf.c b/runxmlconf.c
---- a/runxmlconf.c	2013-04-16 12:53:49.900982990 +0200
-+++ b/runxmlconf.c	2013-04-17 14:09:21.111778104 +0200
-@@ -595,6 +595,7 @@
+diff --git a/runxmlconf.c b/runxmlconf.c
+index cef20f4..4f291fb 100644
+--- a/runxmlconf.c
++++ b/runxmlconf.c
+@@ -595,6 +595,7 @@ main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) {
  
      if (logfile != NULL)
          fclose(logfile);
@@ -69,15 +82,15 @@ diff -uNr a/runxmlconf.c b/runxmlconf.c
      return(ret);
  }
  
-diff -uNr a/testapi.c b/testapi.c
---- a/testapi.c	2013-04-12 16:16:57.763417659 +0200
-+++ b/testapi.c	2013-04-17 14:10:28.876924881 +0200
-@@ -1245,49 +1245,91 @@
+diff --git a/testapi.c b/testapi.c
+index 4a751e2..7ccc066 100644
+--- a/testapi.c
++++ b/testapi.c
+@@ -1246,49 +1246,91 @@ static int
  testlibxml2(void)
  {
      int test_ret = 0;
-+    int ret = 0;
- 
+-
 -    test_ret += test_HTMLparser();
 -    test_ret += test_HTMLtree();
 -    test_ret += test_SAX2();
@@ -117,6 +130,8 @@ diff -uNr a/testapi.c b/testapi.c
 -    test_ret += test_xpath();
 -    test_ret += test_xpathInternals();
 -    test_ret += test_xpointer();
++    int ret = 0;
++
 +    test_ret += (ret = test_HTMLparser());
 +    printf("%s: HTMLparser\n", (ret == 0) ? "PASS" : "FAIL");
 +    test_ret += (ret = test_HTMLtree());
@@ -203,10 +218,11 @@ diff -uNr a/testapi.c b/testapi.c
      return(test_ret);
  }
  
-diff -uNr a/testchar.c b/testchar.c
---- a/testchar.c	2013-04-17 10:50:30.250147418 +0200
-+++ b/testchar.c	2013-04-18 16:11:28.455733800 +0200
-@@ -23,7 +23,7 @@
+diff --git a/testchar.c b/testchar.c
+index 0d08792..f555d3b 100644
+--- a/testchar.c
++++ b/testchar.c
+@@ -23,7 +23,7 @@ static void errorHandler(void *unused, xmlErrorPtr err) {
  char document1[100] = "<doc>XXXX</doc>";
  char document2[100] = "<doc foo='XXXX'/>";
  
@@ -215,7 +231,7 @@ diff -uNr a/testchar.c b/testchar.c
                    int len,  char *data, int forbid1, int forbid2) {
      int i;
      xmlDocPtr res;
-@@ -37,33 +37,41 @@
+@@ -37,33 +37,41 @@ static void testDocumentRangeByte1(xmlParserCtxtPtr ctxt, char *document,
  	res = xmlReadMemory(document, len, "test", NULL, 0);
  
  	if ((i == forbid1) || (i == forbid2)) {
@@ -225,7 +241,7 @@ diff -uNr a/testchar.c b/testchar.c
  		    "Failed to detect invalid char for Byte 0x%02X: %c\n",
  		        i, i);
 +		return(1);
-+		}
++	    }
  	}
  
  	else if ((i == '<') || (i == '&')) {
@@ -233,8 +249,8 @@ diff -uNr a/testchar.c b/testchar.c
 +	    if ((lastError == 0) || (res != NULL)) {
  	        fprintf(stderr,
  		    "Failed to detect illegal char %c for Byte 0x%02X\n", i, i);
-+			return(1);
-+		}
++		return(1);
++	    }
  	}
  	else if (((i < 0x20) || (i >= 0x80)) &&
  	    (i != 0x9) && (i != 0xA) && (i != 0xD)) {
@@ -242,8 +258,8 @@ diff -uNr a/testchar.c b/testchar.c
 +	    if ((lastError != XML_ERR_INVALID_CHAR) && (res != NULL)) {
  	        fprintf(stderr,
  		    "Failed to detect invalid char for Byte 0x%02X\n", i);
-+			return(1);
-+		}
++		return(1);
++	    }
  	}
  	else if (res == NULL) {
  	    fprintf(stderr,
@@ -253,7 +269,7 @@ diff -uNr a/testchar.c b/testchar.c
  	if (res != NULL)
  	    xmlFreeDoc(res);
      }
-+	return(0);
++    return(0);
  }
  
 -static void testDocumentRangeByte2(xmlParserCtxtPtr ctxt, char *document,
@@ -261,7 +277,7 @@ diff -uNr a/testchar.c b/testchar.c
                    int len,  char *data) {
      int i, j;
      xmlDocPtr res;
-@@ -80,10 +88,12 @@
+@@ -80,10 +88,12 @@ static void testDocumentRangeByte2(xmlParserCtxtPtr ctxt, char *document,
  
  	/* if first bit of first char is set, then second bit must too */
  	if ((i & 0x80) && ((i & 0x40) == 0)) {
@@ -271,11 +287,11 @@ diff -uNr a/testchar.c b/testchar.c
  		"Failed to detect invalid char for Bytes 0x%02X 0x%02X\n",
  			i, j);
 +		return(1);
-+		}
++	    }
  	}
  
  	/*
-@@ -91,10 +101,12 @@
+@@ -91,10 +101,12 @@ static void testDocumentRangeByte2(xmlParserCtxtPtr ctxt, char *document,
  	 * bits must be 10
  	 */
  	else if ((i & 0x80) && ((j & 0xC0) != 0x80)) {
@@ -285,11 +301,11 @@ diff -uNr a/testchar.c b/testchar.c
  	    "Failed to detect invalid char for Bytes 0x%02X 0x%02X\n",
  			i, j);
 +		return(1);
-+		}
++	    }
  	}
  
  	/*
-@@ -102,10 +114,12 @@
+@@ -102,10 +114,12 @@ static void testDocumentRangeByte2(xmlParserCtxtPtr ctxt, char *document,
  	 * than 0x80, i.e. one of bits 5 to 1 of i must be set
  	 */
  	else if ((i & 0x80) && ((i & 0x1E) == 0)) {
@@ -299,11 +315,11 @@ diff -uNr a/testchar.c b/testchar.c
  	    "Failed to detect invalid char for Bytes 0x%02X 0x%02X\n",
  			i, j);
 +		return(1);
-+		}
++	    }
  	}
  
  	/*
-@@ -113,10 +127,12 @@
+@@ -113,10 +127,12 @@ static void testDocumentRangeByte2(xmlParserCtxtPtr ctxt, char *document,
  	 * at least 3 bytes, but we give only 2 !
  	 */
  	else if ((i & 0xE0) == 0xE0) {
@@ -313,25 +329,25 @@ diff -uNr a/testchar.c b/testchar.c
  	    "Failed to detect invalid char for Bytes 0x%02X 0x%02X 0x00\n",
  			i, j);
 +		return(1);
-+		}
++	    }
  	}
  
  	/*
-@@ -125,11 +141,13 @@
+@@ -125,11 +141,13 @@ static void testDocumentRangeByte2(xmlParserCtxtPtr ctxt, char *document,
  	else if ((lastError != 0) || (res == NULL)) {
  	    fprintf(stderr,
  		"Failed to parse document for Bytes 0x%02X 0x%02X\n", i, j);
-+		return(1);
++	    return(1);
  	}
  	if (res != NULL)
  	    xmlFreeDoc(res);
      }
      }
-+	return(0);
++    return(0);
  }
  
  /**
-@@ -141,9 +159,10 @@
+@@ -141,9 +159,10 @@ static void testDocumentRangeByte2(xmlParserCtxtPtr ctxt, char *document,
   * CDATA in text or in attribute values.
   */
  
@@ -343,7 +359,7 @@ diff -uNr a/testchar.c b/testchar.c
  
      /*
       * Set up a parsing context using the first document as
-@@ -152,7 +171,7 @@
+@@ -152,7 +171,7 @@ static void testDocumentRanges(void) {
      ctxt = xmlNewParserCtxt();
      if (ctxt == NULL) {
          fprintf(stderr, "Failed to allocate parser context\n");
@@ -352,7 +368,7 @@ diff -uNr a/testchar.c b/testchar.c
      }
  
      printf("testing 1 byte char in document: 1");
-@@ -163,7 +182,7 @@
+@@ -163,7 +182,7 @@ static void testDocumentRanges(void) {
      data[2] = ' ';
      data[3] = ' ';
      /* test 1 byte injection at beginning of area */
@@ -361,7 +377,7 @@ diff -uNr a/testchar.c b/testchar.c
                             data, -1, -1);
      printf(" 2");
      fflush(stdout);
-@@ -172,7 +191,7 @@
+@@ -172,7 +191,7 @@ static void testDocumentRanges(void) {
      data[2] = ' ';
      data[3] = ' ';
      /* test 1 byte injection at end of area */
@@ -370,7 +386,7 @@ diff -uNr a/testchar.c b/testchar.c
                             data + 3, -1, -1);
  
      printf(" 3");
-@@ -183,7 +202,7 @@
+@@ -183,7 +202,7 @@ static void testDocumentRanges(void) {
      data[2] = ' ';
      data[3] = ' ';
      /* test 1 byte injection at beginning of area */
@@ -379,7 +395,7 @@ diff -uNr a/testchar.c b/testchar.c
                             data, '\'', -1);
      printf(" 4");
      fflush(stdout);
-@@ -192,7 +211,7 @@
+@@ -192,7 +211,7 @@ static void testDocumentRanges(void) {
      data[2] = ' ';
      data[3] = ' ';
      /* test 1 byte injection at end of area */
@@ -388,7 +404,7 @@ diff -uNr a/testchar.c b/testchar.c
                             data + 3, '\'', -1);
      printf(" done\n");
  
-@@ -204,7 +223,7 @@
+@@ -204,7 +223,7 @@ static void testDocumentRanges(void) {
      data[2] = ' ';
      data[3] = ' ';
      /* test 2 byte injection at beginning of area */
@@ -397,7 +413,7 @@ diff -uNr a/testchar.c b/testchar.c
                             data);
      printf(" 2");
      fflush(stdout);
-@@ -213,7 +232,7 @@
+@@ -213,7 +232,7 @@ static void testDocumentRanges(void) {
      data[2] = ' ';
      data[3] = ' ';
      /* test 2 byte injection at end of area */
@@ -406,7 +422,7 @@ diff -uNr a/testchar.c b/testchar.c
                             data + 2);
  
      printf(" 3");
-@@ -224,7 +243,7 @@
+@@ -224,7 +243,7 @@ static void testDocumentRanges(void) {
      data[2] = ' ';
      data[3] = ' ';
      /* test 2 byte injection at beginning of area */
@@ -415,7 +431,7 @@ diff -uNr a/testchar.c b/testchar.c
                             data);
      printf(" 4");
      fflush(stdout);
-@@ -233,14 +252,15 @@
+@@ -233,14 +252,15 @@ static void testDocumentRanges(void) {
      data[2] = ' ';
      data[3] = ' ';
      /* test 2 byte injection at end of area */
@@ -433,7 +449,7 @@ diff -uNr a/testchar.c b/testchar.c
      int i = 0;
      int len, c;
  
-@@ -255,19 +275,25 @@
+@@ -255,19 +275,25 @@ static void testCharRangeByte1(xmlParserCtxtPtr ctxt, char *data) {
          c = xmlCurrentChar(ctxt, &len);
  	if ((i == 0) || (i >= 0x80)) {
  	    /* we must see an error there */
@@ -441,20 +457,20 @@ diff -uNr a/testchar.c b/testchar.c
 +	    if (lastError != XML_ERR_INVALID_CHAR) {
  	        fprintf(stderr,
  		    "Failed to detect invalid char for Byte 0x%02X\n", i);
-+			return(1);
-+		}
++		return(1);
++	    }
  	} else if (i == 0xD) {
 -	    if ((c != 0xA) || (len != 1))
 +	    if ((c != 0xA) || (len != 1)) {
  		fprintf(stderr, "Failed to convert char for Byte 0x%02X\n", i);
 +		return(1);
-+		}
++	    }
  	} else if ((c != i) || (len != 1)) {
  	    fprintf(stderr, "Failed to parse char for Byte 0x%02X\n", i);
-+		return(1);
++	    return(1);
  	}
      }
-+	return(0);
++    return(0);
  }
  
 -static void testCharRangeByte2(xmlParserCtxtPtr ctxt, char *data) {
@@ -462,7 +478,7 @@ diff -uNr a/testchar.c b/testchar.c
      int i, j;
      int len, c;
  
-@@ -284,10 +310,12 @@
+@@ -284,10 +310,12 @@ static void testCharRangeByte2(xmlParserCtxtPtr ctxt, char *data) {
  
  	    /* if first bit of first char is set, then second bit must too */
  	    if ((i & 0x80) && ((i & 0x40) == 0)) {
@@ -471,12 +487,12 @@ diff -uNr a/testchar.c b/testchar.c
  		    fprintf(stderr,
  		    "Failed to detect invalid char for Bytes 0x%02X 0x%02X\n",
  		            i, j);
-+			return(1);
-+			}
++		    return(1);
++		}
  	    }
  
  	    /*
-@@ -295,10 +323,12 @@
+@@ -295,10 +323,12 @@ static void testCharRangeByte2(xmlParserCtxtPtr ctxt, char *data) {
  	     * bits must be 10
  	     */
  	    else if ((i & 0x80) && ((j & 0xC0) != 0x80)) {
@@ -485,12 +501,12 @@ diff -uNr a/testchar.c b/testchar.c
  		    fprintf(stderr,
  		"Failed to detect invalid char for Bytes 0x%02X 0x%02X: %d\n",
  		            i, j, c);
-+			return(1);
-+			}
++		    return(1);
++		}
  	    }
  
  	    /*
-@@ -306,10 +336,12 @@
+@@ -306,10 +336,12 @@ static void testCharRangeByte2(xmlParserCtxtPtr ctxt, char *data) {
  	     * than 0x80, i.e. one of bits 5 to 1 of i must be set
  	     */
  	    else if ((i & 0x80) && ((i & 0x1E) == 0)) {
@@ -499,12 +515,12 @@ diff -uNr a/testchar.c b/testchar.c
  		    fprintf(stderr,
  		"Failed to detect invalid char for Bytes 0x%02X 0x%02X: %d\n",
  		            i, j, c);
-+			return(1);
-+			}
++		    return(1);
++		}
  	    }
  
  	    /*
-@@ -317,10 +349,12 @@
+@@ -317,10 +349,12 @@ static void testCharRangeByte2(xmlParserCtxtPtr ctxt, char *data) {
  	     * at least 3 bytes, but we give only 2 !
  	     */
  	    else if ((i & 0xE0) == 0xE0) {
@@ -513,12 +529,12 @@ diff -uNr a/testchar.c b/testchar.c
  		    fprintf(stderr,
  		"Failed to detect invalid char for Bytes 0x%02X 0x%02X 0x00\n",
  		            i, j);
-+			return(1);
-+			}
++		    return(1);
++		}
  	    }
  
              /*
-@@ -329,6 +363,7 @@
+@@ -329,6 +363,7 @@ static void testCharRangeByte2(xmlParserCtxtPtr ctxt, char *data) {
  	    else if ((lastError != 0) || (len != 2)) {
  		fprintf(stderr,
  		    "Failed to parse char for Bytes 0x%02X 0x%02X\n", i, j);
@@ -526,7 +542,7 @@ diff -uNr a/testchar.c b/testchar.c
  	    }
  
              /*
-@@ -338,12 +373,14 @@
+@@ -338,12 +373,14 @@ static void testCharRangeByte2(xmlParserCtxtPtr ctxt, char *data) {
  		fprintf(stderr,
  	"Failed to parse char for Bytes 0x%02X 0x%02X: expect %d got %d\n",
  	                i, j, ((j & 0x3F) + ((i & 0x1F) << 6)), c);
@@ -534,7 +550,7 @@ diff -uNr a/testchar.c b/testchar.c
  	    }
          }
      }
-+	return(0);
++    return(0);
  }
  
 -static void testCharRangeByte3(xmlParserCtxtPtr ctxt, char *data) {
@@ -542,7 +558,7 @@ diff -uNr a/testchar.c b/testchar.c
      int i, j, k, K;
      int len, c;
      unsigned char lows[6] = {0, 0x80, 0x81, 0xC1, 0xFF, 0xBF};
-@@ -368,20 +405,24 @@
+@@ -368,20 +405,24 @@ static void testCharRangeByte3(xmlParserCtxtPtr ctxt, char *data) {
  	 * at least 4 bytes, but we give only 3 !
  	 */
  	if ((i & 0xF0) == 0xF0) {
@@ -552,7 +568,7 @@ diff -uNr a/testchar.c b/testchar.c
  	"Failed to detect invalid char for Bytes 0x%02X 0x%02X 0x%02X 0x%02X\n",
  			i, j, K, data[3]);
 +		return(1);
-+		}
++	    }
  	}
  
          /*
@@ -565,11 +581,11 @@ diff -uNr a/testchar.c b/testchar.c
  	"Failed to detect invalid char for Bytes 0x%02X 0x%02X 0x%02X\n",
  			i, j, K);
 +		return(1);
-+		}
++	    }
  	}
  
  	/*
-@@ -390,10 +431,12 @@
+@@ -390,10 +431,12 @@ static void testCharRangeByte3(xmlParserCtxtPtr ctxt, char *data) {
  	 * the 6th byte of data[1] must be set
  	 */
  	else if (((i & 0xF) == 0) && ((j & 0x20) == 0)) {
@@ -579,11 +595,11 @@ diff -uNr a/testchar.c b/testchar.c
  	    "Failed to detect invalid char for Bytes 0x%02X 0x%02X 0x%02X\n",
  			i, j, K);
 +		return(1);
-+		}
++	    }
  	}
  
          /*
-@@ -401,10 +444,12 @@
+@@ -401,10 +444,12 @@ static void testCharRangeByte3(xmlParserCtxtPtr ctxt, char *data) {
  	 */
  	else if (((value > 0xD7FF) && (value <0xE000)) ||
  	         ((value > 0xFFFD) && (value <0x10000))) {
@@ -593,28 +609,28 @@ diff -uNr a/testchar.c b/testchar.c
  	"Failed to detect invalid char 0x%04X for Bytes 0x%02X 0x%02X 0x%02X\n",
  			value, i, j, K);
 +		return(1);
-+		}
++	    }
  	}
  
  	/*
-@@ -414,6 +459,7 @@
+@@ -414,6 +459,7 @@ static void testCharRangeByte3(xmlParserCtxtPtr ctxt, char *data) {
  	    fprintf(stderr,
  		"Failed to parse char for Bytes 0x%02X 0x%02X 0x%02X\n",
  		    i, j, K);
-+		return(1);
++	    return(1);
  	}
  
  	/*
-@@ -423,13 +469,15 @@
+@@ -423,13 +469,15 @@ static void testCharRangeByte3(xmlParserCtxtPtr ctxt, char *data) {
  	    fprintf(stderr,
      "Failed to parse char for Bytes 0x%02X 0x%02X 0x%02X: expect %d got %d\n",
  		i, j, data[2], value, c);
-+		return(1);
++	    return(1);
  	}
      }
      }
      }
-+	return(0);
++    return(0);
  }
  
 -static void testCharRangeByte4(xmlParserCtxtPtr ctxt, char *data) {
@@ -622,7 +638,7 @@ diff -uNr a/testchar.c b/testchar.c
      int i, j, k, K, l, L;
      int len, c;
      unsigned char lows[6] = {0, 0x80, 0x81, 0xC1, 0xFF, 0xBF};
-@@ -458,10 +506,12 @@
+@@ -458,10 +506,12 @@ static void testCharRangeByte4(xmlParserCtxtPtr ctxt, char *data) {
  	 * at least 5 bytes, but we give only 4 !
  	 */
  	if ((i & 0xF8) == 0xF8) {
@@ -632,11 +648,11 @@ diff -uNr a/testchar.c b/testchar.c
    "Failed to detect invalid char for Bytes 0x%02X 0x%02X 0x%02X 0x%02X\n",
  			i, j, K, data[3]);
 +		return(1);
-+		}
++	    }
  	}
  
          /*
-@@ -469,10 +519,12 @@
+@@ -469,10 +519,12 @@ static void testCharRangeByte4(xmlParserCtxtPtr ctxt, char *data) {
  	 */
  	else if (((j & 0xC0) != 0x80) || ((K & 0xC0) != 0x80) ||
  	         ((L & 0xC0) != 0x80)) {
@@ -646,11 +662,11 @@ diff -uNr a/testchar.c b/testchar.c
  	"Failed to detect invalid char for Bytes 0x%02X 0x%02X 0x%02X 0x%02X\n",
  			i, j, K, L);
 +		return(1);
-+		}
++	    }
  	}
  
  	/*
-@@ -481,10 +533,12 @@
+@@ -481,10 +533,12 @@ static void testCharRangeByte4(xmlParserCtxtPtr ctxt, char *data) {
  	 * the 6 or 5th byte of j must be set
  	 */
  	else if (((i & 0x7) == 0) && ((j & 0x30) == 0)) {
@@ -660,11 +676,11 @@ diff -uNr a/testchar.c b/testchar.c
  	"Failed to detect invalid char for Bytes 0x%02X 0x%02X 0x%02X 0x%02X\n",
  			i, j, K, L);
 +		return(1);
-+		}
++	    }
  	}
  
          /*
-@@ -493,10 +547,12 @@
+@@ -493,10 +547,12 @@ static void testCharRangeByte4(xmlParserCtxtPtr ctxt, char *data) {
  	else if (((value > 0xD7FF) && (value <0xE000)) ||
  	         ((value > 0xFFFD) && (value <0x10000)) ||
  		 (value > 0x10FFFF)) {
@@ -674,33 +690,33 @@ diff -uNr a/testchar.c b/testchar.c
  "Failed to detect invalid char 0x%04X for Bytes 0x%02X 0x%02X 0x%02X 0x%02X\n",
  			value, i, j, K, L);
 +		return(1);
-+		}
++	    }
  	}
  
  	/*
-@@ -506,6 +562,7 @@
+@@ -506,6 +562,7 @@ static void testCharRangeByte4(xmlParserCtxtPtr ctxt, char *data) {
  	    fprintf(stderr,
  		"Failed to parse char for Bytes 0x%02X 0x%02X 0x%02X\n",
  		    i, j, K);
-+		return(1);
++	    return(1);
  	}
  
  	/*
-@@ -515,11 +572,13 @@
+@@ -515,11 +572,13 @@ static void testCharRangeByte4(xmlParserCtxtPtr ctxt, char *data) {
  	    fprintf(stderr,
      "Failed to parse char for Bytes 0x%02X 0x%02X 0x%02X: expect %d got %d\n",
  		i, j, data[2], value, c);
-+		return(1);
++	    return(1);
  	}
      }
      }
      }
      }
-+	return(0);
++    return(0);
  }
  
  /**
-@@ -530,11 +589,12 @@
+@@ -530,11 +589,12 @@ static void testCharRangeByte4(xmlParserCtxtPtr ctxt, char *data) {
   * cover the full range of UTF-8 chars accepted by XML-1.0
   */
  
@@ -714,7 +730,7 @@ diff -uNr a/testchar.c b/testchar.c
  
      memset(data, 0, 5);
  
-@@ -545,17 +605,19 @@
+@@ -545,17 +605,19 @@ static void testCharRanges(void) {
      ctxt = xmlNewParserCtxt();
      if (ctxt == NULL) {
          fprintf(stderr, "Failed to allocate parser context\n");
@@ -725,17 +741,17 @@ diff -uNr a/testchar.c b/testchar.c
                                             XML_CHAR_ENCODING_NONE);
      if (buf == NULL) {
          fprintf(stderr, "Failed to allocate input buffer\n");
-+        test_ret = 1;
++	test_ret = 1;
  	goto error;
      }
      input = xmlNewInputStream(ctxt);
      if (input == NULL) {
          xmlFreeParserInputBuffer(buf);
-+        test_ret = 1;
++	test_ret = 1;
  	goto error;
      }
      input->filename = NULL;
-@@ -567,25 +629,28 @@
+@@ -567,25 +629,28 @@ static void testCharRanges(void) {
  
      printf("testing char range: 1");
      fflush(stdout);
@@ -768,7 +784,7 @@ diff -uNr a/testchar.c b/testchar.c
      /*
       * this initialize the library and check potential ABI mismatches
       * between the version it was compiled for and the actual shared
-@@ -602,8 +667,9 @@
+@@ -602,8 +667,9 @@ int main(void) {
      /*
       * Run the tests
       */
@@ -780,30 +796,33 @@ diff -uNr a/testchar.c b/testchar.c
  
      /*
       * Cleanup function for the XML library.
-diff -uNr a/testdict.c b/testdict.c
---- a/testdict.c	2013-04-16 15:08:42.971177193 +0200
-+++ b/testdict.c	2013-04-18 15:59:00.699482439 +0200
-@@ -440,5 +440,6 @@
+diff --git a/testdict.c b/testdict.c
+index 40bebd0..114b934 100644
+--- a/testdict.c
++++ b/testdict.c
+@@ -440,5 +440,6 @@ int main(void)
      clean_strings();
      xmlCleanupParser();
      xmlMemoryDump();
 +    printf("%s: testdict\n\n", (ret == 0) ? "PASS" : "FAIL");
      return(ret);
  }
-diff -uNr a/testlimits.c b/testlimits.c
---- a/testlimits.c	2013-04-12 16:16:36.180354177 +0200
-+++ b/testlimits.c	2013-04-17 14:03:17.203092987 +0200
-@@ -1630,5 +1630,6 @@
+diff --git a/testlimits.c b/testlimits.c
+index 68c94db..1584434 100644
+--- a/testlimits.c
++++ b/testlimits.c
+@@ -1634,5 +1634,6 @@ main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) {
      xmlCleanupParser();
      xmlMemoryDump();
  
 +    printf("%s: testlimits\n", (ret == 0) ? "PASS" : "FAIL");
      return(ret);
  }
-diff -uNr a/testrecurse.c b/testrecurse.c
---- a/testrecurse.c	2013-04-16 13:19:49.366536295 +0200
-+++ b/testrecurse.c	2013-04-17 14:06:27.367091622 +0200
-@@ -892,6 +892,7 @@
+diff --git a/testrecurse.c b/testrecurse.c
+index f95ae1c..74c8f8b 100644
+--- a/testrecurse.c
++++ b/testrecurse.c
+@@ -892,6 +892,7 @@ launchTests(testDescPtr tst) {
  	    err++;
  	}
      }
@@ -811,10 +830,13 @@ diff -uNr a/testrecurse.c b/testrecurse.c
      return(err);
  }
  
-@@ -961,5 +962,6 @@
+@@ -961,5 +962,6 @@ main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) {
      xmlCleanupParser();
      xmlMemoryDump();
  
 +    printf("%s: testrecurse\n\n", (ret == 0) ? "PASS" : "FAIL");
      return(ret);
  }
+-- 
+2.7.4
+

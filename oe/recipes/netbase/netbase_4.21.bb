@@ -17,7 +17,7 @@ INITSCRIPT_PARAMS_openmn = "start 85 1 2 3 4 5 . stop 85 0 6 1 ."
 INITSCRIPT_PARAMS_slugos = "start 42 S 0 6 ."
 
 SRC_URI = "\
-  http://developer.irexnet.com/pub/iOn/Sources/1.0/Third%20party/all/netbase-${PV}.tar.gz \
+  http://www.mucross.com/downloads/tonga-linux/sources/GPL/netbase/netbase-${PV}.tar.gz \
   file://options \
   file://init \
   file://hosts \

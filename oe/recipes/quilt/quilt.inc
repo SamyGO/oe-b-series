@@ -11,8 +11,8 @@ SRC_URI = "http://download.savannah.gnu.org/releases/quilt/quilt-${PV}.tar.gz \
         file://0001-tests-Allow-different-output-from-mv.patch \
 "
 
-SRC_URI[md5sum] = "c67ba0228f5b7b8bbe469474661f92d6"
-SRC_URI[sha256sum] = "f6cbc788e5cbbb381a3c6eab5b9efce67c776a8662a7795c7432fd27aa096819"
+SRC_URI[md5sum] = "6800c2404a2c0598ab2eff92a636ba70"
+SRC_URI[sha256sum] = "314b319a6feb13bf9d0f9ffa7ce6683b06919e734a41275087ea457cc9dc6e07"
 
 inherit autotools
 

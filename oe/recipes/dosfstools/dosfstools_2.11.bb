@@ -10,7 +10,7 @@ LICENSE = "GPLv2"
 
 PR = "r1"
 
-SRC_URI = "ftp://ftp.uni-erlangen.de/pub/Linux/LOCAL/dosfstools/dosfstools-${PV}.src.tar.gz \
+SRC_URI = "http://repository.timesys.com/buildsources/d/dosfstools/dosfstools-2.11/dosfstools-${PV}.src.tar.gz \
 	   file://alignment_hack.patch \
            file://msdos_fat12_undefined.patch \
 	   file://include-linux-types.patch"
