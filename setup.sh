@@ -223,6 +223,20 @@ prepare_tools() {
 		return 1
 	fi
 
+	if [ "$OS" = "Darwin" ]; then
+		/bin/rm -f ${OE_BASE}/oe/bin/tic
+		if [ -e /opt/local/bin/tic ]; then
+			/bin/ln -s /opt/local/bin/tic ${OE_BASE}/oe/bin/tic
+		else
+			echo "* ERROR *  Missing ncurses package"
+			return 1
+		fi
+	fi
+	if [ "$OS" == "Linux" ] && [ ! -e /usr/bin/tic ]; then
+		echo "* ERROR *  Missing ncurses package"
+		return 1
+	fi
+
 	return 0
 }
 
