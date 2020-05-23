@@ -198,8 +198,10 @@ prepare_tools() {
 	fi
 
 	if [ "$OS" = "Darwin" ]; then
-		path=`whereis xargs`
-		if [ "$path" = "" ]; then
+		/bin/rm -f ${OE_BASE}/oe/bin/xargs
+		if [ -e /opt/local/bin/gxargs ]; then
+			/bin/ln -s /opt/local/bin/gxargs ${OE_BASE}/oe/bin/xargs
+		else
 			echo "* ERROR *  Missing findutils package"
 			return 1
 		fi
