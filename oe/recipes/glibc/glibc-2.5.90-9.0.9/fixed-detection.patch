@@ -1,6 +1,6 @@
-diff -urP old/git/configure.in new/git/configure.in
---- old/git/configure.in	2020-09-11 14:31:43.780989742 +0200
-+++ new/git/configure.in	2020-09-11 14:55:30.547844353 +0200
+diff -urP old/configure.in new/configure.in
+--- old/configure.in	2020-09-11 14:31:43.780989742 +0200
++++ new/configure.in	2020-09-11 14:55:30.547844353 +0200
 @@ -864,7 +864,7 @@
    critic_missing="$critic_missing gcc")
  AC_CHECK_PROG_VER(MAKE, gnumake gmake make, --version,
