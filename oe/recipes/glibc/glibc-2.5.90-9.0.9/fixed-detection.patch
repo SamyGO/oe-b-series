@@ -1,10 +1,14 @@
 diff -urP old/configure new/configure
 --- old/configure	2020-09-11 15:13:58.472123906 +0200
-+++ new/configure	2020-09-11 15:17:51.529873318 +0200
-@@ -4274,21 +4274,6 @@
-   ac_verc_fail=yes
- else
-   # Found it, now check the version.
++++ new/configure	2020-09-11 15:30:42.607636325 +0200
+@@ -4270,27 +4270,6 @@
+   test -n "$MAKE" && break
+ done
+ 
+-if test -z "$MAKE"; then
+-  ac_verc_fail=yes
+-else
+-  # Found it, now check the version.
 -  echo "$as_me:$LINENO: checking version of $MAKE" >&5
 -echo $ECHO_N "checking version of $MAKE... $ECHO_C" >&6
 -  ac_prog_version=`$MAKE --version 2>&1 | sed -n 's/^.*GNU Make[^0-9]*\([0-9][0-9.]*\).*$/\1/p'`
@@ -20,10 +24,12 @@ diff -urP old/configure new/configure
 -fi
 -if test $ac_verc_fail = yes; then
 -  critic_missing="$critic_missing make"
- fi
+-fi
+-
  
- 
-@@ -4336,21 +4321,6 @@
+ for ac_prog in gnumsgfmt gmsgfmt msgfmt
+ do
+@@ -4336,21 +4315,6 @@
    ac_verc_fail=yes
  else
    # Found it, now check the version.
@@ -45,10 +51,14 @@ diff -urP old/configure new/configure
  fi
  
  for ac_prog in makeinfo
-@@ -4397,21 +4367,6 @@
-   ac_verc_fail=yes
- else
-   # Found it, now check the version.
+@@ -4393,27 +4357,6 @@
+   test -n "$MAKEINFO" && break
+ done
+ 
+-if test -z "$MAKEINFO"; then
+-  ac_verc_fail=yes
+-else
+-  # Found it, now check the version.
 -  echo "$as_me:$LINENO: checking version of $MAKEINFO" >&5
 -echo $ECHO_N "checking version of $MAKEINFO... $ECHO_C" >&6
 -  ac_prog_version=`$MAKEINFO --version 2>&1 | sed -n 's/^.*GNU texinfo.* \([0-9][0-9.]*\).*$/\1/p'`
@@ -64,13 +74,19 @@ diff -urP old/configure new/configure
 -fi
 -if test $ac_verc_fail = yes; then
 -  MAKEINFO=: aux_missing="$aux_missing makeinfo"
- fi
- 
+-fi
+-
  for ac_prog in sed
-@@ -4458,21 +4413,6 @@
-   ac_verc_fail=yes
- else
-   # Found it, now check the version.
+ do
+   # Extract the first word of "$ac_prog", so it can be a program name with args.
+@@ -4454,27 +4397,6 @@
+   test -n "$SED" && break
+ done
+ 
+-if test -z "$SED"; then
+-  ac_verc_fail=yes
+-else
+-  # Found it, now check the version.
 -  echo "$as_me:$LINENO: checking version of $SED" >&5
 -echo $ECHO_N "checking version of $SED... $ECHO_C" >&6
 -  ac_prog_version=`$SED --version 2>&1 | sed -n 's/^.*GNU sed version \([0-9]*\.[0-9.]*\).*$/\1/p'`
@@ -86,9 +102,11 @@ diff -urP old/configure new/configure
 -fi
 -if test $ac_verc_fail = yes; then
 -  SED=: aux_missing="$aux_missing sed"
- fi
+-fi
+-
  
- 
+ for ac_prog in autoconf
+ do
 diff -urP old/configure.in new/configure.in
 --- old/configure.in	2020-09-11 14:31:43.780989742 +0200
 +++ new/configure.in	2020-09-11 15:10:22.514502586 +0200
