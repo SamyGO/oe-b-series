@@ -1,3 +1,94 @@
+diff -urP old/configure new/configure
+--- old/configure	2020-09-11 15:13:58.472123906 +0200
++++ new/configure	2020-09-11 15:17:51.529873318 +0200
+@@ -4274,21 +4274,6 @@
+   ac_verc_fail=yes
+ else
+   # Found it, now check the version.
+-  echo "$as_me:$LINENO: checking version of $MAKE" >&5
+-echo $ECHO_N "checking version of $MAKE... $ECHO_C" >&6
+-  ac_prog_version=`$MAKE --version 2>&1 | sed -n 's/^.*GNU Make[^0-9]*\([0-9][0-9.]*\).*$/\1/p'`
+-  case $ac_prog_version in
+-    '') ac_prog_version="v. ?.??, bad"; ac_verc_fail=yes;;
+-    3.79* | 3.[89]*)
+-       ac_prog_version="$ac_prog_version, ok"; ac_verc_fail=no;;
+-    *) ac_prog_version="$ac_prog_version, bad"; ac_verc_fail=yes;;
+-
+-  esac
+-  echo "$as_me:$LINENO: result: $ac_prog_version" >&5
+-echo "${ECHO_T}$ac_prog_version" >&6
+-fi
+-if test $ac_verc_fail = yes; then
+-  critic_missing="$critic_missing make"
+ fi
+ 
+ 
+@@ -4336,21 +4321,6 @@
+   ac_verc_fail=yes
+ else
+   # Found it, now check the version.
+-  echo "$as_me:$LINENO: checking version of $MSGFMT" >&5
+-echo $ECHO_N "checking version of $MSGFMT... $ECHO_C" >&6
+-  ac_prog_version=`$MSGFMT --version 2>&1 | sed -n 's/^.*GNU gettext.* \([0-9]*\.[0-9.]*\).*$/\1/p'`
+-  case $ac_prog_version in
+-    '') ac_prog_version="v. ?.??, bad"; ac_verc_fail=yes;;
+-    0.10.3[6-9]* | 0.10.[4-9][0-9]* | 0.1[1-9]* | 0.[2-9][0-9]* | [1-9].*)
+-       ac_prog_version="$ac_prog_version, ok"; ac_verc_fail=no;;
+-    *) ac_prog_version="$ac_prog_version, bad"; ac_verc_fail=yes;;
+-
+-  esac
+-  echo "$as_me:$LINENO: result: $ac_prog_version" >&5
+-echo "${ECHO_T}$ac_prog_version" >&6
+-fi
+-if test $ac_verc_fail = yes; then
+-  MSGFMT=: aux_missing="$aux_missing msgfmt"
+ fi
+ 
+ for ac_prog in makeinfo
+@@ -4397,21 +4367,6 @@
+   ac_verc_fail=yes
+ else
+   # Found it, now check the version.
+-  echo "$as_me:$LINENO: checking version of $MAKEINFO" >&5
+-echo $ECHO_N "checking version of $MAKEINFO... $ECHO_C" >&6
+-  ac_prog_version=`$MAKEINFO --version 2>&1 | sed -n 's/^.*GNU texinfo.* \([0-9][0-9.]*\).*$/\1/p'`
+-  case $ac_prog_version in
+-    '') ac_prog_version="v. ?.??, bad"; ac_verc_fail=yes;;
+-    4.*)
+-       ac_prog_version="$ac_prog_version, ok"; ac_verc_fail=no;;
+-    *) ac_prog_version="$ac_prog_version, bad"; ac_verc_fail=yes;;
+-
+-  esac
+-  echo "$as_me:$LINENO: result: $ac_prog_version" >&5
+-echo "${ECHO_T}$ac_prog_version" >&6
+-fi
+-if test $ac_verc_fail = yes; then
+-  MAKEINFO=: aux_missing="$aux_missing makeinfo"
+ fi
+ 
+ for ac_prog in sed
+@@ -4458,21 +4413,6 @@
+   ac_verc_fail=yes
+ else
+   # Found it, now check the version.
+-  echo "$as_me:$LINENO: checking version of $SED" >&5
+-echo $ECHO_N "checking version of $SED... $ECHO_C" >&6
+-  ac_prog_version=`$SED --version 2>&1 | sed -n 's/^.*GNU sed version \([0-9]*\.[0-9.]*\).*$/\1/p'`
+-  case $ac_prog_version in
+-    '') ac_prog_version="v. ?.??, bad"; ac_verc_fail=yes;;
+-    3.0[2-9]*|3.[1-9]*|[4-9]*)
+-       ac_prog_version="$ac_prog_version, ok"; ac_verc_fail=no;;
+-    *) ac_prog_version="$ac_prog_version, bad"; ac_verc_fail=yes;;
+-
+-  esac
+-  echo "$as_me:$LINENO: result: $ac_prog_version" >&5
+-echo "${ECHO_T}$ac_prog_version" >&6
+-fi
+-if test $ac_verc_fail = yes; then
+-  SED=: aux_missing="$aux_missing sed"
+ fi
+ 
+ 
 diff -urP old/configure.in new/configure.in
 --- old/configure.in	2020-09-11 14:31:43.780989742 +0200
 +++ new/configure.in	2020-09-11 15:10:22.514502586 +0200
