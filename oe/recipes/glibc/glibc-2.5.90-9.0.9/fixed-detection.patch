@@ -1,21 +1,26 @@
-diff -urP old/configure.in new/configure.in
---- old/configure.in	2020-09-11 14:31:43.780989742 +0200
-+++ new/configure.in	2020-09-11 14:55:30.547844353 +0200
-@@ -864,7 +864,7 @@
+diff -urP old/git/configure.in new/git/configure.in
+--- old/git/configure.in	2020-09-11 14:31:43.780989742 +0200
++++ new/git/configure.in	2020-09-11 15:10:22.514502586 +0200
+@@ -862,22 +862,11 @@
+ AC_CHECK_PROG_VER(CC, ${ac_tool_prefix}gcc ${ac_tool_prefix}cc, -v,
+   [version \([egcygnustpi-]*[0-9.]*\)], [3.4* | 4.[0-9]* ],
    critic_missing="$critic_missing gcc")
- AC_CHECK_PROG_VER(MAKE, gnumake gmake make, --version,
-   [GNU Make[^0-9]*\([0-9][0-9.]*\)],
+-AC_CHECK_PROG_VER(MAKE, gnumake gmake make, --version,
+-  [GNU Make[^0-9]*\([0-9][0-9.]*\)],
 -  [3.79* | 3.[89]*], critic_missing="$critic_missing make")
-+  [3.79* | 3.[89]* | 4.[0-9]*], critic_missing="$critic_missing make")
  
  AC_CHECK_PROG_VER(MSGFMT, gnumsgfmt gmsgfmt msgfmt, --version,
    [GNU gettext.* \([0-9]*\.[0-9.]*\)],
-@@ -876,7 +876,7 @@
-   MAKEINFO=: aux_missing="$aux_missing makeinfo")
- AC_CHECK_PROG_VER(SED, sed, --version,
-   [GNU sed version \([0-9]*\.[0-9.]*\)],
+   [0.10.3[6-9]* | 0.10.[4-9][0-9]* | 0.1[1-9]* | 0.[2-9][0-9]* | [1-9].*],
+   MSGFMT=: aux_missing="$aux_missing msgfmt")
+-AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
+-  [GNU texinfo.* \([0-9][0-9.]*\)],
+-  [4.*],
+-  MAKEINFO=: aux_missing="$aux_missing makeinfo")
+-AC_CHECK_PROG_VER(SED, sed, --version,
+-  [GNU sed version \([0-9]*\.[0-9.]*\)],
 -  [3.0[2-9]*|3.[1-9]*|[4-9]*],
-+  [3.0[2-9]*|3.[1-9]*|[4-9]*|4.[0-9]*],
-   SED=: aux_missing="$aux_missing sed")
+-  SED=: aux_missing="$aux_missing sed")
  
  AC_CHECK_PROGS(AUTOCONF, autoconf, no)
+ case "x$AUTOCONF" in
