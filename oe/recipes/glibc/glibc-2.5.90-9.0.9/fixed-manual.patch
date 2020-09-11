@@ -1,0 +1,20 @@
+diff -urP old/manual/Makefile new/manual/Makefile
+--- old/manual/Makefile	2010-06-03 15:59:53.000000000 +0200
++++ new/manual/Makefile	2020-09-11 20:15:06.486180688 +0200
+@@ -232,7 +232,15 @@
+ .PHONY: stubs
+ stubs: $(objpfx)stubs
+ endif
+-$(objpfx)stubs ../po/manual.pot $(objpfx)stamp%:
++$(objpfx)stubs:
++	$(make-target-directory)
++	touch $@
++
++../po/manual.pot:
++	$(make-target-directory)
++	touch $@
++
++$(objpfx)stamp%:
+ 	$(make-target-directory)
+ 	touch $@
+ 

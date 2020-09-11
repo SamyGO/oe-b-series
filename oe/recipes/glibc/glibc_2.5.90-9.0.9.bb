@@ -61,6 +61,7 @@ SRC_URI = "\
   file://march-i686.patch;striplevel=0 \
   file://fix-compile-fs-noncase.patch \
   file://fixed-detection.patch \
+  file://fixed-manual.patch \
   file://stack_size.patch \
   file://selp-priority.patch \
 "
