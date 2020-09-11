@@ -1,0 +1,16 @@
+diff -urP old/Makefile new/Makefile
+--- old/Makefile	2006-09-20 05:42:06.000000000 +0200
++++ new/Makefile	2020-09-11 14:21:54.000000000 +0200
+@@ -407,7 +407,11 @@
+ include $(srctree)/arch/$(ARCH)/Makefile
+ export KBUILD_DEFCONFIG
+ 
+-config %config: scripts_basic outputmakefile FORCE
++config: scripts_basic outputmakefile FORCE
++	$(Q)mkdir -p include/linux include/config
++	$(Q)$(MAKE) $(build)=scripts/kconfig $@
++
++%config: scripts_basic outputmakefile FORCE
+ 	$(Q)mkdir -p include/linux include/config
+ 	$(Q)$(MAKE) $(build)=scripts/kconfig $@
+ 
