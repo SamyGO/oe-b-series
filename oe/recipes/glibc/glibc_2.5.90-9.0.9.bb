@@ -60,6 +60,7 @@ SRC_URI = "\
   file://glibc-arm-no-asm-page.patch \
   file://march-i686.patch;striplevel=0 \
   file://fix-compile-fs-noncase.patch \
+  file://fixed-detection.patch \
   file://stack_size.patch \
   file://selp-priority.patch \
 "
