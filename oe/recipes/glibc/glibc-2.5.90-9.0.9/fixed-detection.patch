@@ -6,7 +6,7 @@ diff -urP old/configure.in new/configure.in
  AC_CHECK_PROG_VER(MAKE, gnumake gmake make, --version,
    [GNU Make[^0-9]*\([0-9][0-9.]*\)],
 -  [3.79* | 3.[89]*], critic_missing="$critic_missing make")
-+  [3.79* | 3.[89]* | 4.*], critic_missing="$critic_missing make")
++  [3.79* | 3.[89]* | 4.[0-9]*], critic_missing="$critic_missing make")
  
  AC_CHECK_PROG_VER(MSGFMT, gnumsgfmt gmsgfmt msgfmt, --version,
    [GNU gettext.* \([0-9]*\.[0-9.]*\)],
@@ -15,7 +15,7 @@ diff -urP old/configure.in new/configure.in
  AC_CHECK_PROG_VER(SED, sed, --version,
    [GNU sed version \([0-9]*\.[0-9.]*\)],
 -  [3.0[2-9]*|3.[1-9]*|[4-9]*],
-+  [3.0[2-9]*|3.[1-9]*|[4-9]*|4.*,
++  [3.0[2-9]*|3.[1-9]*|[4-9]*|4.[0-9]*],
    SED=: aux_missing="$aux_missing sed")
  
  AC_CHECK_PROGS(AUTOCONF, autoconf, no)
