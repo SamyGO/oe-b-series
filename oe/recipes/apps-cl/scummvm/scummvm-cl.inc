@@ -6,7 +6,7 @@ LICENSE = "GPL"
 DEPENDS = "libsdl-cl libmad-cl flac-cl tremolo-cl fluidsynth-cl zlib-cl freetype-cl jpeg-cl"
 PR = "r0"
 
-SRC_URI = "http://www.scummvm.org/frs/scummvm/${PV}/scummvm-${PV}.tar.bz2"
+SRC_URI = "https://www.scummvm.org/frs/scummvm/${PV}/scummvm-${PV}.tar.bz2"
 
 inherit autotools
 
